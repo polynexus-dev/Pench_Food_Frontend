@@ -3,6 +3,7 @@ import TenantPage from "./features/dashboard/pages/TenantPage";
 import CustomerPage from "./features/customers/pages/CustomerPage";
 import DriverPage from "./features/deliveries/pages/DriverPage";
 import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
+import InventoryPage from "./features/inventory/pages/InventoryPage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import "./styles/App.css";
@@ -33,17 +34,7 @@ function App() {
               <Route path="/tenants" element={<TenantPage />} />
               <Route path="/deliveries" element={<DriverPage />} />
               <Route path="/tracking" element={<LiveTrackingPage />} />
-              <Route
-                path="/inventory"
-                element={
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Inventory Control</h1>
-                    <p className="text-charcoal/60 mt-2">
-                      Coming soon: Real-time stock tracking.
-                    </p>
-                  </div>
-                }
-              />
+              <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/customers" element={<CustomerPage />} />
               <Route
                 path="/reports"
