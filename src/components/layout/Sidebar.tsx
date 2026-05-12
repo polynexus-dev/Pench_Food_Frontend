@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Droplets,
   Building2,
+  Navigation,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -30,6 +31,7 @@ const Sidebar = () => {
         <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" end />
         <SidebarItem icon={Building2} label="Tenants" to="/tenants" />
         <SidebarItem icon={Truck} label="Deliveries" to="/deliveries" />
+        <SidebarItem icon={Navigation} label="Live Tracking" to="/tracking" pulse />
         <SidebarItem icon={Package} label="Inventory" to="/inventory" />
         <SidebarItem icon={Users} label="Customers" to="/customers" />
         <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
@@ -65,17 +67,19 @@ const SidebarItem = ({
   label,
   to,
   end = false,
+  pulse = false,
 }: {
   icon: any;
   label: string;
   to: string;
   end?: boolean;
+  pulse?: boolean;
 }) => (
   <NavLink
     to={to}
     end={end}
     className={({ isActive }) => `
-      flex items-center gap-3 px-5 py-4 rounded-2xl transition-all duration-300 group
+      flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-300 group
       ${
         isActive
           ? "bg-accent text-primary font-bold shadow-[0_10px_20px_rgba(240,192,86,0.2)] scale-[1.02]"
@@ -85,10 +89,18 @@ const SidebarItem = ({
   >
     {({ isActive }) => (
       <>
-        <Icon
-          className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-primary" : "text-accent/60 group-hover:text-accent"}`}
-        />
-        <span className="text-[13px] font-semibold tracking-wide">{label}</span>
+        <div className="flex items-center gap-3">
+          <Icon
+            className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-primary" : "text-accent/60 group-hover:text-accent"}`}
+          />
+          <span className="text-[13px] font-semibold tracking-wide">{label}</span>
+        </div>
+        {pulse && (
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+        )}
       </>
     )}
   </NavLink>

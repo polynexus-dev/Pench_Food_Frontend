@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { 
   Droplets,
   TrendingUp,
@@ -113,7 +113,7 @@ const OverviewPage = () => {
   );
 };
 
-const StockItem = ({ label, level, color }) => (
+const StockItem = ({ label, level, color }: { label: string; level: number; color: string }) => (
   <div>
     <div className="flex justify-between text-xs mb-1">
       <span className="font-medium text-charcoal/70">{label}</span>

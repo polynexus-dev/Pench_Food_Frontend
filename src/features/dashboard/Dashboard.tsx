@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import axiosInstance from '../../api/axiosInstance';
 import { 
@@ -259,7 +259,7 @@ const Dashboard = () => {
   );
 };
 
-const NavItem = ({ icon: Icon, label, active = false }) => (
+const NavItem = ({ icon: Icon, label, active = false }: { icon: any; label: string; active?: boolean }) => (
   <a 
     href="#" 
     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
@@ -273,7 +273,7 @@ const NavItem = ({ icon: Icon, label, active = false }) => (
   </a>
 );
 
-const StockItem = ({ label, level, color }) => (
+const StockItem = ({ label, level, color }: { label: string; level: number; color: string }) => (
   <div>
     <div className="flex justify-between text-xs mb-1">
       <span className="font-medium text-charcoal/70">{label}</span>

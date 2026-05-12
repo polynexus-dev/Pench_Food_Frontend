@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, User, Phone, Lock, Loader2, Truck, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import { X, User, Phone, Lock, Loader2, UserPlus } from 'lucide-react';
 import axiosInstance from '../../../api/axiosInstance';
 import { useAuthStore } from '../../../store/useAuthStore';
 

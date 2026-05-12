@@ -2,6 +2,7 @@ import OverviewPage from "./features/dashboard/pages/OverviewPage";
 import TenantPage from "./features/dashboard/pages/TenantPage";
 import CustomerPage from "./features/customers/pages/CustomerPage";
 import DriverPage from "./features/deliveries/pages/DriverPage";
+import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import "./styles/App.css";
@@ -31,6 +32,7 @@ function App() {
               <Route path="/" element={<OverviewPage />} />
               <Route path="/tenants" element={<TenantPage />} />
               <Route path="/deliveries" element={<DriverPage />} />
+              <Route path="/tracking" element={<LiveTrackingPage />} />
               <Route
                 path="/inventory"
                 element={

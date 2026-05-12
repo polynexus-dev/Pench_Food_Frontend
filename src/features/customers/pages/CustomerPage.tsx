@@ -1,14 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axiosInstance from "../../../api/axiosInstance";
 import {
   Users,
   Search,
-  Plus,
   Mail,
   Phone,
-  MapPin,
-  CheckCircle2,
-  XCircle,
   MoreVertical,
   Filter,
   Download,
