@@ -44,7 +44,7 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
+  console.log(filteredProducts);
   // Form Inputs Payload mapping user specification exactly
   const [formData, setFormData] = useState({
     name: "",
@@ -445,7 +445,7 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
                     {item.is_returnable ? (
                       <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60 flex items-center gap-1">
                         <RotateCcw className="w-2.5 h-2.5 text-amber-500" />
-                        {item.bottle_type || "Deposit Crate"}
+                        {item.bottle_type_name || item.bottle_type || "Deposit Crate"}
                       </span>
                     ) : (
                       <span className="text-[10px] font-medium text-charcoal/50 bg-silver/20 px-2 py-0.5 rounded-md">
@@ -506,8 +506,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
 
                     {/* Packaging Specs */}
                     <td className="px-5 py-4 text-charcoal/70 font-medium">
-                      {item.bottle_type ? (
-                        <span className="font-bold text-charcoal">{item.bottle_type}</span>
+                      {(item.bottle_type_name || item.bottle_type) ? (
+                        <span className="font-bold text-charcoal">{item.bottle_type_name || item.bottle_type}</span>
                       ) : (
                         <span className="text-charcoal/40 italic">Sealed Pack</span>
                       )}

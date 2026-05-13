@@ -7,5 +7,6 @@ export interface Product {
   unit: string;
   is_active: boolean;
   bottle_type: string | null;
+  bottle_type_name?: string | null;
   is_returnable: boolean;
 }
