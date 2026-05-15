@@ -1,11 +1,12 @@
 import OverviewPage from "./features/dashboard/pages/OverviewPage";
-import TenantPage from "./features/dashboard/pages/TenantPage";
+import TenantPage from "./features/tenant/pages/TenantPage";
 import CustomerPage from "./features/customers/pages/CustomerPage";
 import DriverPage from "./features/deliveries/pages/DriverPage";
 import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
 import { TrackingProvider } from "./features/tracking/context/TrackingContext";
 import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
 import InventoryPage from "./features/inventory/pages/InventoryPage";
+import OrderPage from "./features/orders/pages/OrderPage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import "./styles/App.css";
@@ -40,6 +41,7 @@ function App() {
                 <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
               </Route>
               <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/orders" element={<OrderPage />} />
               <Route path="/customers" element={<CustomerPage />} />
               <Route
                 path="/reports"

@@ -23,7 +23,7 @@ const OverviewPage = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-8xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-charcoal">Distributor Overview</h1>
         <p className="text-charcoal/60">Welcome back! Here's what's happening today across your distribution network.</p>

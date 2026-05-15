@@ -12,7 +12,6 @@ const TrackingFullscreenMapPage: React.FC = () => {
   const {
     driversList,
     selectedDriverId,
-    selectedDriver,
     setSelectedDriverId,
     zoom,
     setZoom,
@@ -20,7 +19,6 @@ const TrackingFullscreenMapPage: React.FC = () => {
     setMapCenter,
     isManualPan,
     setIsManualPan,
-    handlePan,
     VIEWPORT_W,
     VIEWPORT_H,
     getOsmSvgPixel,
@@ -203,6 +201,7 @@ const TrackingFullscreenMapPage: React.FC = () => {
                     r={isSelected ? "32" : "20"}
                     fill={isSelected ? "#F59E0B" : "#059669"}
                     className="opacity-25 animate-ping"
+                    style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
                   />
 
                   <circle

@@ -8,6 +8,7 @@ import {
   Droplets,
   Building2,
   Navigation,
+  ShoppingCart,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -30,9 +31,15 @@ const Sidebar = () => {
       <nav className="flex-1 px-4 mt-6 space-y-1.5 overflow-y-auto custom-scrollbar">
         <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" end />
         <SidebarItem icon={Building2} label="Tenants" to="/tenants" />
-        <SidebarItem icon={Truck} label="Deliveries" to="/deliveries" />
-        <SidebarItem icon={Navigation} label="Live Tracking" to="/tracking" pulse />
+        <SidebarItem icon={Truck} label="Logistics & Route" to="/deliveries" />
+        <SidebarItem
+          icon={Navigation}
+          label="Live Tracking"
+          to="/tracking"
+          pulse
+        />
         <SidebarItem icon={Package} label="Inventory" to="/inventory" />
+        <SidebarItem icon={ShoppingCart} label="Orders" to="/orders" />
         <SidebarItem icon={Users} label="Customers" to="/customers" />
         <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
       </nav>
@@ -93,7 +100,9 @@ const SidebarItem = ({
           <Icon
             className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-primary" : "text-accent/60 group-hover:text-accent"}`}
           />
-          <span className="text-[13px] font-semibold tracking-wide">{label}</span>
+          <span className="text-[13px] font-semibold tracking-wide">
+            {label}
+          </span>
         </div>
         {pulse && (
           <span className="relative flex h-2 w-2">

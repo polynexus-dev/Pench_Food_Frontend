@@ -30,26 +30,25 @@ const LiveTrackingPage: React.FC = () => {
   const {
     wsUrl, setWsUrl,
     isConnected,
-    driversList, drivers,
+    driversList,
     logs, setLogs,
     selectedDriverId, setSelectedDriverId, selectedDriver,
     isSimulating,
     protocol,
     zoom, setZoom,
-    mapCenter, setMapCenter,
+    setMapCenter,
     isManualPan, setIsManualPan,
     handleProtocolChange,
     connectWebSocket, disconnectWebSocket,
     toggleSimulation,
     handlePan,
     VIEWPORT_W, VIEWPORT_H,
-    centerTxFloat, centerTyFloat,
     getOsmSvgPixel,
     osmTiles
   } = useLiveTracking();
 
   return (
-    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+    <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* Top Banner and Navigation Bar Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>

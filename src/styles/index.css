@@ -20,6 +20,10 @@
 }
 
 @layer base {
+  html {
+    /* Reduce base size by 5px (16px default -> 11px). This scales down all Tailwind rem utilities globally! */
+    font-size: 15px; 
+  }
   body {
     @apply bg-milk-white text-charcoal;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;

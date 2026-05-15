@@ -1,48 +1,37 @@
-import { useEffect, useState } from "react";
-import axiosInstance from "../../../api/axiosInstance";
-import { useAuthStore } from "../../../store/useAuthStore";
-import {
-  Truck,
-  Search,
-  Plus,
-  ShieldCheck,
-  Package,
-  Activity,
-  MoreVertical,
-  Navigation,
-  CheckCircle2,
-  XCircle,
-  Hash,
-  LayoutGrid,
-  List as ListIcon
-} from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Truck, RefreshCw, PieChart, Users, Navigation } from "lucide-react";
+import { deliveryApi } from "../api/deliveryApi";
+import type { Driver, Route as RouteType } from "../components/types";
+import LogisticsDashboardTab from "../components/LogisticsDashboardTab";
+import DriverInfoTab from "../components/DriverInfoTab";
+import RouteTab from "../components/RouteTab";
 import CreateDriverModal from "../components/CreateDriverModal";
+import { useAuthStore } from "../../../store/useAuthStore";
 
-interface Driver {
-  id: string;
-  user: number;
-  full_name: string;
-  vehicle_plate: string;
-  vehicle_type: string;
-  max_capacity_kg: string;
-  is_available: boolean;
-}
-
-const DriverPage = () => {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const DriverPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "drivers" | "routes"
+  >("dashboard");
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchDrivers = async () => {
-    setIsLoading(true);
+  const [routes, setRoutes] = useState<RouteType[]>([]);
+
+  const fetchDrivers = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
-      const response = await axiosInstance.get("/ems/drivers/");
-      setDrivers(response.data);
+      const [driverData, routeData] = await Promise.all([
+        deliveryApi.getDrivers(),
+        deliveryApi.getRoutes(),
+      ]);
+      setDrivers(driverData);
+      setRoutes(routeData);
     } catch (error) {
-      console.error("Failed to fetch drivers:", error);
+      console.error("Failed to fetch logistics data:", error);
     } finally {
       setIsLoading(false);
     }
@@ -52,229 +41,145 @@ const DriverPage = () => {
     fetchDrivers();
   }, [tenant]);
 
-  const filteredDrivers = drivers.filter((driver) =>
-    driver.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.vehicle_plate.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter(
+      (driver) =>
+        driver.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        driver.vehicle_plate.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+  }, [drivers, searchQuery]);
+
+  const stats = useMemo(() => {
+    const totalDrivers = drivers.length;
+    const availableDrivers = drivers.filter((d) => d.is_available).length;
+    const activeTrips = routes.filter((r) => r.status === "active").length;
+    const totalCapacity = drivers.reduce(
+      (sum, d) => sum + (parseInt(d.max_capacity_kg) || 0),
+      0,
+    );
+    const utilizationRate =
+      totalDrivers > 0 ? Math.round((activeTrips / totalDrivers) * 100) : 0;
+
+    return {
+      totalDrivers,
+      availableDrivers,
+      activeTrips,
+      totalCapacity,
+      utilizationRate,
+    };
+  }, [drivers, routes]);
 
   return (
-    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+    <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+      {/* 1. Header Navigation Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-charcoal tracking-tight flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-xl text-primary">
-              <Truck className="w-8 h-8" />
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-2xl text-primary border border-primary/20 shadow-xs">
+              <Truck className="w-7 h-7 text-primary" />
             </div>
-            Delivery Fleet
-          </h1>
-          <p className="text-charcoal/50 font-medium mt-1">
-            Monitor and manage your active delivery personnel and vehicles.
-          </p>
+            <div>
+              <h1 className="text-3xl font-black text-charcoal tracking-tight flex items-center gap-2">
+                Logistics & Fleet
+              </h1>
+              <p className="text-charcoal/50 font-medium text-xs mt-0.5">
+                Manage your distribution network, vehicle capacity, and
+                real-time routing.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+          <button
+            onClick={() => fetchDrivers(false)}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
           >
-            <Plus className="w-5 h-5" />
-            Register Driver
+            <RefreshCw
+              className={`w-3.5 h-3.5 text-primary ${isLoading ? "animate-spin" : ""}`}
+            />
+            Refresh Fleet
           </button>
         </div>
       </div>
 
-      <CreateDriverModal 
+      {/* 2. Top-level Nested Section Tabs */}
+      <div className="border-b border-silver/60 mb-8 flex items-center gap-8 px-2">
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "dashboard"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <PieChart
+            className={`w-4 h-4 ${activeTab === "dashboard" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Logistics Dashboard
+          {activeTab === "dashboard" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab("drivers")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "drivers"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <Users
+            className={`w-4 h-4 ${activeTab === "drivers" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Driver Information
+          {activeTab === "drivers" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab("routes")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "routes"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <Navigation
+            className={`w-4 h-4 ${activeTab === "routes" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Route Management
+          {activeTab === "routes" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
+      </div>
+
+      {/* 3. Tab Content */}
+      {activeTab === "dashboard" && <LogisticsDashboardTab stats={stats} />}
+      {activeTab === "drivers" && (
+        <DriverInfoTab
+          drivers={filteredDrivers}
+          isLoading={isLoading}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onRegisterClick={() => setIsModalOpen(true)}
+        />
+      )}
+      {activeTab === "routes" && (
+        <RouteTab routes={routes} isLoading={isLoading} />
+      )}
+
+      <CreateDriverModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchDrivers}
       />
-
-      {/* Control Bar */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-8">
-        <div className="flex-1 relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/30 w-5 h-5 group-focus-within:text-primary transition-colors" />
-          <input
-            type="text"
-            placeholder="Search by driver name or vehicle plate..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-white border border-silver/50 rounded-2xl shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-medium"
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <div className="bg-white border border-silver/50 rounded-2xl p-1 flex shadow-sm">
-            <button 
-              onClick={() => setViewMode('grid')}
-              className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-primary text-white shadow-lg' : 'text-charcoal/40 hover:text-charcoal'}`}
-            >
-              <LayoutGrid className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={() => setViewMode('list')}
-              className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-lg' : 'text-charcoal/40 hover:text-charcoal'}`}
-            >
-              <ListIcon className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <div className="bg-primary/5 px-5 py-4 rounded-2xl border border-primary/10 flex items-center gap-3">
-            <span className="text-xs font-black text-primary uppercase tracking-widest">Available Now</span>
-            <span className="text-lg font-black text-primary leading-none">
-              {drivers.filter(d => d.is_available).length}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Rendering */}
-      {isLoading ? (
-        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-          {Array(6).fill(0).map((_, i) => (
-            <div key={i} className={`bg-white rounded-3xl border border-silver/50 animate-pulse ${viewMode === 'grid' ? 'h-64' : 'h-24'}`}></div>
-          ))}
-        </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDrivers.map((driver) => (
-            <div key={driver.id} className="bg-white rounded-3xl border border-silver/50 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all group overflow-hidden flex flex-col">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-14 h-14 bg- cream rounded-2xl flex items-center justify-center border border-primary/5 group-hover:scale-105 transition-transform duration-300 relative">
-                    <ShieldCheck className="w-8 h-8 text-primary/40" />
-                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${driver.is_available ? 'bg-green-500 ring-2 ring-green-500/20' : 'bg-red-500 ring-2 ring-red-500/20'}`}></div>
-                  </div>
-                  <button className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/30 rounded-lg transition-all">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight mb-4">
-                  {driver.full_name}
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-silver/10 rounded-2xl">
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-3.5 h-3.5 text-primary/40" />
-                      <span className="text-xs font-black text-charcoal/40 uppercase tracking-widest">Plate No</span>
-                    </div>
-                    <span className="text-sm font-bold text-charcoal font-mono">{driver.vehicle_plate}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 border border-silver/30 rounded-2xl">
-                      <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest mb-1">Type</p>
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-3.5 h-3.5 text-primary/60" />
-                        <span className="text-xs font-bold text-charcoal capitalize">{driver.vehicle_type}</span>
-                      </div>
-                    </div>
-                    <div className="p-3 border border-silver/30 rounded-2xl">
-                      <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest mb-1">Capacity</p>
-                      <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-primary/60" />
-                        <span className="text-xs font-bold text-charcoal">{driver.max_capacity_kg} kg</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-auto p-4 bg-silver/5 border-t border-silver/30 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-charcoal/40">
-                  <Activity className="w-3 h-3" />
-                  ID: #{driver.user}
-                </div>
-                <button className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
-                  <Navigation className="w-3 h-3" />
-                  Track Location
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-silver/10 text-[10px] uppercase tracking-[0.2em] text-charcoal/40 font-black border-b border-silver/30">
-                <tr>
-                  <th className="px-8 py-5">Driver Name</th>
-                  <th className="px-6 py-5">Vehicle Details</th>
-                  <th className="px-6 py-5">Capacity</th>
-                  <th className="px-6 py-5">Availability</th>
-                  <th className="px-6 py-5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-silver/30">
-                {filteredDrivers.map((driver) => (
-                  <tr key={driver.id} className="hover:bg-primary/5 transition-colors group">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-cream rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/5">
-                          {driver.full_name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-charcoal">{driver.full_name}</p>
-                          <p className="text-[10px] text-charcoal/40 font-bold uppercase">ID: #{driver.user}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-charcoal font-mono">{driver.vehicle_plate}</span>
-                        <span className="text-[10px] text-charcoal/30 uppercase font-black">{driver.vehicle_type}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-xs font-bold text-charcoal/70">
-                        <Package className="w-3.5 h-3.5 text-primary/40" />
-                        {driver.max_capacity_kg} kg
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider ${
-                        driver.is_available 
-                          ? 'bg-sage/10 text-primary border border-primary/10' 
-                          : 'bg-red-50 text-red-500 border border-red-100'
-                      }`}>
-                        {driver.is_available ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Available
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-3.5 h-3.5" />
-                            Busy
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button className="p-2 text-charcoal/20 hover:text-primary hover:bg-white rounded-xl transition-all shadow-none hover:shadow-sm">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {filteredDrivers.length === 0 && !isLoading && (
-        <div className="p-20 text-center bg-white rounded-3xl border border-silver/50 shadow-sm mt-8">
-          <div className="w-20 h-20 bg-silver/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Truck className="w-10 h-10 text-charcoal/20" />
-          </div>
-          <h3 className="text-xl font-bold text-charcoal">No drivers found</h3>
-          <p className="text-charcoal/40">Try searching for a different name or plate number.</p>
-        </div>
-      )}
     </div>
   );
 };
