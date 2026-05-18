@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight } from 'lucide-react';
+import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight, Mail } from 'lucide-react';
 import axiosInstance from '../../../api/axiosInstance';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { CustomInput } from '../../../components/common/CustomInput';
@@ -15,6 +15,9 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
   const currentTenant = useAuthStore(state => state.tenant);
   const [formData, setFormData] = useState({
     username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
     password: '',
     phone: '',
     role: 'Drivers',
@@ -69,6 +72,9 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
       onClose();
       setFormData({
         username: '',
+        first_name: '',
+        last_name: '',
+        email: '',
         password: '',
         phone: '',
         role: 'Drivers',
@@ -136,11 +142,46 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               value={formData.phone}
               onChange={handleInputChange}
               required
-              placeholder="9876543210"
+              placeholder="9010276379"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomInput
+              label="First Name"
+              icon={User}
+              type="text"
+              name="first_name"
+              value={formData.first_name}
+              onChange={handleInputChange}
+              required
+              placeholder="First Name"
+            />
+
+            <CustomInput
+              label="Last Name"
+              icon={User}
+              type="text"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleInputChange}
+              required
+              placeholder="Last Name"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomInput
+              label="Email"
+              icon={Mail}
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              placeholder="driver@example.com"
+            />
+
             <CustomInput
               label="Password"
               icon={Lock}
@@ -150,15 +191,6 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               onChange={handleInputChange}
               required
               placeholder="••••••••"
-            />
-
-            <CustomSelect
-              label="Zone"
-              icon={MapPin}
-              value={formData.zone}
-              onChange={(val) => setFormData(prev => ({ ...prev, zone: val }))}
-              placeholder={isLoadingZones ? "Loading zones..." : "Select Zone"}
-              options={zones.map(z => ({ label: z.name, value: z.id }))}
             />
           </div>
 
@@ -190,17 +222,28 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
             />
           </div>
 
-          <CustomInput
-            label="Max Capacity (kg)"
-            icon={Weight}
-            type="number"
-            name="max_capacity_kg"
-            value={formData.max_capacity_kg}
-            onChange={handleInputChange}
-            required
-            min="0"
-            placeholder="e.g. 500"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomSelect
+              label="Zone"
+              icon={MapPin}
+              value={formData.zone}
+              onChange={(val) => setFormData(prev => ({ ...prev, zone: val }))}
+              placeholder={isLoadingZones ? "Loading zones..." : "Select Zone"}
+              options={zones.map(z => ({ label: z.name, value: z.id }))}
+            />
+
+            <CustomInput
+              label="Max Capacity (kg)"
+              icon={Weight}
+              type="number"
+              name="max_capacity_kg"
+              value={formData.max_capacity_kg}
+              onChange={handleInputChange}
+              required
+              min="0"
+              placeholder="e.g. 500"
+            />
+          </div>
 
           <div className="pt-4 flex gap-3">
             <button 
