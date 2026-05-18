@@ -21,31 +21,84 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Maximize2
+  Maximize2,
 } from "lucide-react";
 
 const LiveTrackingPage: React.FC = () => {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   const {
-    wsUrl, setWsUrl,
+    wsUrl,
+    setWsUrl,
     isConnected,
     driversList,
-    logs, setLogs,
-    selectedDriverId, setSelectedDriverId, selectedDriver,
+    logs,
+    setLogs,
+    selectedDriverId,
+    setSelectedDriverId,
+    selectedDriver,
     isSimulating,
     protocol,
-    zoom, setZoom,
+    zoom,
+    setZoom,
+    mapCenter,
     setMapCenter,
-    isManualPan, setIsManualPan,
+    isManualPan,
+    setIsManualPan,
     handleProtocolChange,
-    connectWebSocket, disconnectWebSocket,
+    connectWebSocket,
+    disconnectWebSocket,
     toggleSimulation,
     handlePan,
-    VIEWPORT_W, VIEWPORT_H,
+    VIEWPORT_W,
+    VIEWPORT_H,
     getOsmSvgPixel,
-    osmTiles
+    osmTiles,
   } = useLiveTracking();
+
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setIsManualPan(true);
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    setDragStart({ x: e.clientX, y: e.clientY });
+
+    const getTileCount = (z: number) => Math.pow(2, z);
+    const currentTx = ((mapCenter.lng + 180) / 360) * getTileCount(zoom);
+    const latRad = (mapCenter.lat * Math.PI) / 180;
+    const currentTy = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * getTileCount(zoom);
+
+    const newTx = currentTx - (deltaX / 256);
+    const newTy = currentTy - (deltaY / 256);
+
+    const newLng = (newTx / getTileCount(zoom)) * 360 - 180;
+    const M = Math.PI * (1 - (2 * newTy) / getTileCount(zoom));
+    const newLat = (Math.atan(0.5 * (Math.exp(M) - Math.exp(-M))) * 180) / Math.PI;
+
+    setMapCenter({ lat: newLat, lng: newLng });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    // Prevent default scroll if hovering over the map
+    if (e.deltaY < 0) {
+      setZoom((z) => Math.min(18, z + 1));
+    } else if (e.deltaY > 0) {
+      setZoom((z) => Math.max(10, z - 1));
+    }
+  };
 
   return (
     <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -60,12 +113,15 @@ const LiveTrackingPage: React.FC = () => {
               <h1 className="text-3xl font-black text-charcoal tracking-tight flex items-center gap-3">
                 Live Fleet Tracking
                 <span className="text-xs font-black px-3 py-1 bg-primary/10 text-primary rounded-full tracking-widest uppercase flex items-center gap-1.5 border border-primary/20">
-                  <span className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}></span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
+                  ></span>
                   {isConnected ? "Live Broadcast" : "Offline"}
                 </span>
               </h1>
               <p className="text-charcoal/50 font-medium mt-1">
-                Real-time WebSocket driver monitoring & breadcrumb GPS trails feed.
+                Real-time WebSocket driver monitoring & breadcrumb GPS trails
+                feed.
               </p>
             </div>
           </div>
@@ -88,7 +144,9 @@ const LiveTrackingPage: React.FC = () => {
                 : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
             }`}
           >
-            <Sparkles className={`w-4 h-4 ${isSimulating ? "text-amber-600 animate-spin" : "text-accent"}`} />
+            <Sparkles
+              className={`w-4 h-4 ${isSimulating ? "text-amber-600 animate-spin" : "text-accent"}`}
+            />
             {isSimulating ? "Stop Simulation" : "Simulate Live Broadcast"}
           </button>
         </div>
@@ -108,7 +166,9 @@ const LiveTrackingPage: React.FC = () => {
                   type="button"
                   onClick={() => handleProtocolChange("wss")}
                   className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    protocol === "wss" ? "bg-primary text-white shadow-sm" : "text-charcoal/40 hover:text-charcoal"
+                    protocol === "wss"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-charcoal/40 hover:text-charcoal"
                   }`}
                 >
                   WSS://
@@ -117,7 +177,9 @@ const LiveTrackingPage: React.FC = () => {
                   type="button"
                   onClick={() => handleProtocolChange("ws")}
                   className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    protocol === "ws" ? "bg-primary text-white shadow-sm" : "text-charcoal/40 hover:text-charcoal"
+                    protocol === "ws"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-charcoal/40 hover:text-charcoal"
                   }`}
                 >
                   WS://
@@ -133,7 +195,9 @@ const LiveTrackingPage: React.FC = () => {
             </div>
             <div className="flex items-center justify-between mt-1.5">
               <p className="text-[11px] text-charcoal/40 italic">
-                Connected endpoints map dynamic route authorization streams instantly. Edit host string directly if connecting to custom instances.
+                Connected endpoints map dynamic route authorization streams
+                instantly. Edit host string directly if connecting to custom
+                instances.
               </p>
               {accessToken && (
                 <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 select-none">
@@ -173,7 +237,9 @@ const LiveTrackingPage: React.FC = () => {
           <div className="px-6 py-4 bg-silver/5 border-b border-silver/30 flex items-center justify-between select-none">
             <div className="flex items-center gap-2">
               <span className="text-base">🗺️</span>
-              <span className="text-xs font-black uppercase tracking-widest text-charcoal">OpenStreetMap Live Feed</span>
+              <span className="text-xs font-black uppercase tracking-widest text-charcoal">
+                OpenStreetMap Live Feed
+              </span>
               {isManualPan && (
                 <button
                   onClick={() => setIsManualPan(false)}
@@ -186,207 +252,183 @@ const LiveTrackingPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-3 text-[11px] text-charcoal/50 font-medium">
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-primary inline-block"></span> Pilot Node
+                <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>{" "}
+                Pilot Node
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-3 h-0.5 bg-amber-500 inline-block"></span> Breadcrumbs Path
+                <span className="w-3 h-0.5 bg-amber-500 inline-block"></span>{" "}
+                Breadcrumbs Path
               </span>
             </div>
           </div>
 
           {/* Core Embedded OpenStreetMap Dynamic Mercator Tile Grid Plane */}
-          <div className="flex-1 bg-[#EAE8E3] relative overflow-hidden group">
+          <div 
+            className={`flex-1 bg-[#EAE8E3] relative overflow-hidden group ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
             {/* 1. Map Tiles Background Container */}
-            <div className="absolute inset-0 pointer-events-none">
-              {osmTiles.map((tile) => (
-                <img
-                  key={tile.key}
-                  src={tile.url}
-                  alt="map tile"
-                  className="absolute w-[256px] h-[256px] object-cover transition-opacity duration-300 select-none"
-                  style={{
-                    left: `${tile.left}px`,
-                    top: `${tile.top}px`,
-                  }}
-                  onError={(e) => {
-                    // Fail gracefully if high zooms lack tile caches locally
-                    e.currentTarget.style.opacity = "0.2";
-                  }}
-                />
-              ))}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+              <div 
+                style={{ width: VIEWPORT_W, height: VIEWPORT_H, position: 'relative' }} 
+                className="shrink-0"
+              >
+                {osmTiles.map((tile) => (
+                  <img
+                    key={tile.key}
+                    src={tile.url}
+                    alt="map tile"
+                    className="absolute w-[256px] h-[256px] object-cover transition-opacity duration-300 select-none"
+                    style={{
+                      left: `${tile.left}px`,
+                      top: `${tile.top}px`,
+                    }}
+                    onError={(e) => {
+                      // Fail gracefully if high zooms lack tile caches locally
+                      e.currentTarget.style.opacity = "0.2";
+                    }}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* 2. Overlaid SVGs rendering driver pointers & polylines natively */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox={`0 0 ${VIEWPORT_W} ${VIEWPORT_H}`}
-              preserveAspectRatio="xMidYMid slice"
-            >
-              {/* Render polylines connected path */}
-              {driversList.map((drv) => {
-                if (drv.trail.length < 2 && !drv.lat) return null;
+            <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+              <svg
+                className="shrink-0 pointer-events-none"
+                width={VIEWPORT_W}
+                height={VIEWPORT_H}
+                viewBox={`0 0 ${VIEWPORT_W} ${VIEWPORT_H}`}
+                preserveAspectRatio="xMidYMid slice"
+              >
+                {/* Render polylines connected path */}
+                {driversList.map((drv) => {
+                  if (drv.trail.length < 2 && !drv.lat) return null;
 
-                const isSelected = drv.driver_id === selectedDriverId;
-                const pathPoints = drv.trail
-                  .filter(([lng, lat]) => lat && lng)
-                  .map(([lng, lat]) => {
-                    const pt = getOsmSvgPixel(lat, lng);
-                    return `${pt.x},${pt.y}`;
-                  });
+                  const isSelected = drv.driver_id === selectedDriverId;
+                  const pathPoints = drv.trail
+                    .filter(([lng, lat]) => lat && lng)
+                    .map(([lng, lat]) => {
+                      const pt = getOsmSvgPixel(lat, lng);
+                      return `${pt.x},${pt.y}`;
+                    });
 
-                // append real time state coordinate
-                const currentPt = getOsmSvgPixel(drv.lat, drv.lng);
-                pathPoints.push(`${currentPt.x},${currentPt.y}`);
+                  // append real time state coordinate
+                  const currentPt = getOsmSvgPixel(drv.lat, drv.lng);
+                  pathPoints.push(`${currentPt.x},${currentPt.y}`);
 
-                const pointsStr = pathPoints.join(" ");
+                  const pointsStr = pathPoints.join(" ");
 
-                return (
-                  <g key={`trail-${drv.driver_id}`}>
-                    {/* Shadow outline */}
-                    <polyline
-                      points={pointsStr}
-                      fill="none"
-                      stroke="#000000"
-                      strokeWidth={isSelected ? "5" : "3"}
-                      strokeOpacity="0.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Glowing trail core overlay */}
-                    <polyline
-                      points={pointsStr}
-                      fill="none"
-                      stroke={isSelected ? "#F59E0B" : "#10B981"}
-                      strokeWidth={isSelected ? "3" : "2"}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </g>
-                );
-              })}
+                  return (
+                    <g key={`trail-${drv.driver_id}`}>
+                      {/* Shadow outline */}
+                      <polyline
+                        points={pointsStr}
+                        fill="none"
+                        stroke="#000000"
+                        strokeWidth={isSelected ? "5" : "3"}
+                        strokeOpacity="0.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      {/* Glowing trail core overlay */}
+                      <polyline
+                        points={pointsStr}
+                        fill="none"
+                        stroke={isSelected ? "#F59E0B" : "#10B981"}
+                        strokeWidth={isSelected ? "3" : "2"}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  );
+                })}
 
-              {/* Render Pilot interactive nodes */}
-              {driversList.map((drv) => {
-                const pt = getOsmSvgPixel(drv.lat, drv.lng);
-                const isSelected = drv.driver_id === selectedDriverId;
+                {/* Render Pilot interactive nodes */}
+                {driversList.map((drv) => {
+                  const pt = getOsmSvgPixel(drv.lat, drv.lng);
+                  const isSelected = drv.driver_id === selectedDriverId;
 
-                return (
-                  <g
-                    key={`node-${drv.driver_id}`}
-                    className="cursor-pointer transition-all duration-300 pointer-events-auto"
-                    onClick={() => {
-                      setSelectedDriverId(drv.driver_id);
-                      setMapCenter({ lat: drv.lat, lng: drv.lng });
-                      setIsManualPan(false);
-                    }}
-                  >
-                    {/* Pulse ring */}
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={isSelected ? "28" : "18"}
-                      fill={isSelected ? "#F59E0B" : "#059669"}
-                      className="opacity-25 animate-ping"
-                    />
+                  return (
+                    <g
+                      key={`node-${drv.driver_id}`}
+                      className="cursor-pointer transition-all duration-300 pointer-events-auto"
+                      onClick={() => {
+                        setSelectedDriverId(drv.driver_id);
+                        setMapCenter({ lat: drv.lat, lng: drv.lng });
+                        setIsManualPan(false);
+                      }}
+                    >
+                      {/* Pulse ring */}
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={isSelected ? "28" : "18"}
+                        fill={isSelected ? "#F59E0B" : "#059669"}
+                        className="opacity-25 animate-ping"
+                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                      />
 
-                    {/* Outer marker pin circle */}
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={isSelected ? "11" : "8"}
-                      fill={isSelected ? "#F59E0B" : "#059669"}
-                      stroke="#ffffff"
-                      strokeWidth="2.5"
-                      className="drop-shadow-md"
-                    />
+                      {/* Outer marker pin circle */}
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={isSelected ? "11" : "8"}
+                        fill={isSelected ? "#F59E0B" : "#059669"}
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        className="drop-shadow-md"
+                      />
 
-                    {/* Dot anchor */}
-                    <circle cx={pt.x} cy={pt.y} r={isSelected ? "3" : "2"} fill="#ffffff" />
+                      {/* Dot anchor */}
+                      <circle
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={isSelected ? "3" : "2"}
+                        fill="#ffffff"
+                      />
 
-                    {/* Beautiful text label tooltip */}
-                    <foreignObject x={pt.x + 14} y={pt.y - 12} width="160" height="30" className="pointer-events-none">
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-charcoal/90 backdrop-blur-xs rounded-md text-white shadow-md border border-white/10">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span className="text-[10px] font-bold tracking-tight truncate font-sans">
-                          {drv.driver_name || drv.driver_id}
-                        </span>
-                      </div>
-                    </foreignObject>
-                  </g>
-                );
-              })}
-            </svg>
+                      {/* Beautiful text label tooltip */}
+                      <foreignObject
+                        x={pt.x + 14}
+                        y={pt.y - 12}
+                        width="160"
+                        height="30"
+                        className="pointer-events-none"
+                      >
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-charcoal/90 backdrop-blur-xs rounded-md text-white shadow-md border border-white/10">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span className="text-[10px] font-bold tracking-tight truncate font-sans">
+                            {drv.driver_name || drv.driver_id}
+                          </span>
+                        </div>
+                      </foreignObject>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
 
             {/* Empty view screen fallback overlay */}
             {driversList.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/70 backdrop-blur-xs">
                 <Navigation className="w-12 h-12 text-primary animate-bounce mb-3 opacity-60" />
-                <p className="text-sm font-black text-charcoal">Awaiting Active GPS Broadcast Stream</p>
+                <p className="text-sm font-black text-charcoal">
+                  Awaiting Active GPS Broadcast Stream
+                </p>
                 <p className="text-xs text-charcoal/50 max-w-sm mt-1 font-medium">
-                  OpenStreetMap tiles are initialized correctly. Connect client listener above or toggle simulation engine to view full tracking overlays directly.
+                  OpenStreetMap tiles are initialized correctly. Connect client
+                  listener above or toggle simulation engine to view full
+                  tracking overlays directly.
                 </p>
               </div>
             )}
 
-            {/* 3. Embedded Native Controller HUD Overlay (Zoom +/- & Panning Controls) */}
-            <div className="absolute top-4 right-4 flex flex-col gap-2 pointer-events-none select-none">
-              {/* Zoom Panel */}
-              <div className="bg-white rounded-xl shadow-lg border border-silver/60 flex flex-col overflow-hidden pointer-events-auto">
-                <button
-                  onClick={() => setZoom((z) => Math.min(18, z + 1))}
-                  className="p-2 hover:bg-silver/20 text-charcoal transition-colors border-b border-silver/40 flex items-center justify-center font-black"
-                  title="Zoom In"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                <div className="px-2 py-1 text-[10px] font-mono font-black text-center bg-silver/10 text-charcoal/60">
-                  {zoom}z
-                </div>
-                <button
-                  onClick={() => setZoom((z) => Math.max(10, z - 1))}
-                  className="p-2 hover:bg-silver/20 text-charcoal transition-colors flex items-center justify-center font-black"
-                  title="Zoom Out"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-              </div>
 
-              {/* Directional Navigation Pad */}
-              <div className="bg-white p-1.5 rounded-xl shadow-lg border border-silver/60 grid grid-cols-3 gap-1 pointer-events-auto w-20 h-20 items-center justify-center text-charcoal/70">
-                <div></div>
-                <button
-                  onClick={() => handlePan("up")}
-                  className="p-1 hover:bg-silver/20 rounded hover:text-primary transition-colors flex items-center justify-center"
-                  title="Pan North"
-                >
-                  <ArrowUp className="w-3.5 h-3.5" />
-                </button>
-                <div></div>
-                <button
-                  onClick={() => handlePan("left")}
-                  className="p-1 hover:bg-silver/20 rounded hover:text-primary transition-colors flex items-center justify-center"
-                  title="Pan West"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-2 h-2 rounded-full bg-silver/40 mx-auto"></div>
-                <button
-                  onClick={() => handlePan("right")}
-                  className="p-1 hover:bg-silver/20 rounded hover:text-primary transition-colors flex items-center justify-center"
-                  title="Pan East"
-                >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <div></div>
-                <button
-                  onClick={() => handlePan("down")}
-                  className="p-1 hover:bg-silver/20 rounded hover:text-primary transition-colors flex items-center justify-center"
-                  title="Pan South"
-                >
-                  <ArrowDown className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
 
             {/* Interactive selection bottom-left details overlay card */}
             <div className="absolute bottom-3 left-3 pointer-events-none z-10">
@@ -413,17 +455,21 @@ const LiveTrackingPage: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-1.5 text-[10px] bg-silver/10 p-2 rounded-lg font-mono">
                     <div>
-                      <span className="text-charcoal/40 block text-[8px] font-sans font-bold uppercase">Lat</span>
+                      <span className="text-charcoal/40 block text-[8px] font-sans font-bold uppercase">
+                        Lat
+                      </span>
                       {selectedDriver.lat.toFixed(5)}
                     </div>
                     <div>
-                      <span className="text-charcoal/40 block text-[8px] font-sans font-bold uppercase">Lng</span>
+                      <span className="text-charcoal/40 block text-[8px] font-sans font-bold uppercase">
+                        Lng
+                      </span>
                       {selectedDriver.lng.toFixed(5)}
                     </div>
                   </div>
                   <div className="mt-1.5 text-[9px] text-charcoal/50 flex items-center gap-1 font-medium">
-                    <Clock className="w-2.5 h-2.5 text-primary shrink-0" /> Updated:{" "}
-                    {selectedDriver.last_updated.toLocaleTimeString()}
+                    <Clock className="w-2.5 h-2.5 text-primary shrink-0" />{" "}
+                    Updated: {selectedDriver.last_updated.toLocaleTimeString()}
                   </div>
                 </div>
               )}
@@ -431,7 +477,16 @@ const LiveTrackingPage: React.FC = () => {
 
             {/* Official OpenStreetMap Attribution Banner Footer */}
             <div className="absolute bottom-1 right-1 bg-white/80 backdrop-blur-xs px-2 py-0.5 rounded text-[9px] text-charcoal/70 pointer-events-auto border border-white/40 shadow-xs select-none">
-              © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline hover:text-primary font-medium">OpenStreetMap</a> contributors
+              ©{" "}
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-primary font-medium"
+              >
+                OpenStreetMap
+              </a>{" "}
+              contributors
             </div>
           </div>
         </div>
@@ -443,7 +498,9 @@ const LiveTrackingPage: React.FC = () => {
               <h3 className="font-black text-charcoal tracking-tight text-base flex items-center gap-2">
                 <User className="w-4 h-4 text-primary" /> Active Feeds
               </h3>
-              <p className="text-[11px] text-charcoal/40 font-medium">Drivers sending WS payload ticks</p>
+              <p className="text-[11px] text-charcoal/40 font-medium">
+                Drivers sending WS payload ticks
+              </p>
             </div>
             <span className="px-2.5 py-1 bg-primary/10 text-primary font-black rounded-lg text-xs leading-none">
               {driversList.length}
@@ -454,8 +511,12 @@ const LiveTrackingPage: React.FC = () => {
             {driversList.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6">
                 <MapPin className="w-8 h-8 text-charcoal/20 mb-2" />
-                <p className="text-xs font-bold text-charcoal/40">No Driver Tracking Entries</p>
-                <p className="text-[10px] text-charcoal/30 mt-1">Updates parse automatically upon broadcast reception.</p>
+                <p className="text-xs font-bold text-charcoal/40">
+                  No Driver Tracking Entries
+                </p>
+                <p className="text-[10px] text-charcoal/30 mt-1">
+                  Updates parse automatically upon broadcast reception.
+                </p>
               </div>
             ) : (
               driversList.map((drv) => {
@@ -471,7 +532,9 @@ const LiveTrackingPage: React.FC = () => {
                     }`}
                   >
                     {/* Active highlight side tag */}
-                    {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent"></div>}
+                    {isSelected && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent"></div>
+                    )}
 
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2.5">
@@ -489,23 +552,30 @@ const LiveTrackingPage: React.FC = () => {
                       </div>
 
                       <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping"></span> Live
+                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-ping"></span>{" "}
+                        Live
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-silver/30 text-[10px] font-mono">
                       <div>
-                        <span className="text-charcoal/40 font-sans block text-[8px] uppercase font-bold">Coordinates</span>
+                        <span className="text-charcoal/40 font-sans block text-[8px] uppercase font-bold">
+                          Coordinates
+                        </span>
                         {drv.lat.toFixed(4)}, {drv.lng.toFixed(4)}
                       </div>
                       <div className="text-right">
-                        <span className="text-charcoal/40 font-sans block text-[8px] uppercase font-bold">Trail Points</span>
+                        <span className="text-charcoal/40 font-sans block text-[8px] uppercase font-bold">
+                          Trail Points
+                        </span>
                         {drv.trail.length} nodes
                       </div>
                     </div>
 
                     <div className="mt-2 text-[9px] text-charcoal/40 flex items-center justify-between font-sans">
-                      <span>Last refresh: {drv.last_updated.toLocaleTimeString()}</span>
+                      <span>
+                        Last refresh: {drv.last_updated.toLocaleTimeString()}
+                      </span>
                       <span className="text-primary font-bold group-hover:translate-x-1 transition-transform">
                         Focus Radar &rarr;
                       </span>
@@ -524,7 +594,9 @@ const LiveTrackingPage: React.FC = () => {
         <div className="px-6 py-3.5 bg-[#2C2C2E] border-b border-charcoal/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Terminal className="w-4 h-4 text-accent" />
-            <span className="text-xs font-bold text-white tracking-wider">WebSocket Message Console Broadcast Logs</span>
+            <span className="text-xs font-bold text-white tracking-wider">
+              WebSocket Message Console Broadcast Logs
+            </span>
             <span className="text-[10px] px-2 py-0.5 bg-black/30 text-white/50 rounded-md">
               {logs.length} packet payloads recorded
             </span>
@@ -542,7 +614,8 @@ const LiveTrackingPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-2 text-xs custom-scrollbar">
           {logs.length === 0 ? (
             <div className="h-full flex items-center justify-center text-white/20 italic font-sans text-xs">
-              No packet events recorded yet. Connect to host stream to catch serialized frame arrays.
+              No packet events recorded yet. Connect to host stream to catch
+              serialized frame arrays.
             </div>
           ) : (
             logs.map((log) => {
@@ -552,7 +625,8 @@ const LiveTrackingPage: React.FC = () => {
 
               if (log.type === "broadcast") {
                 colorClass = "text-emerald-400";
-                badgeBg = "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                badgeBg =
+                  "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
               } else if (log.type === "success") {
                 colorClass = "text-cyan-400";
                 badgeBg = "bg-cyan-500/20 text-cyan-300";
@@ -562,12 +636,17 @@ const LiveTrackingPage: React.FC = () => {
               }
 
               return (
-                <div key={log.id} className="leading-relaxed hover:bg-white/5 p-1.5 rounded transition-colors font-mono">
+                <div
+                  key={log.id}
+                  className="leading-relaxed hover:bg-white/5 p-1.5 rounded transition-colors font-mono"
+                >
                   <div className="flex items-start gap-3">
                     <span className="text-white/30 text-[10px] shrink-0 pt-0.5 select-none">
                       [{log.timestamp.toLocaleTimeString()}]
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${badgeBg}`}>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${badgeBg}`}
+                    >
                       {log.type}
                     </span>
                     <div className="flex-1 min-w-0">

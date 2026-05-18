@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { getCityWsUrl, DEFAULT_WS_PROTOCOL } from "../../../utils/constants";
 
 export interface DriverLocationState {
   driver_id: string;
@@ -58,17 +59,16 @@ export const TrackingProvider: React.FC = () => {
   const accessToken = useAuthStore((state) => state.accessToken);
 
   // Formulate default ws host
-  const defaultHost = `${tenant}.pench.api.polynexus.in`;
-  const defaultWssUrl = `wss://${defaultHost}/ws/tracking/`;
-  const defaultWsUrl = `ws://${defaultHost}/ws/tracking/`;
+  const defaultWssUrl = getCityWsUrl(tenant, "wss");
+  const defaultWsUrl = getCityWsUrl(tenant, "ws");
 
-  const [wsUrl, setWsUrl] = useState<string>(defaultWssUrl);
+  const [wsUrl, setWsUrl] = useState<string>(getCityWsUrl(tenant, DEFAULT_WS_PROTOCOL));
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Record<string, DriverLocationState>>({});
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [protocol, setProtocol] = useState<"wss" | "ws">("wss");
+  const [protocol, setProtocol] = useState<"wss" | "ws">(DEFAULT_WS_PROTOCOL);
 
   // OpenStreetMap active projection states
   const [zoom, setZoom] = useState<number>(14);
@@ -126,7 +126,10 @@ export const TrackingProvider: React.FC = () => {
 
       socket.onmessage = (event) => {
         try {
+          console.log("🔌 [WebSocket Raw Frame Received]:", event.data);
           const data = JSON.parse(event.data);
+          console.log("🟢 [WebSocket Parsed Payload]:", data);
+          
           if (data.type === "broadcast_location" || (data.driver_id && data.lat && data.lng)) {
             // Log incoming telemetry stream
             addLog("broadcast", `Location broadcast received: ${data.driver_name || data.driver_id}`, data);
@@ -244,6 +247,8 @@ export const TrackingProvider: React.FC = () => {
           trail: [...drv.trail, [currentLng, currentLat]],
         };
 
+        console.log("🟠 [Simulated WS Payload - Initial]:", payload);
+
         setDrivers((prev) => ({
           ...prev,
           [drv.id]: {
@@ -280,6 +285,8 @@ export const TrackingProvider: React.FC = () => {
             lng: parseFloat(drv.baseLng.toFixed(5)),
             trail: [...drv.trail],
           };
+
+          console.log("🟠 [Simulated WS Payload - Tick]:", mockData);
 
           // trigger local message parser
           addLog("broadcast", `[SIM] Broadcast: ${drv.name}`, mockData);

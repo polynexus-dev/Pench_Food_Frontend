@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { X, User, Phone, Lock, Loader2, UserPlus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight } from 'lucide-react';
 import axiosInstance from '../../../api/axiosInstance';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { CustomInput } from '../../../components/common/CustomInput';
+import { CustomSelect } from '../../../components/common/CustomSelect';
 
 interface CreateDriverModalProps {
   isOpen: boolean;
@@ -15,13 +17,34 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
     username: '',
     password: '',
     phone: '',
-    first_name: '',
-    last_name: '',
     role: 'Drivers',
-    tenant_schema: currentTenant || ''
+    tenant_schema: currentTenant || '',
+    vehicle_plate: '',
+    vehicle_type: '',
+    max_capacity_kg: '',
+    zone: ''
   });
+  const [zones, setZones] = useState<any[]>([]);
+  const [isLoadingZones, setIsLoadingZones] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchZones = async () => {
+        try {
+          setIsLoadingZones(true);
+          const response = await axiosInstance.get('/ems/zones/');
+          setZones(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+          console.error("Failed to fetch zones", error);
+        } finally {
+          setIsLoadingZones(false);
+        }
+      };
+      fetchZones();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -36,18 +59,24 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
     setError(null);
 
     try {
+      const payload = {
+        ...formData,
+        max_capacity_kg: Number(formData.max_capacity_kg) || 0
+      };
       // The payload is expected as an array based on the user's request
-      await axiosInstance.post('/accounts/register/', [formData]);
+      await axiosInstance.post('/accounts/register/', [payload]);
       onSuccess();
       onClose();
       setFormData({
         username: '',
         password: '',
         phone: '',
-        first_name: '',
-        last_name: '',
         role: 'Drivers',
-        tenant_schema: currentTenant || ''
+        tenant_schema: currentTenant || '',
+        vehicle_plate: '',
+        vehicle_type: '',
+        max_capacity_kg: '',
+        zone: ''
       });
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.[0]?.message || 'Failed to register driver. Please try again.');
@@ -87,90 +116,91 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">First Name</label>
-              <div className="relative group">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                <input 
-                  type="text"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="e.g. Ramesh"
-                  className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold"
-                />
-              </div>
-            </div>
+            <CustomInput
+              label="Username"
+              icon={User}
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              required
+              placeholder="driver_name"
+              inputClassName="font-mono"
+            />
 
-            <div className="space-y-2">
-              <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Last Name</label>
-              <div className="relative group">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                <input 
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="e.g. Patil"
-                  className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold"
-                />
-              </div>
-            </div>
+            <CustomInput
+              label="Phone Number"
+              icon={Phone}
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleInputChange}
+              required
+              placeholder="9876543210"
+            />
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Username</label>
-              <div className="relative group">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                <input 
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="driver_nagpur_10"
-                  className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-mono"
-                />
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomInput
+              label="Password"
+              icon={Lock}
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              placeholder="••••••••"
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Phone Number</label>
-                <div className="relative group">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="917000000010"
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Password</label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="••••••••"
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none"
-                  />
-                </div>
-              </div>
-            </div>
+            <CustomSelect
+              label="Zone"
+              icon={MapPin}
+              value={formData.zone}
+              onChange={(val) => setFormData(prev => ({ ...prev, zone: val }))}
+              placeholder={isLoadingZones ? "Loading zones..." : "Select Zone"}
+              options={zones.map(z => ({ label: z.name, value: z.id }))}
+            />
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CustomInput
+              label="Vehicle Plate"
+              icon={Truck}
+              type="text"
+              name="vehicle_plate"
+              value={formData.vehicle_plate}
+              onChange={handleInputChange}
+              required
+              placeholder="e.g. MH-31-AZ-1234"
+              inputClassName="uppercase"
+            />
+
+            <CustomSelect
+              label="Vehicle Type"
+              icon={Truck}
+              value={formData.vehicle_type}
+              onChange={(val) => setFormData(prev => ({ ...prev, vehicle_type: val }))}
+              placeholder="Select Type"
+              options={[
+                { label: "Mini Van", value: "Mini Van" },
+                { label: "Truck", value: "Truck" },
+                { label: "Bike", value: "Bike" },
+                { label: "Pickup", value: "Pickup" },
+              ]}
+            />
+          </div>
+
+          <CustomInput
+            label="Max Capacity (kg)"
+            icon={Weight}
+            type="number"
+            name="max_capacity_kg"
+            value={formData.max_capacity_kg}
+            onChange={handleInputChange}
+            required
+            min="0"
+            placeholder="e.g. 500"
+          />
 
           <div className="pt-4 flex gap-3">
             <button 

@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { City } from "../components/types";
+import type { City, Zone } from "../components/types";
 
 /**
  * Tenant / City API Service

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Building2, Globe, MapPin, Loader2 } from 'lucide-react';
+import { X, Building2, Globe, MapPin, Loader2, Clock, FileUp } from 'lucide-react';
 import axiosInstance from '../../../api/axiosInstance';
-
+import { CustomInput } from '../../../components/common/CustomInput';
 interface CreateTenantModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,8 +13,10 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
     name: '',
     schema_name: '',
     state: '',
-    code: ''
+    code: '',
+    timezone: 'Asia/Kolkata'
   });
+  const [boundaryFile, setBoundaryFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,16 +40,37 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setBoundaryFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      await axiosInstance.post('/erp/tenants/cities/', formData);
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('schema_name', formData.schema_name);
+      data.append('state', formData.state);
+      data.append('code', formData.code);
+      data.append('timezone', formData.timezone);
+      if (boundaryFile) {
+        data.append('boundary_file', boundaryFile);
+      }
+
+      await axiosInstance.post('/erp/tenants/cities/', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       onSuccess();
       onClose();
-      setFormData({ name: '', schema_name: '', state: '', code: '' });
+      setFormData({ name: '', schema_name: '', state: '', code: '', timezone: 'Asia/Kolkata' });
+      setBoundaryFile(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create tenant. Please try again.');
     } finally {
@@ -87,73 +110,82 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* City Name */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">City Name</label>
-                <div className="relative group">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g. Nagpur"
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-semibold"
-                  />
-                </div>
-              </div>
+              <CustomInput
+                label="City Name"
+                icon={MapPin}
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+                placeholder="e.g. Nagpur"
+                inputClassName="text-charcoal font-semibold"
+              />
 
-              {/* State */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">State</label>
-                <div className="relative group">
-                  <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="e.g. Maharashtra"
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-semibold"
-                  />
-                </div>
-              </div>
+              <CustomInput
+                label="State"
+                icon={Globe}
+                type="text"
+                name="state"
+                value={formData.state}
+                onChange={handleInputChange}
+                required
+                placeholder="e.g. Maharashtra"
+                inputClassName="text-charcoal font-semibold"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Schema Name */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Schema Name</label>
-                <div className="relative group">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="text"
-                    name="schema_name"
-                    value={formData.schema_name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="nagpur"
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-mono text-sm"
-                  />
-                </div>
-              </div>
+              <CustomInput
+                label="Schema Name"
+                icon={Building2}
+                type="text"
+                name="schema_name"
+                value={formData.schema_name}
+                onChange={handleInputChange}
+                required
+                placeholder="nagpur"
+                inputClassName="text-charcoal font-mono text-sm"
+              />
 
-              {/* City Code */}
-              <div className="space-y-2">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">City Code</label>
+              <CustomInput
+                label="City Code"
+                icon={Building2}
+                type="text"
+                name="code"
+                value={formData.code}
+                onChange={handleInputChange}
+                required
+                placeholder="NGP"
+                maxLength={3}
+                inputClassName="text-charcoal font-mono font-bold text-sm uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <CustomInput
+                label="Timezone"
+                icon={Clock}
+                type="text"
+                name="timezone"
+                value={formData.timezone}
+                onChange={handleInputChange}
+                required
+                disabled
+                placeholder="Asia/Kolkata"
+                inputClassName="text-charcoal font-semibold opacity-60 cursor-not-allowed bg-silver/20"
+              />
+
+              <div className="space-y-2 w-full">
+                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Boundary File (Optional)</label>
                 <div className="relative group">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors" />
+                  <FileUp className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors z-10" />
                   <input 
-                    type="text"
-                    name="code"
-                    value={formData.code}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="NGP"
-                    maxLength={3}
-                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-mono font-bold text-sm uppercase"
+                    type="file"
+                    name="boundary_file"
+                    onChange={handleFileChange}
+                    accept=".geojson,.kml,.zip"
+                    className="w-full pl-11 pr-4 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
                   />
                 </div>
               </div>
