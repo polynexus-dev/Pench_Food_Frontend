@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
-import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle } from "lucide-react";
+import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
 import CustomerDetailTab from "../components/CustomerDetailTab";
+import CustomerProfileTab from "../components/CustomerProfileTab";
 import type { Customer } from "../components/types";
 
 const CustomerPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<"dashboard" | "detail">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile">("dashboard");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Data State
@@ -34,10 +35,16 @@ const CustomerPage: React.FC = () => {
     fetchCustomers();
   }, [tenant]);
 
-  // Handle switching to details view
+  // Handle switching to details map view
   const handleViewDetails = (customerId: string) => {
     setSelectedCustomerId(customerId);
     setActiveTab("detail");
+  };
+
+  // Handle switching to profile details tab
+  const handleViewProfile = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setActiveTab("profile");
   };
 
   const selectedCustomer = useMemo(() => {
@@ -112,29 +119,63 @@ const CustomerPage: React.FC = () => {
               : "text-charcoal/50 hover:text-charcoal"
           }`}
         >
-          <UserCircle
+          <Map
             className={`w-4 h-4 ${activeTab === "detail" ? "text-primary" : "text-charcoal/40"}`}
           />
-          Customer Details
+          Customer Map View
           {activeTab === "detail" && (
             <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
           )}
         </button>
+
+        {selectedCustomerId && selectedCustomer && (
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+              activeTab === "profile"
+                ? "text-primary font-black"
+                : "text-charcoal/50 hover:text-charcoal"
+            }`}
+          >
+            <UserCircle
+              className={`w-4 h-4 ${activeTab === "profile" ? "text-primary" : "text-charcoal/40"}`}
+            />
+            Profile: {selectedCustomer.name}
+            {activeTab === "profile" && (
+              <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+            )}
+          </button>
+        )}
       </div>
 
       {/* 3. Render Sub-Component Pages Modularly */}
-      {activeTab === "dashboard" ? (
+      {activeTab === "dashboard" && (
         <CustomerDashboardTab
           customers={customers}
           isLoading={isLoading}
-          onViewDetails={handleViewDetails}
+          onViewDetails={handleViewProfile}
         />
-      ) : (
+      )}
+
+      {activeTab === "detail" && (
         <CustomerDetailTab
           customers={customers}
           selectedCustomerId={selectedCustomerId}
           setSelectedCustomerId={setSelectedCustomerId}
           onBack={() => setActiveTab("dashboard")}
+          onManageProfile={handleViewProfile}
+        />
+      )}
+
+      {activeTab === "profile" && selectedCustomer && (
+        <CustomerProfileTab
+          customer={selectedCustomer}
+          onBack={() => setActiveTab("dashboard")}
+          onUpdateCustomer={(updatedCustomer) => {
+            setCustomers((prev) =>
+              prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
+            );
+          }}
         />
       )}
     </div>

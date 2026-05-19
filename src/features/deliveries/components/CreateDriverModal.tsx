@@ -92,10 +92,10 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300 my-auto">
         {/* Header */}
-        <div className="px-8 py-6 bg-gradient-to-r from-primary to-sage text-white flex justify-between items-center">
+        <div className="px-8 py-6 bg-gradient-to-r from-primary to-sage text-white flex justify-between items-center rounded-t-3xl">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-xl text-white">
               <UserPlus className="w-6 h-6" />

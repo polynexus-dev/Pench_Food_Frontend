@@ -48,9 +48,27 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
     }
   }, [selectedRouteId, selectedRoute, isManualPan, routes]);
 
-  // Map Container Size
   const mapRef = useRef<HTMLDivElement>(null);
+  const [mapContainerNode, setMapContainerNode] = useState<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    if (!mapContainerNode) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(18, z + 1));
+      } else if (e.deltaY > 0) {
+        setZoom((z) => Math.max(10, z - 1));
+      }
+    };
+
+    mapContainerNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      mapContainerNode.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [mapContainerNode]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -148,11 +166,6 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
   };
 
   const handleMouseUp = () => setIsDragging(false);
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    if (e.deltaY < 0) setZoom(z => Math.min(18, z + 1));
-    else setZoom(z => Math.max(10, z - 1));
-  };
 
   const filteredRoutes = routes.filter(r => 
     r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -233,12 +246,12 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
         className="flex-1 bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden relative group/map"
       >
         <div
+          ref={setMapContainerNode}
           className={`absolute inset-0 bg-[#EAE8E3] ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
         >
           {/* Tile Layer */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">

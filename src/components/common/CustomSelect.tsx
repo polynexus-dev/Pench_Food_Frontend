@@ -8,6 +8,7 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   options: { label: string; value: string }[];
   placeholder: string;
+  buttonClassName?: string;
 }
 
 export const CustomSelect = ({ 
@@ -16,7 +17,8 @@ export const CustomSelect = ({
   value, 
   onChange, 
   options, 
-  placeholder 
+  placeholder,
+  buttonClassName = ''
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedLabel = options.find(o => o.value === value)?.label || placeholder;
@@ -31,7 +33,7 @@ export const CustomSelect = ({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full pl-11 pr-10 py-3 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold text-left flex items-center justify-between"
+          className={`w-full pl-11 pr-10 py-2.5 bg-silver/10 border border-silver/50 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none font-semibold text-sm text-left flex items-center justify-between ${buttonClassName}`}
         >
           <span className={value ? "text-charcoal" : "text-gray-400"}>{selectedLabel}</span>
         </button>

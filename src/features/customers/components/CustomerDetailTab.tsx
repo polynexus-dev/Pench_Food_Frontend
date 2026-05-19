@@ -6,7 +6,6 @@ import {
   MapPin,
   Search,
   Navigation,
-  RefreshCcw,
   ZoomIn,
   ZoomOut,
   ChevronRight,
@@ -20,6 +19,7 @@ interface CustomerDetailTabProps {
   selectedCustomerId: string | null;
   setSelectedCustomerId: (id: string | null) => void;
   onBack: () => void;
+  onManageProfile: (id: string) => void;
 }
 
 import { customerApi } from "../api/customerApi";
@@ -29,7 +29,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
   customers,
   selectedCustomerId,
   setSelectedCustomerId,
-  onBack,
+  onManageProfile,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [modalTab, setModalTab] = useState<"info" | "calendar" | "order">(
@@ -64,11 +64,15 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
   // Fetch orders when tab changes to 'order' or 'calendar'
   useEffect(() => {
-    if ((modalTab === "order" || modalTab === "calendar") && selectedCustomerId) {
+    if (
+      (modalTab === "order" || modalTab === "calendar") &&
+      selectedCustomerId
+    ) {
       const fetchOrders = async () => {
         setIsOrdersLoading(true);
         try {
-          const data = await customerApi.getOrdersByCustomerId(selectedCustomerId);
+          const data =
+            await customerApi.getOrdersByCustomerId(selectedCustomerId);
           setOrders(data);
         } catch (error) {
           console.error("Failed to fetch orders:", error);
@@ -95,7 +99,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
       off_day: "#E5E7EB", // Light grey
     };
     // fallback for API statuses like 'confirmed'
-    if (status === 'confirmed') return map.scheduled; 
+    if (status === "confirmed") return map.scheduled;
     return map[status] || map.pending;
   };
 
@@ -123,9 +127,27 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
     }
   }, [selectedCustomerId, selectedCustomer, isManualPan, customers]);
 
-  // Map Container Size State
   const mapRef = React.useRef<HTMLDivElement>(null);
+  const [mapContainerNode, setMapContainerNode] = useState<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  React.useEffect(() => {
+    if (!mapContainerNode) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(18, z + 1));
+      } else if (e.deltaY > 0) {
+        setZoom((z) => Math.max(10, z - 1));
+      }
+    };
+
+    mapContainerNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      mapContainerNode.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [mapContainerNode]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -231,14 +253,6 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.deltaY < 0) {
-      setZoom((z) => Math.min(18, z + 1));
-    } else if (e.deltaY > 0) {
-      setZoom((z) => Math.max(10, z - 1));
-    }
-  };
-
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-250px)] lg:h-[calc(100vh-280px)] min-h-[700px] lg:min-h-[600px] animate-in fade-in duration-500">
       {/* Left Sidebar: Customer List */}
@@ -316,12 +330,12 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
       >
         {/* Map Container */}
         <div
+          ref={setMapContainerNode}
           className={`absolute inset-0 bg-[#EAE8E3] ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
         >
           {/* Tiles */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
@@ -607,7 +621,10 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                         { month: "short", year: "numeric" },
                       )}
                     </div>
-                    <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">
+                    <button
+                      onClick={() => onManageProfile(selectedCustomer.id)}
+                      className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
+                    >
                       Manage Profile &rarr;
                     </button>
                   </div>
@@ -619,17 +636,36 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                   {/* Calendar Header */}
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="text-sm font-black text-charcoal">
-                      {currentMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                      {currentMonth.toLocaleDateString("en-IN", {
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </h4>
                     <div className="flex gap-2">
-                      <button 
-                        onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}
+                      <button
+                        onClick={() =>
+                          setCurrentMonth(
+                            new Date(
+                              currentMonth.setMonth(
+                                currentMonth.getMonth() - 1,
+                              ),
+                            ),
+                          )
+                        }
                         className="p-1.5 hover:bg-silver/20 rounded-lg text-charcoal/40 hover:text-charcoal transition-all"
                       >
                         <ChevronRight className="w-4 h-4 rotate-180" />
                       </button>
-                      <button 
-                        onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
+                      <button
+                        onClick={() =>
+                          setCurrentMonth(
+                            new Date(
+                              currentMonth.setMonth(
+                                currentMonth.getMonth() + 1,
+                              ),
+                            ),
+                          )
+                        }
                         className="p-1.5 hover:bg-silver/20 rounded-lg text-charcoal/40 hover:text-charcoal transition-all"
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -639,38 +675,71 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
                   {/* Calendar Grid */}
                   <div className="grid grid-cols-7 gap-1 text-center mb-6">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                      <div key={day} className="text-[10px] font-black text-charcoal/30 pb-2">{day}</div>
+                    {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
+                      <div
+                        key={day}
+                        className="text-[10px] font-black text-charcoal/30 pb-2"
+                      >
+                        {day}
+                      </div>
                     ))}
                     {(() => {
                       const days = [];
-                      const start = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-                      const end = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-                      
+                      const start = new Date(
+                        currentMonth.getFullYear(),
+                        currentMonth.getMonth(),
+                        1,
+                      );
+                      const end = new Date(
+                        currentMonth.getFullYear(),
+                        currentMonth.getMonth() + 1,
+                        0,
+                      );
+
                       // Padding for start of month
                       for (let i = 0; i < start.getDay(); i++) {
-                        days.push(<div key={`pad-${i}`} className="h-10"></div>);
+                        days.push(
+                          <div key={`pad-${i}`} className="h-10"></div>,
+                        );
                       }
 
                       for (let d = 1; d <= end.getDate(); d++) {
-                        const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                        const order = orders.find(o => o.scheduled_delivery_date === dateStr);
-                        const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d).toDateString();
-                        const statusColor = order ? getStatusColor(order.status) : null;
+                        const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                        const order = orders.find(
+                          (o) => o.scheduled_delivery_date === dateStr,
+                        );
+                        const isToday =
+                          new Date().toDateString() ===
+                          new Date(
+                            currentMonth.getFullYear(),
+                            currentMonth.getMonth(),
+                            d,
+                          ).toDateString();
+                        const statusColor = order
+                          ? getStatusColor(order.status)
+                          : null;
 
                         days.push(
-                          <div 
-                            key={d} 
+                          <div
+                            key={d}
                             className="h-10 flex items-center justify-center relative rounded-lg"
-                            style={statusColor ? { backgroundColor: `${statusColor}15` } : {}}
+                            style={
+                              statusColor
+                                ? { backgroundColor: `${statusColor}15` }
+                                : {}
+                            }
                           >
-                            <span 
-                              className={`text-[11px] font-bold z-10 ${isToday ? 'bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-xs' : ''}`}
-                              style={(!isToday && statusColor) ? { color: statusColor } : {}}
+                            <span
+                              className={`text-[11px] font-bold z-10 ${isToday ? "bg-primary text-white w-6 h-6 flex items-center justify-center rounded-full shadow-xs" : ""}`}
+                              style={
+                                !isToday && statusColor
+                                  ? { color: statusColor }
+                                  : {}
+                              }
                             >
                               {d}
                             </span>
-                          </div>
+                          </div>,
                         );
                       }
                       return days;
@@ -679,19 +748,29 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
                   {/* Legend */}
                   <div className="p-4 bg-silver/5 rounded-2xl border border-silver/30">
-                    <h5 className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest mb-3 text-center">Status Legend</h5>
+                    <h5 className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest mb-3 text-center">
+                      Status Legend
+                    </h5>
                     <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                       {[
-                        { label: 'Delivered', color: '#10B981' },
-                        { label: 'Undelivered', color: '#EF4444' },
-                        { label: 'In Transit', color: '#F59E0B' },
-                        { label: 'Pending', color: '#94A3B8' },
-                        { label: 'Scheduled', color: '#3B82F6' },
-                        { label: 'Vacation', color: '#F97316' },
-                      ].map(item => (
-                        <div key={item.label} className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                          <span className="text-[10px] font-bold text-charcoal/60">{item.label}</span>
+                        { label: "Delivered", color: "#10B981" },
+                        { label: "Undelivered", color: "#EF4444" },
+                        { label: "In Transit", color: "#F59E0B" },
+                        { label: "Pending", color: "#94A3B8" },
+                        { label: "Scheduled", color: "#3B82F6" },
+                        { label: "Vacation", color: "#F97316" },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex items-center gap-2"
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          ></div>
+                          <span className="text-[10px] font-bold text-charcoal/60">
+                            {item.label}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -713,40 +792,68 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                   {isOrdersLoading ? (
                     <div className="space-y-3">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-24 bg-silver/10 rounded-2xl animate-pulse"></div>
+                        <div
+                          key={i}
+                          className="h-24 bg-silver/10 rounded-2xl animate-pulse"
+                        ></div>
                       ))}
                     </div>
                   ) : orders.length > 0 ? (
                     <div className="space-y-3">
                       {orders.map((order) => (
-                        <div key={order.id} className="p-4 bg-white border border-silver/50 rounded-2xl shadow-sm hover:border-primary/20 transition-all group">
+                        <div
+                          key={order.id}
+                          className="p-4 bg-white border border-silver/50 rounded-2xl shadow-sm hover:border-primary/20 transition-all group"
+                        >
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <p className="text-xs font-black text-charcoal tracking-tight">Order #{order.id.split('-')[0].toUpperCase()}</p>
+                              <p className="text-xs font-black text-charcoal tracking-tight">
+                                Order #{order.id.split("-")[0].toUpperCase()}
+                              </p>
                               <div className="flex items-center gap-2 mt-1">
-                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                  order.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                  order.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                  'bg-silver/10 text-charcoal/40 border border-silver/20'
-                                }`}>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                    order.status === "confirmed"
+                                      ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                                      : order.status === "pending"
+                                        ? "bg-amber-50 text-amber-600 border border-amber-100"
+                                        : "bg-silver/10 text-charcoal/40 border border-silver/20"
+                                  }`}
+                                >
                                   {order.status_display}
                                 </span>
                                 <span className="text-[9px] font-bold text-charcoal/30 flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" /> {new Date(order.scheduled_delivery_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                  <Calendar className="w-3 h-3" />{" "}
+                                  {new Date(
+                                    order.scheduled_delivery_date,
+                                  ).toLocaleDateString("en-IN", {
+                                    day: "2-digit",
+                                    month: "short",
+                                  })}
                                 </span>
                               </div>
                             </div>
-                            <p className="text-sm font-black text-primary">₹{order.total}</p>
+                            <p className="text-sm font-black text-primary">
+                              ₹{order.total}
+                            </p>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                             {order.items.map((item) => (
-                              <div key={item.id} className="px-2 py-1 bg-silver/5 rounded-lg border border-silver/30 text-[9px] font-bold text-charcoal/60 whitespace-nowrap">
-                                {item.product_name} <span className="text-primary">x{item.quantity}</span>
+                              <div
+                                key={item.id}
+                                className="px-2 py-1 bg-silver/5 rounded-lg border border-silver/30 text-[9px] font-bold text-charcoal/60 whitespace-nowrap"
+                              >
+                                {item.product_name}{" "}
+                                <span className="text-primary">
+                                  x{item.quantity}
+                                </span>
                               </div>
                             ))}
                             {order.items.length === 0 && (
-                                <span className="text-[9px] font-medium text-charcoal/30 italic">No items listed</span>
+                              <span className="text-[9px] font-medium text-charcoal/30 italic">
+                                No items listed
+                              </span>
                             )}
                           </div>
                         </div>
@@ -757,7 +864,9 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                       <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
                         <ListIcon className="w-6 h-6 text-charcoal/10" />
                       </div>
-                      <p className="text-xs font-bold text-charcoal/40">No orders found for this customer</p>
+                      <p className="text-xs font-bold text-charcoal/40">
+                        No orders found for this customer
+                      </p>
                     </div>
                   )}
                 </div>

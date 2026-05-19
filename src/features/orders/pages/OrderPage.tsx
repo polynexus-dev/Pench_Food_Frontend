@@ -62,6 +62,21 @@ const OrderPage: React.FC = () => {
     };
   }, [orders]);
 
+  const handleUpdateOrderStatus = async (orderId: string, status: string) => {
+    try {
+      const updatedOrder = await orderApi.updateOrderStatus(orderId, status);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, status: updatedOrder.status, status_display: updatedOrder.status_display }
+            : o
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+    }
+  };
+
   return (
     <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       {/* 1. Header Navigation Banner */}
@@ -142,6 +157,7 @@ const OrderPage: React.FC = () => {
           isLoading={isLoading} 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          onUpdateOrderStatus={handleUpdateOrderStatus}
         />
       )}
     </div>

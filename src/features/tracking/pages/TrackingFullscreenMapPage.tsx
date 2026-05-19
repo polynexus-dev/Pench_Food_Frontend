@@ -27,6 +27,25 @@ const TrackingFullscreenMapPage: React.FC = () => {
 
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+  const [mapContainerNode, setMapContainerNode] = React.useState<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!mapContainerNode) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(18, z + 1));
+      } else if (e.deltaY > 0) {
+        setZoom((z) => Math.max(10, z - 1));
+      }
+    };
+
+    mapContainerNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      mapContainerNode.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [mapContainerNode, setZoom]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only handle left click
@@ -65,14 +84,6 @@ const TrackingFullscreenMapPage: React.FC = () => {
     setIsDragging(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.deltaY < 0) {
-      setZoom((z) => Math.min(18, z + 1));
-    } else if (e.deltaY > 0) {
-      setZoom((z) => Math.max(10, z - 1));
-    }
-  };
-
   return (
     <div className="absolute inset-0 bg-[#EAE8E3] overflow-hidden flex flex-col z-50">
       {/* Top Floating Header */}
@@ -97,12 +108,12 @@ const TrackingFullscreenMapPage: React.FC = () => {
 
       {/* Main Map Container */}
       <div 
+        ref={setMapContainerNode}
         className={`relative flex-1 w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
       >
         {/* 1. Map Tiles Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">

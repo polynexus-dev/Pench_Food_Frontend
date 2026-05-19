@@ -1,10 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useAuthStore } from "../../../store/useAuthStore";
 import { useLiveTracking } from "../context/TrackingContext";
 import {
   Radio,
-  Navigation,
   Activity,
   Wifi,
   WifiOff,
@@ -17,16 +15,10 @@ import {
   Plus,
   Minus,
   RefreshCcw,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   Maximize2,
 } from "lucide-react";
 
-const LiveTrackingPage: React.FC = () => {
-  const accessToken = useAuthStore((state) => state.accessToken);
-
+const TrackingDashboardTab: React.FC = () => {
   const {
     wsUrl,
     setWsUrl,
@@ -49,7 +41,6 @@ const LiveTrackingPage: React.FC = () => {
     connectWebSocket,
     disconnectWebSocket,
     toggleSimulation,
-    handlePan,
     VIEWPORT_W,
     VIEWPORT_H,
     getOsmSvgPixel,
@@ -58,6 +49,25 @@ const LiveTrackingPage: React.FC = () => {
 
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+  const [mapContainerNode, setMapContainerNode] = React.useState<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!mapContainerNode) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(18, z + 1));
+      } else if (e.deltaY > 0) {
+        setZoom((z) => Math.max(10, z - 1));
+      }
+    };
+
+    mapContainerNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      mapContainerNode.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, [mapContainerNode, setZoom]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -75,14 +85,17 @@ const LiveTrackingPage: React.FC = () => {
     const getTileCount = (z: number) => Math.pow(2, z);
     const currentTx = ((mapCenter.lng + 180) / 360) * getTileCount(zoom);
     const latRad = (mapCenter.lat * Math.PI) / 180;
-    const currentTy = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * getTileCount(zoom);
+    const currentTy =
+      ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
+      getTileCount(zoom);
 
-    const newTx = currentTx - (deltaX / 256);
-    const newTy = currentTy - (deltaY / 256);
+    const newTx = currentTx - deltaX / 256;
+    const newTy = currentTy - deltaY / 256;
 
     const newLng = (newTx / getTileCount(zoom)) * 360 - 180;
     const M = Math.PI * (1 - (2 * newTy) / getTileCount(zoom));
-    const newLat = (Math.atan(0.5 * (Math.exp(M) - Math.exp(-M))) * 180) / Math.PI;
+    const newLat =
+      (Math.atan(0.5 * (Math.exp(M) - Math.exp(-M))) * 180) / Math.PI;
 
     setMapCenter({ lat: newLat, lng: newLng });
   };
@@ -91,69 +104,10 @@ const LiveTrackingPage: React.FC = () => {
     setIsDragging(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    // Prevent default scroll if hovering over the map
-    if (e.deltaY < 0) {
-      setZoom((z) => Math.min(18, z + 1));
-    } else if (e.deltaY > 0) {
-      setZoom((z) => Math.max(10, z - 1));
-    }
-  };
-
   return (
-    <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      {/* Top Banner and Navigation Bar Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-accent/20 rounded-2xl text-accent border border-accent/30 shadow-inner">
-              <Radio className="w-8 h-8 animate-pulse text-accent" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-charcoal tracking-tight flex items-center gap-3">
-                Live Fleet Tracking
-                <span className="text-xs font-black px-3 py-1 bg-primary/10 text-primary rounded-full tracking-widest uppercase flex items-center gap-1.5 border border-primary/20">
-                  <span
-                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}
-                  ></span>
-                  {isConnected ? "Live Broadcast" : "Offline"}
-                </span>
-              </h1>
-              <p className="text-charcoal/50 font-medium mt-1">
-                Real-time WebSocket driver monitoring & breadcrumb GPS trails
-                feed.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Global Connection Statistics Controls */}
-        <div className="flex items-center gap-3">
-          <Link
-            to="/tracking/map"
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold transition-all shadow-sm border bg-primary text-white border-primary/90 hover:bg-primary/90 shadow-primary/20"
-          >
-            <Maximize2 className="w-4 h-4" />
-            Fullscreen Map
-          </Link>
-          <button
-            onClick={toggleSimulation}
-            className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold transition-all shadow-sm border ${
-              isSimulating
-                ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
-                : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
-            }`}
-          >
-            <Sparkles
-              className={`w-4 h-4 ${isSimulating ? "text-amber-600 animate-spin" : "text-accent"}`}
-            />
-            {isSimulating ? "Stop Simulation" : "Simulate Live Broadcast"}
-          </button>
-        </div>
-      </div>
-
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Control Station Connection Configuration Bar */}
-      <div className="bg-gradient-to-r from-primary/5 via-sage/5 to-accent/5 p-6 rounded-3xl border border-primary/10 mb-8 shadow-sm">
+      <div className="bg-gradient-to-r from-primary/5 via-sage/5 to-accent/5 p-6 rounded-3xl border border-primary/10 shadow-sm">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           <div className="flex-1">
             <label className="block text-xs font-black uppercase tracking-widest text-charcoal/60 mb-2 flex items-center gap-1.5">
@@ -165,7 +119,7 @@ const LiveTrackingPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleProtocolChange("wss")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     protocol === "wss"
                       ? "bg-primary text-white shadow-sm"
                       : "text-charcoal/40 hover:text-charcoal"
@@ -176,7 +130,7 @@ const LiveTrackingPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleProtocolChange("ws")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     protocol === "ws"
                       ? "bg-primary text-white shadow-sm"
                       : "text-charcoal/40 hover:text-charcoal"
@@ -199,11 +153,9 @@ const LiveTrackingPage: React.FC = () => {
                 instantly. Edit host string directly if connecting to custom
                 instances.
               </p>
-              {accessToken && (
-                <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 select-none">
-                  🔐 JWT Auth Token Attached
-                </span>
-              )}
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 select-none">
+                🔐 JWT Auth Token Attached
+              </span>
             </div>
           </div>
 
@@ -211,7 +163,7 @@ const LiveTrackingPage: React.FC = () => {
             {isConnected ? (
               <button
                 onClick={disconnectWebSocket}
-                className="flex items-center gap-2 px-6 py-3.5 bg-red-500 text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/10 text-xs tracking-wider uppercase"
+                className="flex items-center gap-2 px-6 py-3.5 bg-red-500 text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/10 text-xs tracking-wider uppercase cursor-pointer"
               >
                 <WifiOff className="w-4 h-4" />
                 Disconnect Stream
@@ -219,7 +171,7 @@ const LiveTrackingPage: React.FC = () => {
             ) : (
               <button
                 onClick={connectWebSocket}
-                className="flex items-center gap-2 px-6 py-3.5 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 text-xs tracking-wider uppercase animate-pulse"
+                className="flex items-center gap-2 px-6 py-3.5 bg-primary text-white font-black rounded-xl hover:bg-primary/90 transition-all shadow-md shadow-primary/20 text-xs tracking-wider uppercase animate-pulse cursor-pointer"
               >
                 <Wifi className="w-4 h-4" />
                 Establish Listener
@@ -230,7 +182,7 @@ const LiveTrackingPage: React.FC = () => {
       </div>
 
       {/* Master Content Dashboard Area Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Span 2: Premium Visual Grid Radar Dashboard */}
         <div className="lg:col-span-2 bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden flex flex-col h-[550px]">
           {/* Header Controls inside map view */}
@@ -243,7 +195,7 @@ const LiveTrackingPage: React.FC = () => {
               {isManualPan && (
                 <button
                   onClick={() => setIsManualPan(false)}
-                  className="ml-2 flex items-center gap-1 text-[10px] font-black bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors"
+                  className="ml-2 flex items-center gap-1 text-[10px] font-black bg-primary/10 text-primary hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                   title="Snap back to automatically tracking fleet locations"
                 >
                   <RefreshCcw className="w-2.5 h-2.5" /> Recenter Map
@@ -263,18 +215,22 @@ const LiveTrackingPage: React.FC = () => {
           </div>
 
           {/* Core Embedded OpenStreetMap Dynamic Mercator Tile Grid Plane */}
-          <div 
-            className={`flex-1 bg-[#EAE8E3] relative overflow-hidden group ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          <div
+            ref={setMapContainerNode}
+            className={`flex-1 bg-[#EAE8E3] relative overflow-hidden group ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
           >
             {/* 1. Map Tiles Background Container */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-              <div 
-                style={{ width: VIEWPORT_W, height: VIEWPORT_H, position: 'relative' }} 
+              <div
+                style={{
+                  width: VIEWPORT_W,
+                  height: VIEWPORT_H,
+                  position: "relative",
+                }}
                 className="shrink-0"
               >
                 {osmTiles.map((tile) => (
@@ -288,7 +244,6 @@ const LiveTrackingPage: React.FC = () => {
                       top: `${tile.top}px`,
                     }}
                     onError={(e) => {
-                      // Fail gracefully if high zooms lack tile caches locally
                       e.currentTarget.style.opacity = "0.2";
                     }}
                   />
@@ -317,7 +272,6 @@ const LiveTrackingPage: React.FC = () => {
                       return `${pt.x},${pt.y}`;
                     });
 
-                  // append real time state coordinate
                   const currentPt = getOsmSvgPixel(drv.lat, drv.lng);
                   pathPoints.push(`${currentPt.x},${currentPt.y}`);
 
@@ -325,7 +279,6 @@ const LiveTrackingPage: React.FC = () => {
 
                   return (
                     <g key={`trail-${drv.driver_id}`}>
-                      {/* Shadow outline */}
                       <polyline
                         points={pointsStr}
                         fill="none"
@@ -335,7 +288,6 @@ const LiveTrackingPage: React.FC = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
-                      {/* Glowing trail core overlay */}
                       <polyline
                         points={pointsStr}
                         fill="none"
@@ -363,17 +315,18 @@ const LiveTrackingPage: React.FC = () => {
                         setIsManualPan(false);
                       }}
                     >
-                      {/* Pulse ring */}
                       <circle
                         cx={pt.x}
                         cy={pt.y}
                         r={isSelected ? "28" : "18"}
                         fill={isSelected ? "#F59E0B" : "#059669"}
                         className="opacity-25 animate-ping"
-                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                        style={{
+                          transformOrigin: "center",
+                          transformBox: "fill-box",
+                        }}
                       />
 
-                      {/* Outer marker pin circle */}
                       <circle
                         cx={pt.x}
                         cy={pt.y}
@@ -384,7 +337,6 @@ const LiveTrackingPage: React.FC = () => {
                         className="drop-shadow-md"
                       />
 
-                      {/* Dot anchor */}
                       <circle
                         cx={pt.x}
                         cy={pt.y}
@@ -392,7 +344,6 @@ const LiveTrackingPage: React.FC = () => {
                         fill="#ffffff"
                       />
 
-                      {/* Beautiful text label tooltip */}
                       <foreignObject
                         x={pt.x + 14}
                         y={pt.y - 12}
@@ -416,19 +367,17 @@ const LiveTrackingPage: React.FC = () => {
             {/* Empty view screen fallback overlay */}
             {driversList.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/70 backdrop-blur-xs">
-                <Navigation className="w-12 h-12 text-primary animate-bounce mb-3 opacity-60" />
+                <MapPin className="w-12 h-12 text-primary animate-bounce mb-3 opacity-60" />
                 <p className="text-sm font-black text-charcoal">
                   Awaiting Active GPS Broadcast Stream
                 </p>
                 <p className="text-xs text-charcoal/50 max-w-sm mt-1 font-medium">
                   OpenStreetMap tiles are initialized correctly. Connect client
-                  listener above or toggle simulation engine to view full
-                  tracking overlays directly.
+                  listener above or toggle simulation engine to view live
+                  tracking overlays.
                 </p>
               </div>
             )}
-
-
 
             {/* Interactive selection bottom-left details overlay card */}
             <div className="absolute bottom-3 left-3 pointer-events-none z-10">
@@ -448,7 +397,7 @@ const LiveTrackingPage: React.FC = () => {
                         setSelectedDriverId(null);
                         setIsManualPan(false);
                       }}
-                      className="text-charcoal/30 hover:text-charcoal font-bold text-xs px-1"
+                      className="text-charcoal/30 hover:text-charcoal font-bold text-xs px-1 cursor-pointer"
                     >
                       &times;
                     </button>
@@ -475,7 +424,6 @@ const LiveTrackingPage: React.FC = () => {
               )}
             </div>
 
-            {/* Official OpenStreetMap Attribution Banner Footer */}
             <div className="absolute bottom-1 right-1 bg-white/80 backdrop-blur-xs px-2 py-0.5 rounded text-[9px] text-charcoal/70 pointer-events-auto border border-white/40 shadow-xs select-none">
               ©{" "}
               <a
@@ -531,7 +479,6 @@ const LiveTrackingPage: React.FC = () => {
                         : "bg-white border-silver/60 hover:border-primary/30 hover:bg-silver/5"
                     }`}
                   >
-                    {/* Active highlight side tag */}
                     {isSelected && (
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent"></div>
                     )}
@@ -590,7 +537,6 @@ const LiveTrackingPage: React.FC = () => {
 
       {/* Full width bottom Console Event Logs Telemetry Logger */}
       <div className="bg-[#1C1C1E] rounded-3xl border border-charcoal shadow-xl overflow-hidden flex flex-col h-72 font-mono">
-        {/* Terminal Header Tabs */}
         <div className="px-6 py-3.5 bg-[#2C2C2E] border-b border-charcoal/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Terminal className="w-4 h-4 text-accent" />
@@ -604,13 +550,12 @@ const LiveTrackingPage: React.FC = () => {
 
           <button
             onClick={() => setLogs([])}
-            className="flex items-center gap-1.5 text-[10px] font-sans font-bold text-white/40 hover:text-white transition-colors bg-white/5 px-2.5 py-1 rounded-lg"
+            className="flex items-center gap-1.5 text-[10px] font-sans font-bold text-white/40 hover:text-white transition-colors bg-white/5 px-2.5 py-1 rounded-lg cursor-pointer"
           >
             <Trash2 className="w-3 h-3" /> Clear Console Buffer
           </button>
         </div>
 
-        {/* Logs Output Lines container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2 text-xs custom-scrollbar">
           {logs.length === 0 ? (
             <div className="h-full flex items-center justify-center text-white/20 italic font-sans text-xs">
@@ -619,7 +564,6 @@ const LiveTrackingPage: React.FC = () => {
             </div>
           ) : (
             logs.map((log) => {
-              // Set appropriate syntax highlighting classes based on event nature
               let colorClass = "text-white/80";
               let badgeBg = "bg-white/10 text-white/60";
 
@@ -673,4 +617,4 @@ const LiveTrackingPage: React.FC = () => {
   );
 };
 
-export default LiveTrackingPage;
+export default TrackingDashboardTab;
