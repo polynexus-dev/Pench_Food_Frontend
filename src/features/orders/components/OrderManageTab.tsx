@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Search, 
   Filter, 
@@ -16,7 +16,7 @@ import {
   PackageOpen, 
   DollarSign
 } from "lucide-react";
-import type { Order } from "./types";
+import type { Order, OrderItem } from "./types";
 
 interface OrderManageTabProps {
   orders: Order[];
@@ -35,6 +35,13 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
 }) => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+  // Filter States
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [selectedProduct, setSelectedProduct] = useState<string>("all");
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderId(prev => (prev === id ? null : id));
@@ -67,6 +74,51 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
     }
   };
 
+  // Compute unique products list
+  const availableProducts = useMemo(() => {
+    const products = new Set<string>();
+    orders.forEach((order: Order) => {
+      order.items.forEach((item: OrderItem) => {
+        if (item.product_name) {
+          products.add(item.product_name);
+        }
+      });
+    });
+    return Array.from(products);
+  }, [orders]);
+
+  // Compute stats for essential filters
+  const statusCounts = useMemo(() => {
+    return {
+      all: orders.length,
+      pending: orders.filter((o: Order) => o.status === "pending").length,
+      confirmed: orders.filter((o: Order) => o.status === "confirmed").length,
+      in_transit: orders.filter((o: Order) => o.status === "in_transit").length,
+      delivered: orders.filter((o: Order) => o.status === "delivered").length,
+      cancelled: orders.filter((o: Order) => o.status === "cancelled").length,
+    };
+  }, [orders]);
+
+  // Apply all filters
+  const finalFilteredOrders = useMemo(() => {
+    return orders.filter((order: Order) => {
+      if (selectedStatus !== "all" && order.status !== selectedStatus) {
+        return false;
+      }
+      if (minPrice && parseFloat(order.total) < parseFloat(minPrice)) {
+        return false;
+      }
+      if (maxPrice && parseFloat(order.total) > parseFloat(maxPrice)) {
+        return false;
+      }
+      if (selectedProduct !== "all") {
+        const hasProduct = order.items.some((item: OrderItem) => item.product_name === selectedProduct);
+        if (!hasProduct) return false;
+      }
+      return true;
+    });
+  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Search & Filters */}
@@ -82,11 +134,104 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
           />
         </div>
         <div className="flex items-center gap-2">
-           <button className="flex items-center gap-2 px-4 py-3 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 transition-all cursor-pointer">
-              <Filter className="w-3.5 h-3.5 text-primary" />
+           <button 
+             onClick={() => setIsAdvancedOpen(prev => !prev)}
+             className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+               isAdvancedOpen 
+                 ? "bg-primary border-primary text-white shadow-lg shadow-primary/20" 
+                 : "bg-white border-silver/60 text-charcoal hover:bg-silver/10"
+             }`}
+           >
+              <Filter className="w-3.5 h-3.5" />
               Advanced Filters
            </button>
         </div>
+      </div>
+
+      {/* Advanced Filters Panel */}
+      {isAdvancedOpen && (
+        <div className="bg-white p-6 rounded-[24px] border border-silver/50 shadow-sm animate-in slide-in-from-top-4 duration-300 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Min Total (₹)</label>
+            <input
+              type="number"
+              placeholder="Min value..."
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
+              className="w-full px-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Max Total (₹)</label>
+            <input
+              type="number"
+              placeholder="Max value..."
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              className="w-full px-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Product Included</label>
+            <div className="relative">
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="w-full pl-4 pr-10 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none appearance-none cursor-pointer"
+              >
+                <option value="all">All Products</option>
+                {availableProducts.map((prod: string) => (
+                  <option key={prod} value={prod}>{prod}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="md:col-span-3 flex justify-end gap-2 border-t border-silver/30 pt-4">
+            <button
+              onClick={() => {
+                setMinPrice("");
+                setMaxPrice("");
+                setSelectedProduct("all");
+              }}
+              className="px-4 py-2 border border-silver/60 text-charcoal hover:bg-silver/10 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Clear Advanced
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Essential Filters: Status Pills */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {[
+          { id: "all", label: "All Orders", count: statusCounts.all, color: "bg-charcoal/5 border-charcoal/10 text-charcoal" },
+          { id: "pending", label: "Pending", count: statusCounts.pending, color: "bg-amber-500/10 border-amber-500/20 text-amber-600" },
+          { id: "confirmed", label: "Confirmed", count: statusCounts.confirmed, color: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" },
+          { id: "in_transit", label: "In Transit", count: statusCounts.in_transit, color: "bg-blue-500/10 border-blue-500/20 text-blue-600" },
+          { id: "delivered", label: "Delivered", count: statusCounts.delivered, color: "bg-sage/10 border-primary/10 text-primary" },
+          { id: "cancelled", label: "Cancelled", count: statusCounts.cancelled, color: "bg-red-500/10 border-red-500/20 text-red-600" }
+        ].map(pill => (
+          <button
+            key={pill.id}
+            onClick={() => setSelectedStatus(pill.id)}
+            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-2 ${
+              selectedStatus === pill.id
+                ? "bg-primary border-primary text-white shadow-md shadow-primary/10"
+                : `${pill.color} hover:bg-opacity-80`
+            }`}
+          >
+            {pill.label}
+            <span className={`px-1.5 py-0.5 rounded-lg text-[10px] font-black ${
+              selectedStatus === pill.id ? "bg-white/20 text-white" : "bg-black/5 text-current"
+            }`}>
+              {pill.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Orders Table */}
@@ -111,7 +256,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                     <td colSpan={7} className="px-6 py-4 h-16 bg-silver/5"></td>
                   </tr>
                 ))
-              ) : orders.map((order) => {
+              ) : finalFilteredOrders.map((order: Order) => {
                 const isExpanded = expandedOrderId === order.id;
                 const isUpdating = updatingOrderId === order.id;
                 
@@ -201,7 +346,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-silver/20 text-xs font-bold text-charcoal/70">
-                                    {order.items.map((it) => (
+                                    {order.items.map((it: OrderItem) => (
                                       <tr key={it.id}>
                                         <td className="py-2.5 text-charcoal font-black">{it.product_name}</td>
                                         <td className="py-2.5 text-center text-primary font-black">x{it.quantity}</td>
@@ -284,7 +429,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                   </React.Fragment>
                 );
               })}
-              {!isLoading && orders.length === 0 && (
+              {!isLoading && finalFilteredOrders.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <p className="text-sm font-bold text-charcoal/30 italic">No orders matching your criteria</p>

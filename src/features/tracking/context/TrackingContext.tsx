@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuthStore } from "../../../store/useAuthStore";
-import { getCityWsUrl, DEFAULT_WS_PROTOCOL } from "../../../utils/constants";
+import { getCityWsUrl, DEFAULT_WS_PROTOCOL, cleanHost } from "../../../utils/constants";
 
 export interface DriverLocationState {
   driver_id: string;
@@ -50,6 +50,8 @@ export interface TrackingContextType {
   centerTyFloat: number;
   getOsmSvgPixel: (targetLat: number, targetLng: number) => { x: number; y: number };
   osmTiles: { key: string; left: number; top: number; url: string }[];
+  driverUserId: string;
+  setDriverUserId: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const TrackingContext = createContext<TrackingContextType | null>(null);
@@ -58,10 +60,6 @@ export const TrackingProvider: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant) || "nagpur";
   const accessToken = useAuthStore((state) => state.accessToken);
 
-  // Formulate default ws host
-  const defaultWssUrl = getCityWsUrl(tenant, "wss");
-  const defaultWsUrl = getCityWsUrl(tenant, "ws");
-
   const [wsUrl, setWsUrl] = useState<string>(getCityWsUrl(tenant, DEFAULT_WS_PROTOCOL));
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Record<string, DriverLocationState>>({});
@@ -69,6 +67,7 @@ export const TrackingProvider: React.FC = () => {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [protocol, setProtocol] = useState<"wss" | "ws">(DEFAULT_WS_PROTOCOL);
+  const [driverUserId, setDriverUserId] = useState<string>("");
 
   // OpenStreetMap active projection states
   const [zoom, setZoom] = useState<number>(14);
@@ -78,14 +77,20 @@ export const TrackingProvider: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const simulationIntervalRef = useRef<any>(null);
 
+  // Auto update wsUrl based on driverUserId, protocol, tenant, and accessToken
+  useEffect(() => {
+    const host = `${protocol}://${tenant}.${cleanHost}`;
+    if (driverUserId) {
+      const trackingUrl = `${host}/ws/tracking/driver/${driverUserId}/${accessToken ? `?token=${accessToken}` : ""}`;
+      setWsUrl(trackingUrl);
+    } else {
+      setWsUrl(getCityWsUrl(tenant, protocol));
+    }
+  }, [driverUserId, protocol, tenant, accessToken]);
+
   // Sync protocol buttons with URL string easily
   const handleProtocolChange = (newProtocol: "wss" | "ws") => {
     setProtocol(newProtocol);
-    if (newProtocol === "wss") {
-      setWsUrl(defaultWssUrl);
-    } else {
-      setWsUrl(defaultWsUrl);
-    }
   };
 
   const addLog = (type: LogMessage["type"], message: string, payload?: any) => {
@@ -108,7 +113,7 @@ export const TrackingProvider: React.FC = () => {
     try {
       // Append JWT Access Token automatically to handshake query string for admin authentication
       let finalEndpointUrl = wsUrl;
-      if (accessToken) {
+      if (accessToken && !finalEndpointUrl.includes("token=")) {
         const char = finalEndpointUrl.includes("?") ? "&" : "?";
         finalEndpointUrl = `${finalEndpointUrl}${char}token=${accessToken}`;
       }
@@ -423,7 +428,9 @@ export const TrackingProvider: React.FC = () => {
     VIEWPORT_W, VIEWPORT_H,
     centerTxFloat, centerTyFloat,
     getOsmSvgPixel,
-    osmTiles
+    osmTiles,
+    driverUserId,
+    setDriverUserId
   };
 
   return (

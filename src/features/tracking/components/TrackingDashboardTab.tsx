@@ -16,7 +16,10 @@ import {
   Minus,
   RefreshCcw,
   Maximize2,
+  ChevronDown
 } from "lucide-react";
+import { driverApi } from "../../drivers/api/driverApi";
+import type { Driver } from "../../drivers/components/types";
 
 const TrackingDashboardTab: React.FC = () => {
   const {
@@ -45,11 +48,27 @@ const TrackingDashboardTab: React.FC = () => {
     VIEWPORT_H,
     getOsmSvgPixel,
     osmTiles,
+    driverUserId,
+    setDriverUserId,
   } = useLiveTracking();
 
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
   const [mapContainerNode, setMapContainerNode] = React.useState<HTMLDivElement | null>(null);
+  const [dbDrivers, setDbDrivers] = React.useState<Driver[]>([]);
+
+  React.useEffect(() => {
+    const fetchDbDrivers = async () => {
+      try {
+        const list = await driverApi.getDrivers();
+        setDbDrivers(list);
+        console.log(list)
+      } catch (err) {
+        console.error("Failed to load drivers for tracking select:", err);
+      }
+    };
+    fetchDbDrivers();
+  }, []);
 
   React.useEffect(() => {
     if (!mapContainerNode) return;
@@ -146,6 +165,21 @@ const TrackingDashboardTab: React.FC = () => {
                 placeholder="wss://nagpur.pench.api.polynexus.in/ws/tracking/"
                 className="flex-1 px-4 py-2.5 bg-white border border-silver/80 rounded-xl text-xs font-mono font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none transition-all"
               />
+              <div className="relative shrink-0 md:w-60">
+                <select
+                  value={driverUserId}
+                  onChange={(e) => setDriverUserId(e.target.value)}
+                  className="w-full pl-4 pr-10 py-2.5 bg-white border border-silver/80 rounded-xl text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">-- General Tracking --</option>
+                  {dbDrivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.full_name} (ID: #{d.id})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
+              </div>
             </div>
             <div className="flex items-center justify-between mt-1.5">
               <p className="text-[11px] text-charcoal/40 italic">
