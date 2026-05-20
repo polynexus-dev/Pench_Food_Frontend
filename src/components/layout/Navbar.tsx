@@ -1,42 +1,49 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
-import axiosInstance from "../../api/axiosInstance";
+import { companyApi } from "../../api/companyApi";
+import type { City } from "../../api/companyApi";
 import { Bell, Search, LogOut, MapPin, ChevronDown } from "lucide-react";
 
-interface City {
-  id: number;
-  schema_name: string;
-  name: string;
-  is_active: boolean;
-}
-
 const Navbar = () => {
-  const { logout, user, tenant, setTenant } = useAuthStore();
+  const { logout, user, tenant, setTenant, companyId } = useAuthStore();
   const [cities, setCities] = useState<City[]>([]);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
 
   useEffect(() => {
-    const fetchCities = async () => {
+    const fetchCompanyCities = async () => {
       setIsLoadingCities(true);
       try {
-        const response = await axiosInstance.get("/erp/tenants/cities/");
-        const filteredCities = response.data.filter(
-          (c: City) => c.schema_name !== "public" && c.is_active,
-        );
-        setCities(filteredCities);
+        const companies = await companyApi.getCompanies();
+        
+        // Find the active company (either the stored one or the first active one)
+        let activeCompany = companies.find((c) => c.id === companyId && c.is_active);
+        if (!activeCompany && companies.length > 0) {
+          activeCompany = companies.find((c) => c.is_active);
+        }
 
-        if (!tenant && filteredCities.length > 0) {
-          setTenant(filteredCities[0].schema_name);
+        if (activeCompany) {
+          const activeCities = activeCompany.cities
+            ? activeCompany.cities.filter((c: City) => c.is_active)
+            : [];
+          setCities(activeCities);
+
+          // Ensure tenant matches one of this company's cities
+          const citySchemas = activeCities.map((c: City) => c.schema_name);
+          if (activeCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
+            setTenant(activeCities[0].schema_name);
+          }
+        } else {
+          setCities([]);
         }
       } catch (error) {
-        console.error("Failed to fetch cities:", error);
+        console.error("Failed to fetch company cities:", error);
       } finally {
         setIsLoadingCities(false);
       }
     };
 
-    fetchCities();
-  }, [tenant, setTenant]);
+    fetchCompanyCities();
+  }, [companyId, tenant, setTenant]);
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-10 shrink-0 sticky top-0 z-20 shadow-sm">

@@ -22,9 +22,11 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   tenant: string | null; // e.g., 'nagpur', 'pune'
+  companyId: string | null;
   isAuthenticated: boolean;
   setAuth: (user: User, access: string, refresh: string) => void;
   setTenant: (tenant: string) => void;
+  setCompanyId: (companyId: string | null) => void;
   logout: () => void;
 }
 
@@ -35,11 +37,13 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       tenant: null,
+      companyId: null,
       isAuthenticated: false,
       setAuth: (user, access, refresh) => 
         set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true }),
       setTenant: (tenant) => set({ tenant }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      setCompanyId: (companyId) => set({ companyId }),
+      logout: () => set({ user: null, accessToken: null, refreshToken: null, tenant: null, companyId: null, isAuthenticated: false }),
     }),
     {
       name: 'auth-storage', // name of the item in the storage (must be unique)

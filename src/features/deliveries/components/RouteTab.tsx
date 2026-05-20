@@ -291,23 +291,28 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
               {/* Draw All Stops */}
               {selectedRoute?.stops.map((stop) => {
                 const pt = getOsmSvgPixel(stop.latitude, stop.longitude);
+                const isDelivered = stop.order_status === "delivered";
+                const markerColor = isDelivered ? "#10B981" : "#F59E0B";
+                
                 return (
                   <g key={stop.id} className="transition-all duration-300">
                     {/* Pulsing ring for current sequence */}
-                    <circle cx={pt.x} cy={pt.y} r="12" fill="#F59E0B" className="opacity-20 animate-pulse" />
+                    <circle cx={pt.x} cy={pt.y} r="12" fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
                     
                     {/* Stop Pin */}
-                    <circle cx={pt.x} cy={pt.y} r="8" fill="white" stroke="#F59E0B" strokeWidth="2" className="shadow-sm" />
+                    <circle cx={pt.x} cy={pt.y} r="8" fill="white" stroke={markerColor} strokeWidth="2" className="shadow-sm" />
                     
                     {/* Sequence Number */}
-                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize="8" fontWeight="900" fill="#F59E0B">
+                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize="8" fontWeight="900" fill={markerColor}>
                       {stop.sequence_number}
                     </text>
-
+ 
                     {/* Tooltip */}
-                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="120" height="24">
-                       <div className="bg-charcoal text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border border-white/10 w-fit whitespace-nowrap">
-                          {stop.customer_name}
+                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24">
+                       <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
+                         isDelivered ? "bg-emerald-600 border-emerald-500" : "bg-charcoal border-white/10"
+                       }`}>
+                          {stop.customer_name} {isDelivered && "✓"}
                        </div>
                     </foreignObject>
                   </g>

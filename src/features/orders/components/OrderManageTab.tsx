@@ -236,39 +236,46 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                 </div>
                               </div>
 
-                              <div className="space-y-2 mt-4 lg:mt-0">
-                                <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest mb-2">Update status to:</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <button
-                                    onClick={() => handleStatusChange(order.id, "confirmed")}
-                                    disabled={isUpdating}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
-                                  >
-                                    <Check className="w-3 h-3" /> Confirmed
-                                  </button>
-                                  <button
-                                    onClick={() => handleStatusChange(order.id, "in_transit")}
-                                    disabled={isUpdating}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
-                                  >
-                                    <Truck className="w-3 h-3" /> In Transit
-                                  </button>
-                                  <button
-                                    onClick={() => handleStatusChange(order.id, "delivered")}
-                                    disabled={isUpdating}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-green-50 border border-primary/20 hover:bg-green-100 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
-                                  >
-                                    <Check className="w-3 h-3" /> Delivered
-                                  </button>
-                                  <button
-                                    onClick={() => handleStatusChange(order.id, "cancelled")}
-                                    disabled={isUpdating}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
-                                  >
-                                    <X className="w-3 h-3" /> Cancelled
-                                  </button>
+                              {order.status !== "delivered" ? (
+                                <div className="space-y-2 mt-4 lg:mt-0">
+                                  <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest mb-2">Update status to:</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      onClick={() => handleStatusChange(order.id, "confirmed")}
+                                      disabled={isUpdating}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <Check className="w-3 h-3" /> Confirmed
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusChange(order.id, "in_transit")}
+                                      disabled={isUpdating}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <Truck className="w-3 h-3" /> In Transit
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusChange(order.id, "delivered")}
+                                      disabled={isUpdating}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-green-50 border border-primary/20 hover:bg-green-100 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <Check className="w-3 h-3" /> Delivered
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusChange(order.id, "cancelled")}
+                                      disabled={isUpdating}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <X className="w-3 h-3" /> Cancelled
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
+                              ) : (
+                                <div className="p-3.5 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-2 text-[10px] font-bold text-primary mt-4 lg:mt-0">
+                                  <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                  <span>Order has been completed and delivered.</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

@@ -1,7 +1,8 @@
 import OverviewPage from "./features/dashboard/pages/OverviewPage";
 import TenantPage from "./features/tenant/pages/TenantPage";
 import CustomerPage from "./features/customers/pages/CustomerPage";
-import DriverPage from "./features/deliveries/pages/DriverPage";
+import LogisticsPage from "./features/deliveries/pages/LogisticsPage";
+import DriverPage from "./features/drivers/pages/DriverPage";
 import TrackingPage from "./features/tracking/pages/TrackingPage";
 import { TrackingProvider } from "./features/tracking/context/TrackingContext";
 import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
@@ -35,7 +36,7 @@ function App() {
             <Route element={<DashboardLayout />}>
               <Route path="/" element={<OverviewPage />} />
               <Route path="/tenants" element={<TenantPage />} />
-              <Route path="/deliveries" element={<DriverPage />} />
+              <Route path="/logistics" element={<LogisticsPage />} />
               <Route element={<TrackingProvider />}>
                 <Route path="/tracking" element={<TrackingPage />} />
                 <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
@@ -43,6 +44,7 @@ function App() {
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/orders" element={<OrderPage />} />
               <Route path="/customers" element={<CustomerPage />} />
+              <Route path="/drivers" element={<DriverPage />} />
               <Route
                 path="/reports"
                 element={

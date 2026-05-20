@@ -27,6 +27,7 @@ export interface Stop {
   address: string;
   latitude: number;
   longitude: number;
+  order_status?: string;
 }
 
 export interface Route {

@@ -19,6 +19,15 @@ const getApiUrlConfig = () => {
     protocol = isLocal ? "http://" : "https://";
   }
 
+  // Extract hostname to check if it's a raw IP address (e.g. 192.168.1.196)
+  const hostPart = cleanUrl.split('/')[0].split(':')[0];
+  const isRawIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostPart);
+
+  if (isRawIp) {
+    const portAndPath = cleanUrl.substring(hostPart.length);
+    cleanUrl = `${hostPart}.nip.io${portAndPath}`;
+  }
+
   return { protocol, cleanUrl };
 };
 

@@ -13,15 +13,16 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const { accessToken, tenant } = useAuthStore.getState();
-
-    // For login and city fetching, always use the root domain.
+    // For login, city, and company fetching, always use the root domain.
     const isPublic =
       config.url?.includes("/accounts/login/") ||
-      config.url?.includes("/erp/tenants/cities/");
+      config.url?.includes("/erp/tenants/cities/") ||
+      config.url?.includes("/erp/tenants/companies");
 
     if (isPublic) {
       config.baseURL = BASE_URL;
     } else if (tenant) {
+
       config.baseURL = getCityUrl(tenant);
     } else {
       config.baseURL = BASE_URL;

@@ -1,27 +1,20 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Truck, RefreshCw, PieChart, Users, Navigation } from "lucide-react";
+import { Truck, RefreshCw, PieChart, Navigation } from "lucide-react";
 import { deliveryApi } from "../api/deliveryApi";
 import type { Driver, Route as RouteType } from "../components/types";
 import LogisticsDashboardTab from "../components/LogisticsDashboardTab";
-import DriverInfoTab from "../components/DriverInfoTab";
 import RouteTab from "../components/RouteTab";
-import CreateDriverModal from "../components/CreateDriverModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 
-const DriverPage: React.FC = () => {
+const LogisticsPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
-  const [activeTab, setActiveTab] = useState<
-    "dashboard" | "drivers" | "routes"
-  >("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "routes">("dashboard");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [routes, setRoutes] = useState<RouteType[]>([]);
 
-  const fetchDrivers = async (silent = false) => {
+  const fetchLogisticsData = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
       const [driverData, routeData] = await Promise.all([
@@ -38,16 +31,8 @@ const DriverPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDrivers();
+    fetchLogisticsData();
   }, [tenant]);
-
-  const filteredDrivers = useMemo(() => {
-    return drivers.filter(
-      (driver) =>
-        driver.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        driver.vehicle_plate.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [drivers, searchQuery]);
 
   const stats = useMemo(() => {
     const totalDrivers = drivers.length;
@@ -92,7 +77,7 @@ const DriverPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
           <button
-            onClick={() => fetchDrivers(false)}
+            onClick={() => fetchLogisticsData(false)}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
           >
@@ -124,23 +109,6 @@ const DriverPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab("drivers")}
-          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
-            activeTab === "drivers"
-              ? "text-primary font-black"
-              : "text-charcoal/50 hover:text-charcoal"
-          }`}
-        >
-          <Users
-            className={`w-4 h-4 ${activeTab === "drivers" ? "text-primary" : "text-charcoal/40"}`}
-          />
-          Driver Information
-          {activeTab === "drivers" && (
-            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
-          )}
-        </button>
-
-        <button
           onClick={() => setActiveTab("routes")}
           className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
             activeTab === "routes"
@@ -160,28 +128,11 @@ const DriverPage: React.FC = () => {
 
       {/* 3. Tab Content */}
       {activeTab === "dashboard" && <LogisticsDashboardTab stats={stats} />}
-      {activeTab === "drivers" && (
-        <DriverInfoTab
-          drivers={filteredDrivers}
-          isLoading={isLoading}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onRegisterClick={() => setIsModalOpen(true)}
-        />
-      )}
       {activeTab === "routes" && (
         <RouteTab routes={routes} isLoading={isLoading} />
       )}
-
-      <CreateDriverModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchDrivers}
-      />
     </div>
   );
 };
 
-export default DriverPage;
+export default LogisticsPage;
