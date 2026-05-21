@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Truck, RefreshCw, PieChart, Navigation } from "lucide-react";
+import { Truck, RefreshCw, PieChart, Navigation, Sparkles } from "lucide-react";
 import { deliveryApi } from "../api/deliveryApi";
 import type { Driver, Route as RouteType } from "../components/types";
 import LogisticsDashboardTab from "../components/LogisticsDashboardTab";
 import RouteTab from "../components/RouteTab";
+import AssignPendingModal from "../components/AssignPendingModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 
 const LogisticsPage: React.FC = () => {
@@ -11,6 +12,7 @@ const LogisticsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"dashboard" | "routes">("dashboard");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAssignPendingOpen, setIsAssignPendingOpen] = useState<boolean>(false);
 
   const [routes, setRoutes] = useState<RouteType[]>([]);
 
@@ -77,6 +79,14 @@ const LogisticsPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
           <button
+            onClick={() => setIsAssignPendingOpen(true)}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/95 active:scale-95 transition-all shadow-md shadow-primary/10 disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Bulk Assign Orders
+          </button>
+          <button
             onClick={() => fetchLogisticsData(false)}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
@@ -131,6 +141,12 @@ const LogisticsPage: React.FC = () => {
       {activeTab === "routes" && (
         <RouteTab routes={routes} isLoading={isLoading} />
       )}
+
+      <AssignPendingModal
+        isOpen={isAssignPendingOpen}
+        onClose={() => setIsAssignPendingOpen(false)}
+        onSuccess={() => fetchLogisticsData(false)}
+      />
     </div>
   );
 };

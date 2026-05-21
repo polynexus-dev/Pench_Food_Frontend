@@ -35,5 +35,18 @@ export const deliveryApi = {
   getRoutes: async (): Promise<Route[]> => {
     const response = await axiosInstance.get<Route[]>("/erp/orders/routes");
     return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Bulk-assign pending orders to drivers by zone
+   */
+  assignPendingOrders: async (date?: string): Promise<{
+    date: string;
+    total_zones_processed: number;
+    created_routes: Route[];
+    errors: { zone_id: string; zone_name: string; error: string }[];
+  }> => {
+    const response = await axiosInstance.post("/erp/orders/routes/assign-pending/", { date });
+    return response.data;
   }
 };
