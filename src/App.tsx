@@ -8,6 +8,7 @@ import { TrackingProvider } from "./features/tracking/context/TrackingContext";
 import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
 import InventoryPage from "./features/inventory/pages/InventoryPage";
 import OrderPage from "./features/orders/pages/OrderPage";
+import FinancePage from "./features/finance/pages/FinancePage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import "./styles/App.css";
@@ -43,6 +44,7 @@ function App() {
               </Route>
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/orders" element={<OrderPage />} />
+              <Route path="/finance" element={<FinancePage />} />
               <Route path="/customers" element={<CustomerPage />} />
               <Route path="/drivers" element={<DriverPage />} />
               <Route

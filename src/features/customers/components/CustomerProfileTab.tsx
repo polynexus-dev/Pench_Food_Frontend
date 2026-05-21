@@ -22,9 +22,12 @@ import {
   Plus,
   Trash2,
   Package,
+  Download,
+  RefreshCw,
 } from "lucide-react";
 import type { Customer, Order, Subscription, CustomerProductPrice, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "./types";
 import { customerApi } from "../api/customerApi";
+import { financeApi } from "../../finance/api/financeApi";
 import axiosInstance from "../../../api/axiosInstance";
 
 
@@ -96,6 +99,19 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [selectedBill, setSelectedBill] = useState<MonthlyBill | null>(null);
   const [isBillsLoading, setIsBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState<string | null>(null);
+  const [downloadingBillId, setDownloadingBillId] = useState<string | null>(null);
+
+  const handleDownloadInvoicePdf = async (billId: string, invoiceNumber: string) => {
+    setDownloadingBillId(billId);
+    try {
+      await financeApi.downloadInvoicePdf(billId, invoiceNumber);
+    } catch (error) {
+      console.error("Failed to download invoice PDF:", error);
+      alert("Failed to download invoice PDF. Please try again.");
+    } finally {
+      setDownloadingBillId(null);
+    }
+  };
 
   // Returnable Containers tracking States
   const [bottleBalances, setBottleBalances] = useState<CustomerBottleBalance[]>([]);
@@ -1389,13 +1405,28 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 })()}
                               </h4>
                             </div>
-                            <div className="text-right shrink-0">
-                              <span className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest block">
-                                Total Bill Value
-                              </span>
-                              <span className="text-xl font-black text-charcoal">
-                                ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
-                              </span>
+                            <div className="flex items-center gap-4 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadInvoicePdf(selectedBill.id, selectedBill.invoice_number)}
+                                disabled={downloadingBillId === selectedBill.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-silver/60 rounded-xl text-[10px] font-black text-charcoal hover:bg-silver/10 hover:border-primary/40 active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                              >
+                                {downloadingBillId === selectedBill.id ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                                ) : (
+                                  <Download className="w-3.5 h-3.5 text-primary" />
+                                )}
+                                {downloadingBillId === selectedBill.id ? "Downloading..." : "Download PDF"}
+                              </button>
+                              <div className="text-right">
+                                <span className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                  Total Bill Value
+                                </span>
+                                <span className="text-xl font-black text-charcoal">
+                                  ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
+                                </span>
+                              </div>
                             </div>
                           </div>
 

@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Check,
   User,
+  CreditCard,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { companyApi } from "../../api/companyApi";
@@ -173,6 +174,7 @@ const Sidebar = () => {
         />
         <SidebarItem icon={Package} label="Inventory" to="/inventory" />
         <SidebarItem icon={ShoppingCart} label="Orders" to="/orders" />
+        <SidebarItem icon={CreditCard} label="Finance & Billing" to="/finance" />
         <SidebarItem icon={Users} label="Customers" to="/customers" />
         <SidebarItem icon={User} label="Drivers" to="/drivers" />
         <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
