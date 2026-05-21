@@ -1,26 +1,40 @@
 import React, { useState, useEffect, useMemo } from "react";
-import axiosInstance from "../../../api/axiosInstance";
+import { inventoryApi } from "../api/inventoryApi";
 import { useAuthStore } from "../../../store/useAuthStore";
-import type { Product, BottleTrackingSummaryResponse } from "../components/types";
+import type {
+  Product,
+  BottleTrackingSummaryResponse,
+} from "../components/types";
 import InventoryDashboardTab from "../components/InventoryDashboardTab";
 import InventoryManageTab from "../components/InventoryManageTab";
 import InventoryBottleTrackingTab from "../components/InventoryBottleTrackingTab";
-import { Package, RefreshCw, PieChart, Sliders, Check, Boxes } from "lucide-react";
+import {
+  Package,
+  RefreshCw,
+  PieChart,
+  Sliders,
+  Check,
+  Boxes,
+  Warehouse,
+} from "lucide-react";
+import axiosInstance from "../../../api/axiosInstance";
+import InventoryWarehouseTab from "../components/InventoryWarehouseTab";
 
 const InventoryPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant) || "nagpur";
 
   // Navigation Sub-Tab State matching user custom design reference
-  const [activeTab, setActiveTab] = useState<"dashboard" | "manage" | "bottles">(
-    "dashboard",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "manage" | "warehouse" | "bottles"
+  >("dashboard");
 
   // Catalog State mapping exclusively to real live backend API connection
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Bottle Tracking State
-  const [bottleSummary, setBottleSummary] = useState<BottleTrackingSummaryResponse | null>(null);
+  const [bottleSummary, setBottleSummary] =
+    useState<BottleTrackingSummaryResponse | null>(null);
   const [isBottleLoading, setIsBottleLoading] = useState<boolean>(false);
 
   // Optimization simulation state for enhanced dynamic appeal inside dashboard
@@ -46,14 +60,8 @@ const InventoryPage: React.FC = () => {
     }
     try {
       // Hits https://{{tenant}}.pench.api.polynexus.in/api/erp/inventory/products/ automatically
-      const response = await axiosInstance.get("/erp/inventory/products/");
-      const fetchedData = response.data;
-
-      if (Array.isArray(fetchedData)) {
-        setProducts(fetchedData);
-      } else {
-        setProducts([]);
-      }
+      const fetchedData = await inventoryApi.getProducts();
+      setProducts(fetchedData);
     } catch (err: any) {
       console.error(
         "Live inventory data endpoint returned empty array status maps.",
@@ -71,7 +79,7 @@ const InventoryPage: React.FC = () => {
     }
     try {
       const response = await axiosInstance.get<BottleTrackingSummaryResponse>(
-        "/erp/inventory/bottle-transactions/summary/"
+        "/erp/inventory/bottle-transactions/summary/",
       );
       setBottleSummary(response.data);
     } catch (err) {
@@ -233,6 +241,23 @@ const InventoryPage: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab("warehouse")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "warehouse"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <Warehouse
+            className={`w-4 h-4 ${activeTab === "warehouse" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Warehouse Locations
+          {activeTab === "warehouse" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab("bottles")}
           className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
             activeTab === "bottles"
@@ -259,13 +284,14 @@ const InventoryPage: React.FC = () => {
       )}
 
       {/* 3. Render Sub-Component Pages Modularly */}
-      {activeTab === "dashboard" ? (
+      {activeTab === "dashboard" && (
         <InventoryDashboardTab
           stats={stats}
           onSimulateOptimization={handleSimulateOptimization}
           isOptimizing={isOptimizing}
         />
-      ) : activeTab === "manage" ? (
+      )}
+      {activeTab === "manage" && (
         <InventoryManageTab
           filteredProducts={filteredProducts}
           isLoading={isLoading}
@@ -279,7 +305,9 @@ const InventoryPage: React.FC = () => {
           setViewMode={setViewMode}
           onRefreshCatalog={() => fetchInventory(true)}
         />
-      ) : (
+      )}
+      {activeTab === "warehouse" && <InventoryWarehouseTab />}
+      {activeTab === "bottles" && (
         <InventoryBottleTrackingTab
           summary={bottleSummary}
           isLoading={isBottleLoading}
@@ -290,4 +318,3 @@ const InventoryPage: React.FC = () => {
 };
 
 export default InventoryPage;
-

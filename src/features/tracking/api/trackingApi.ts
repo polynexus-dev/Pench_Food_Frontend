@@ -48,7 +48,8 @@ export const trackingApi = {
       });
       
       const data = response.data;
-      if (!data || !data.geometry || data.geometry.type !== "LineString") {
+      const geomType = data?.geometry?.type;
+      if (!data || !data.geometry || (geomType !== "LineString" && geomType !== "MultiLineString")) {
         return {
           driver_id: driverId,
           driver_name: data?.properties?.driver_name || "Driver",
@@ -61,8 +62,16 @@ export const trackingApi = {
         };
       }
       
+      // Support both LineString and MultiLineString coordinates
+      let coords: [number, number][] = [];
+      if (geomType === "LineString") {
+        coords = data.geometry.coordinates || [];
+      } else if (geomType === "MultiLineString") {
+        coords = (data.geometry.coordinates || []).flat(1);
+      }
+
       const baseTime = new Date(`${date}T08:00:00`);
-      const routePoints: PositionHistoryPoint[] = (data.geometry.coordinates || []).map((coord: [number, number], i: number) => {
+      const routePoints: PositionHistoryPoint[] = coords.map((coord: [number, number], i: number) => {
         const timestamp = new Date(baseTime.getTime() + i * 15 * 1000).toISOString();
         const speed = 15 + Math.sin(i / 10) * 8 + (i % 5);
         return {

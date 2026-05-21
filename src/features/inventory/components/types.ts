@@ -46,3 +46,23 @@ export interface BottleTrackingSummaryResponse {
   driver_breakdown: DriverBottleBreakdown[];
 }
 
+export interface Warehouse {
+  id: string;
+  name: string;
+  address: string;
+  is_active: boolean;
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+}
+
+export interface CreateWarehousePayload {
+  name: string;
+  address: string;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+}
+

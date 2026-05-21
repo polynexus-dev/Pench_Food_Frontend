@@ -54,7 +54,6 @@ const TrackingDashboardTab: React.FC = () => {
       try {
         const list = await driverApi.getDrivers();
         setDbDrivers(list);
-        console.log(list)
       } catch (err) {
         console.error("Failed to load drivers for tracking select:", err);
       }
@@ -130,22 +129,20 @@ const TrackingDashboardTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleProtocolChange("wss")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    protocol === "wss"
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${protocol === "wss"
                       ? "bg-primary text-white shadow-sm"
                       : "text-charcoal/40 hover:text-charcoal"
-                  }`}
+                    }`}
                 >
                   WSS://
                 </button>
                 <button
                   type="button"
                   onClick={() => handleProtocolChange("ws")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    protocol === "ws"
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${protocol === "ws"
                       ? "bg-primary text-white shadow-sm"
                       : "text-charcoal/40 hover:text-charcoal"
-                  }`}
+                    }`}
                 >
                   WS://
                 </button>
@@ -502,11 +499,10 @@ const TrackingDashboardTab: React.FC = () => {
                   <div
                     key={drv.driver_id}
                     onClick={() => setSelectedDriverId(drv.driver_id)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
-                      isSelected
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${isSelected
                         ? "bg-accent/10 border-accent shadow-md shadow-accent/5 scale-[1.01]"
                         : "bg-white border-silver/60 hover:border-primary/30 hover:bg-silver/5"
-                    }`}
+                      }`}
                   >
                     {isSelected && (
                       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-accent"></div>
