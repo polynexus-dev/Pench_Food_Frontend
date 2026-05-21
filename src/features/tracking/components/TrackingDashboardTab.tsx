@@ -1,8 +1,6 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { useLiveTracking } from "../context/TrackingContext";
 import {
-  Radio,
   Activity,
   Wifi,
   WifiOff,
@@ -11,11 +9,7 @@ import {
   Clock,
   Terminal,
   Trash2,
-  Sparkles,
-  Plus,
-  Minus,
   RefreshCcw,
-  Maximize2,
   ChevronDown
 } from "lucide-react";
 import { driverApi } from "../../drivers/api/driverApi";
@@ -32,7 +26,6 @@ const TrackingDashboardTab: React.FC = () => {
     selectedDriverId,
     setSelectedDriverId,
     selectedDriver,
-    isSimulating,
     protocol,
     zoom,
     setZoom,
@@ -43,7 +36,6 @@ const TrackingDashboardTab: React.FC = () => {
     handleProtocolChange,
     connectWebSocket,
     disconnectWebSocket,
-    toggleSimulation,
     VIEWPORT_W,
     VIEWPORT_H,
     getOsmSvgPixel,

@@ -12,9 +12,7 @@ import {
   Truck, 
   X, 
   ShoppingBag, 
-  Layers, 
-  PackageOpen, 
-  DollarSign
+  PackageOpen
 } from "lucide-react";
 import type { Order, OrderItem } from "./types";
 

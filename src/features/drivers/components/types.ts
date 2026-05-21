@@ -9,4 +9,5 @@ export interface Driver {
   avatar?: string;
   phone?: string;
   rating?: number;
+  zone?: string | null;
 }

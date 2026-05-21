@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Globe, MapPin, CheckCircle2, XCircle, MoreVertical, Plus } from "lucide-react";
+import { Search, Globe, MapPin, MoreVertical, Plus } from "lucide-react";
 import type { City } from "./types";
 
 interface TenantListTabProps {

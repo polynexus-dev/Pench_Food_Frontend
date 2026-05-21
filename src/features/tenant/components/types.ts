@@ -17,6 +17,7 @@ export interface Zone {
     type: string;
     coordinates: number[][][];
   } | null;
-  assigned_driver: string | null;
+  assigned_driver: number | null;
+  driver_name?: string | null;
   is_active: boolean;
 }

@@ -27,5 +27,13 @@ export const driverApi = {
   createDriver: async (driverData: any): Promise<Driver> => {
     const response = await axiosInstance.post<Driver>("/ems/drivers/", driverData);
     return response.data;
+  },
+
+  /**
+   * Update driver profile details (e.g. zone assignment)
+   */
+  updateDriver: async (id: string, driverData: Partial<Driver>): Promise<Driver> => {
+    const response = await axiosInstance.patch<Driver>(`/ems/drivers/${id}/`, driverData);
+    return response.data;
   }
 };

@@ -16,6 +16,8 @@ export interface Customer {
     pending_balance: number;
     total_orders: number;
   };
+  zone?: string | null;
+  zone_name?: string | null;
 }
 
 export interface OrderItem {

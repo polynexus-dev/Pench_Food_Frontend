@@ -14,11 +14,15 @@ import {
   Info,
   ShieldCheck,
   Hash,
+  MapPin,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
 import type { Route } from "../../deliveries/components/types";
 import axiosInstance from "../../../api/axiosInstance";
+import { tenantApi } from "../../tenant/api/tenantApi";
+import type { Zone } from "../../tenant/components/types";
+import { driverApi } from "../api/driverApi";
 
 interface DriverProfileTabProps {
   driver: Driver;
@@ -36,6 +40,46 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Zone Assignment State
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [isLoadingZones, setIsLoadingZones] = useState<boolean>(true);
+  const [isUpdatingZone, setIsUpdatingZone] = useState<boolean>(false);
+
+  // Fetch zones on mount
+  useEffect(() => {
+    const fetchZones = async () => {
+      try {
+        setIsLoadingZones(true);
+        const data = await tenantApi.getZones();
+        setZones(data);
+      } catch (error) {
+        console.error("Failed to fetch zones for assignment:", error);
+      } finally {
+        setIsLoadingZones(false);
+      }
+    };
+    fetchZones();
+  }, []);
+
+  const handleZoneChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newZoneValue = e.target.value;
+    const newZoneId = newZoneValue || null;
+
+    setIsUpdatingZone(true);
+    setStatusError(null);
+    try {
+      const updated = await driverApi.updateDriver(driver.id, {
+        zone: newZoneId,
+      });
+      onUpdateDriver(updated);
+    } catch (err: any) {
+      console.error("Failed to update driver zone:", err);
+      setStatusError("Failed to update zone assignment. Please try again.");
+    } finally {
+      setIsUpdatingZone(false);
+    }
+  };
 
   // Fetch routes on mount
   useEffect(() => {
@@ -332,6 +376,29 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                             <span className="font-bold text-amber-500">★ {driver.rating.toFixed(1)} / 5.0</span>
                           </div>
                         )}
+                        <div className="flex justify-between items-center text-xs pt-3.5 border-t border-silver/30">
+                          <span className="text-charcoal/40 font-bold flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-primary" />
+                            Assigned Zone
+                          </span>
+                          {isLoadingZones ? (
+                            <span className="text-charcoal/30 font-medium">Loading zones...</span>
+                          ) : (
+                            <select
+                              value={driver.zone || ""}
+                              onChange={handleZoneChange}
+                              disabled={isUpdatingZone}
+                              className="font-bold text-charcoal bg-white border border-silver/50 rounded-xl px-2.5 py-1 text-xs focus:outline-none focus:border-primary cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+                            >
+                              <option value="">Unassigned</option>
+                              {zones.map((zone) => (
+                                <option key={zone.id} value={zone.id}>
+                                  {zone.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </div>
                     </div>
 

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { MapPin, User, Activity, Globe, Plus, MoreVertical, Search, CheckCircle2, ZoomIn, ZoomOut } from "lucide-react";
+import { User, Globe, Plus, Search, CheckCircle2, ZoomIn, ZoomOut, X } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import type { Zone } from "./types";
 import CreateZoneModal from "./CreateZoneModal";
+import { driverApi } from "../../drivers/api/driverApi";
+import type { Driver } from "../../drivers/components/types";
 
 const ZoneTab: React.FC = () => {
   const [zones, setZones] = useState<Zone[]>([]);
@@ -10,6 +12,11 @@ const ZoneTab: React.FC = () => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Driver Assignment State
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoadingDrivers, setIsLoadingDrivers] = useState(true);
+  const [isUpdatingDriver, setIsUpdatingDriver] = useState(false);
 
   const fetchZones = async () => {
     setIsLoading(true);
@@ -23,8 +30,38 @@ const ZoneTab: React.FC = () => {
     }
   };
 
+  const fetchDrivers = async () => {
+    setIsLoadingDrivers(true);
+    try {
+      const data = await driverApi.getDrivers();
+      setDrivers(data);
+    } catch (error) {
+      console.error("Failed to fetch drivers for zone assignment:", error);
+    } finally {
+      setIsLoadingDrivers(false);
+    }
+  };
+
+  const handleAssignDriver = async (zoneId: string, driverUserId: number | null) => {
+    setIsUpdatingDriver(true);
+    try {
+      await tenantApi.updateZone(zoneId, {
+        assigned_driver: driverUserId,
+      });
+      // Refresh zones list to reflect updated assignment
+      const updatedZones = await tenantApi.getZones();
+      setZones(updatedZones);
+    } catch (error) {
+      console.error("Failed to assign driver to zone:", error);
+      alert("Failed to assign driver. Please try again.");
+    } finally {
+      setIsUpdatingDriver(false);
+    }
+  };
+
   useEffect(() => {
     fetchZones();
+    fetchDrivers();
   }, []);
 
   const selectedZone = useMemo(() => {
@@ -241,7 +278,7 @@ const ZoneTab: React.FC = () => {
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1.5 opacity-60">
                    <User className="w-3 h-3" />
-                   <span className="text-[10px] font-bold truncate max-w-[120px]">{zone.assigned_driver || 'Unassigned'}</span>
+                   <span className="text-[10px] font-bold truncate max-w-[120px]">{zone.driver_name || 'Unassigned'}</span>
                 </div>
               </div>
             </div>
@@ -342,6 +379,71 @@ const ZoneTab: React.FC = () => {
               Selecting a zone highlights its GeoJSON boundary and recenters the view.
            </p>
         </div>
+
+        {/* Floating Zone Details Panel */}
+        {selectedZone && (
+          <div className="absolute top-4 left-4 z-10 w-80 bg-white/95 backdrop-blur-md border border-silver/60 p-5 rounded-3xl shadow-xl flex flex-col gap-4 animate-in slide-in-from-left-4 duration-300">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                  Zone Details
+                </span>
+                <h3 className="text-base font-black text-charcoal mt-1 truncate max-w-[210px]" title={selectedZone.name}>
+                  {selectedZone.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedZoneId(null)}
+                className="p-1 text-charcoal/30 hover:text-charcoal hover:bg-silver/20 rounded-lg transition-colors outline-none focus:outline-none"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {selectedZone.description && (
+              <p className="text-xs text-charcoal/60 font-medium leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
+                {selectedZone.description}
+              </p>
+            )}
+
+            <div className="border-t border-silver/40 pt-4 space-y-3.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-charcoal/40 font-bold">Status</span>
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                  selectedZone.is_active ? 'bg-sage/10 text-primary' : 'bg-red-50 text-red-500'
+                }`}>
+                  {selectedZone.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 text-xs">
+                <span className="text-charcoal/40 font-bold flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" /> Primary Driver
+                </span>
+                {isLoadingDrivers ? (
+                  <span className="text-charcoal/30 font-medium">Loading drivers...</span>
+                ) : (
+                  <select
+                    value={selectedZone.assigned_driver || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleAssignDriver(selectedZone.id, val ? Number(val) : null);
+                    }}
+                    disabled={isUpdatingDriver}
+                    className="w-full font-bold text-charcoal bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+                  >
+                    <option value="">Unassigned</option>
+                    {drivers.map((drv) => (
+                      <option key={drv.id} value={drv.user}>
+                        {drv.full_name} ({drv.vehicle_plate})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <CreateZoneModal 

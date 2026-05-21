@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Navigation, Clock, MapPin, CheckCircle2, MoreHorizontal, TrendingUp, ZoomIn, ZoomOut, Search, User } from "lucide-react";
-import type { Route, Stop } from "./types";
+import { Navigation, CheckCircle2, ZoomIn, ZoomOut, Search, User } from "lucide-react";
+import type { Route } from "./types";
 
 interface RouteTabProps {
   routes: Route[];

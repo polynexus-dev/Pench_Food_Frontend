@@ -14,6 +14,7 @@ import {
   UserCheck,
   UserMinus,
   Briefcase,
+  Globe,
 } from "lucide-react";
 import type { Customer, Order, Subscription, PaymentHistory } from "./types";
 import { customerApi } from "../api/customerApi";
@@ -306,9 +307,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           </div>
 
           {/* Contact Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 pt-6 border-t border-silver/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-6 border-t border-silver/30">
             <div className="flex items-center gap-3.5 p-3.5 bg-silver/5 hover:bg-silver/10 rounded-2xl border border-silver/30 transition-colors">
-              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary">
+              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary shrink-0">
                 <Mail className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -322,14 +323,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             </div>
 
             <div className="flex items-center gap-3.5 p-3.5 bg-silver/5 hover:bg-silver/10 rounded-2xl border border-silver/30 transition-colors">
-              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary">
+              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary shrink-0">
                 <Phone className="w-4 h-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[9px] font-black text-charcoal/30 uppercase tracking-wider">
                   Phone Number
                 </p>
-                <p className="text-xs font-bold text-charcoal">
+                <p className="text-xs font-bold text-charcoal truncate">
                   {customer.phone}
                 </p>
               </div>
@@ -348,6 +349,23 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   title={customer.address}
                 >
                   {customer.address || "No address specified"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3.5 p-3.5 bg-silver/5 hover:bg-silver/10 rounded-2xl border border-silver/30 transition-colors">
+              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary flex-shrink-0">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-black text-charcoal/30 uppercase tracking-wider">
+                  Assigned Zone
+                </p>
+                <p
+                  className="text-xs font-bold text-charcoal truncate"
+                  title={customer.zone_name || "Unassigned"}
+                >
+                  {customer.zone_name || "Unassigned"}
                 </p>
               </div>
             </div>

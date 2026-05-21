@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
-import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map } from "lucide-react";
+import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
 import CustomerDetailTab from "../components/CustomerDetailTab";
@@ -9,6 +9,7 @@ import type { Customer } from "../components/types";
 
 const CustomerPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
+  const user = useAuthStore((state) => state.user);
   
   // Tab State
   const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile">("dashboard");
@@ -17,6 +18,21 @@ const CustomerPage: React.FC = () => {
   // Data State
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAutoAssigning, setIsAutoAssigning] = useState<boolean>(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  // Check authorization (CRM_Managers or ERP_Admins)
+  const isAuthorized = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.groups.includes("CRM_Managers") || 
+      user.groups.includes("ERP_Admins") || 
+      user.role === "SuperAdmin"
+    );
+  }, [user]);
 
   const fetchCustomers = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -35,11 +51,36 @@ const CustomerPage: React.FC = () => {
     fetchCustomers();
   }, [tenant]);
 
-  // Handle switching to details map view
-  const handleViewDetails = (customerId: string) => {
-    setSelectedCustomerId(customerId);
-    setActiveTab("detail");
+  const handleAutoAssignZones = async () => {
+    setIsAutoAssigning(true);
+    try {
+      const res = await customerApi.autoAssignZones();
+      setNotification({
+        message: `${res.message}\nScanned: ${res.scanned} customers | Updated: ${res.updated} assignments`,
+        type: "success"
+      });
+      // Refresh the customer list to reflect the updated zone assignments
+      await fetchCustomers(true);
+    } catch (error: any) {
+      console.error("Failed to auto-assign zones:", error);
+      setNotification({
+        message: error?.response?.data?.detail || "Failed to auto-assign zones. Please check your permissions.",
+        type: "error"
+      });
+    } finally {
+      setIsAutoAssigning(false);
+    }
   };
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
 
   // Handle switching to profile details tab
   const handleViewProfile = (customerId: string) => {
@@ -81,6 +122,17 @@ const CustomerPage: React.FC = () => {
             <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </button>
+          {isAuthorized && (
+            <button
+              onClick={handleAutoAssignZones}
+              disabled={isAutoAssigning || isLoading}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              title="Auto-Assign Zones"
+            >
+              <MapPin className={`w-3.5 h-3.5 text-primary ${isAutoAssigning ? "animate-spin" : ""}`} />
+              {isAutoAssigning ? "Assigning..." : "Auto-Assign Zones"}
+            </button>
+          )}
           <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all shadow-sm">
             <Download className="w-3.5 h-3.5" />
             Export CSV
@@ -177,6 +229,43 @@ const CustomerPage: React.FC = () => {
             );
           }}
         />
+      )}
+
+      {/* Toast Notification Banner */}
+      {notification && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-xl border animate-in slide-in-from-bottom-10 duration-300 ${
+            notification.type === "success"
+              ? "bg-emerald-50 border-emerald-500/20 text-emerald-800"
+              : "bg-rose-50 border-rose-500/20 text-rose-800"
+          }`}
+        >
+          <div
+            className={`p-1.5 rounded-lg ${
+              notification.type === "success"
+                ? "bg-emerald-500/10 text-emerald-600"
+                : "bg-rose-500/10 text-rose-600"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <h4 className="font-bold text-sm">
+              {notification.type === "success" ? "Auto-Assignment Complete" : "Error Occurred"}
+            </h4>
+            <p className="text-xs opacity-90 mt-0.5 whitespace-pre-line">{notification.message}</p>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="ml-4 text-xs font-bold opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   );

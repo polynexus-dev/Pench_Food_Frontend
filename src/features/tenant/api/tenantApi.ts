@@ -38,5 +38,13 @@ export const tenantApi = {
   createZone: async (zoneData: { name: string; description: string; boundary: any }): Promise<Zone> => {
     const response = await axiosInstance.post<Zone>("/ems/zones/", zoneData);
     return response.data;
+  },
+
+  /**
+   * Update an operational zone's properties (e.g. assigned driver)
+   */
+  updateZone: async (id: string, zoneData: Partial<Zone>): Promise<Zone> => {
+    const response = await axiosInstance.patch<Zone>(`/ems/zones/${id}/`, zoneData);
+    return response.data;
   }
 };

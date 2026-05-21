@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trackingApi } from "../api/trackingApi";
-import type { DriverRouteHistory, PositionHistoryPoint, LiveDriverTracking } from "../api/trackingApi";
+import type { DriverRouteHistory, LiveDriverTracking } from "../api/trackingApi";
 import { CustomSelect } from "../../../components/common/CustomSelect";
 import { CustomInput } from "../../../components/common/CustomInput";
 import {
   Calendar,
   User,
   MapPin,
-  Clock,
   Play,
   Pause,
   RotateCcw,
   Compass,
   Zap,
   Gauge,
-  Layers,
-  ArrowRight,
-  TrendingUp,
-  Award,
   AlertCircle,
   RefreshCcw
 } from "lucide-react";

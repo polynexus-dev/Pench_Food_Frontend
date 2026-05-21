@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Building2, MapPin, RefreshCcw, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Building2, MapPin, RefreshCcw, List as ListIcon } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
-import type { City, Zone } from "../components/types";
+import type { City } from "../components/types";
 import TenantListTab from "../components/TenantListTab";
 import ZoneTab from "../components/ZoneTab";
 import CreateTenantModal from "../components/CreateTenantModal";

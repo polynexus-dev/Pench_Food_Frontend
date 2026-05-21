@@ -61,5 +61,13 @@ export const customerApi = {
   getOrdersByCustomerId: async (customerId: string): Promise<Order[]> => {
     const response = await axiosInstance.get<Order[]>(`/erp/orders?customer=${customerId}`);
     return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Auto-assign zones for all active customers in the city based on location coordinates.
+   */
+  autoAssignZones: async (): Promise<{ message: string; scanned: number; updated: number; assignments: any[] }> => {
+    const response = await axiosInstance.post("/erp/customers/auto-assign-zones/");
+    return response.data;
   }
 };
