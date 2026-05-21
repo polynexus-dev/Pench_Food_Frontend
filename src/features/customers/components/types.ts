@@ -41,6 +41,8 @@ export interface Order {
   delivery_address: string;
   latitude: number;
   longitude: number;
+  driver_name?: string | null;
+  zone_name?: string | null;
 }
 
 export interface Subscription {

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Calendar,
   List as ListIcon,
+  Truck,
 } from "lucide-react";
 import type { Customer } from "./types";
 
@@ -830,6 +831,10 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                                     day: "2-digit",
                                     month: "short",
                                   })}
+                                </span>
+                                <span className="text-[9px] font-bold text-charcoal/30 flex items-center gap-1">
+                                  <Truck className="w-3 h-3 text-primary" />{" "}
+                                  {order.driver_name || "Unassigned"}
                                 </span>
                               </div>
                             </div>

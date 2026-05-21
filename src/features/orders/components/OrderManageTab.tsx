@@ -40,6 +40,9 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [selectedProduct, setSelectedProduct] = useState<string>("all");
+  const [selectedZone, setSelectedZone] = useState<string>("all");
+  const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderId(prev => (prev === id ? null : id));
@@ -85,6 +88,28 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
     return Array.from(products);
   }, [orders]);
 
+  // Compute unique zones list
+  const availableZones = useMemo(() => {
+    const zones = new Set<string>();
+    orders.forEach((order: Order) => {
+      if (order.zone_name) {
+        zones.add(order.zone_name);
+      }
+    });
+    return Array.from(zones).sort();
+  }, [orders]);
+
+  // Compute unique drivers list
+  const availableDrivers = useMemo(() => {
+    const drivers = new Set<string>();
+    orders.forEach((order: Order) => {
+      if (order.driver_name) {
+        drivers.add(order.driver_name);
+      }
+    });
+    return Array.from(drivers).sort();
+  }, [orders]);
+
   // Compute stats for essential filters
   const statusCounts = useMemo(() => {
     return {
@@ -113,9 +138,18 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
         const hasProduct = order.items.some((item: OrderItem) => item.product_name === selectedProduct);
         if (!hasProduct) return false;
       }
+      if (selectedZone !== "all" && order.zone_name !== selectedZone) {
+        return false;
+      }
+      if (selectedDriver !== "all" && order.driver_name !== selectedDriver) {
+        return false;
+      }
+      if (selectedDate && order.scheduled_delivery_date !== selectedDate) {
+        return false;
+      }
       return true;
     });
-  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct]);
+  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedDate]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -188,12 +222,59 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Zone</label>
+            <div className="relative">
+              <select
+                value={selectedZone}
+                onChange={(e) => setSelectedZone(e.target.value)}
+                className="w-full pl-4 pr-10 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none appearance-none cursor-pointer"
+              >
+                <option value="all">All Zones</option>
+                {availableZones.map((zone: string) => (
+                  <option key={zone} value={zone}>{zone}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Driver</label>
+            <div className="relative">
+              <select
+                value={selectedDriver}
+                onChange={(e) => setSelectedDriver(e.target.value)}
+                className="w-full pl-4 pr-10 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none appearance-none cursor-pointer"
+              >
+                <option value="all">All Drivers</option>
+                {availableDrivers.map((driver: string) => (
+                  <option key={driver} value={driver}>{driver}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Delivery Date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full px-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none cursor-pointer"
+            />
+          </div>
+
           <div className="md:col-span-3 flex justify-end gap-2 border-t border-silver/30 pt-4">
             <button
               onClick={() => {
                 setMinPrice("");
                 setMaxPrice("");
                 setSelectedProduct("all");
+                setSelectedZone("all");
+                setSelectedDriver("all");
+                setSelectedDate("");
               }}
               className="px-4 py-2 border border-silver/60 text-charcoal hover:bg-silver/10 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
@@ -241,6 +322,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                 <th className="w-12 px-6 py-5"></th>
                 <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Order Info</th>
                 <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Customer</th>
+                <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Driver</th>
                 <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Status</th>
                 <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Delivery Date</th>
                 <th className="px-6 py-5 text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">Total Price</th>
@@ -292,6 +374,18 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                  <span className="truncate max-w-[150px]">{order.delivery_address || 'No address'}</span>
                               </div>
                            </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-silver/10 rounded-lg text-charcoal/50">
+                            <Truck className="w-3.5 h-3.5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-charcoal leading-none">
+                              {order.driver_name || "Unassigned"}
+                            </p>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">

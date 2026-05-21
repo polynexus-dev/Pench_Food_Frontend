@@ -15,9 +15,11 @@ import {
   UserMinus,
   Briefcase,
   Globe,
+  Truck,
 } from "lucide-react";
 import type { Customer, Order, Subscription, PaymentHistory } from "./types";
 import { customerApi } from "../api/customerApi";
+import axiosInstance from "../../../api/axiosInstance";
 
 interface CustomerProfileTabProps {
   customer: Customer;
@@ -36,6 +38,27 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+
+  // Available zones for manual assignment
+  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingZones, setIsLoadingZones] = useState(false);
+  const [isUpdatingZone, setIsUpdatingZone] = useState(false);
+
+  // Fetch zones for assignment
+  useEffect(() => {
+    const fetchZones = async () => {
+      try {
+        setIsLoadingZones(true);
+        const response = await axiosInstance.get("/ems/zones/");
+        setZones(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error("Failed to fetch zones:", error);
+      } finally {
+        setIsLoadingZones(false);
+      }
+    };
+    fetchZones();
+  }, []);
 
   // Subscriptions Mock Data (Scoped dynamically to customer ID for realism)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -357,16 +380,47 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary flex-shrink-0">
                 <Globe className="w-4 h-4" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-black text-charcoal/30 uppercase tracking-wider">
                   Assigned Zone
                 </p>
-                <p
-                  className="text-xs font-bold text-charcoal truncate"
-                  title={customer.zone_name || "Unassigned"}
-                >
-                  {customer.zone_name || "Unassigned"}
-                </p>
+                {isLoadingZones ? (
+                  <p className="text-xs font-bold text-charcoal/40 animate-pulse">Loading...</p>
+                ) : (
+                  <div className="relative flex items-center">
+                    <select
+                      value={customer.zone || ""}
+                      disabled={isUpdatingZone}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setIsUpdatingZone(true);
+                        try {
+                          const updated = await customerApi.updateCustomer(customer.id, {
+                            zone: val || null,
+                          });
+                          onUpdateCustomer({
+                            ...customer,
+                            ...updated,
+                            zone: updated.zone,
+                            zone_name: updated.zone_name,
+                          });
+                        } catch (error) {
+                          console.error("Failed to update customer zone:", error);
+                        } finally {
+                          setIsUpdatingZone(false);
+                        }
+                      }}
+                      className="text-xs font-bold text-charcoal bg-transparent border-none outline-none p-0 cursor-pointer w-full focus:ring-0 focus:ring-offset-0 disabled:opacity-50"
+                    >
+                      <option value="">Unassigned</option>
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>
+                          {z.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -516,6 +570,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                         <th className="pb-3">Order ID</th>
                         <th className="pb-3">Delivery Date</th>
                         <th className="pb-3">Items Summary</th>
+                        <th className="pb-3">Driver</th>
                         <th className="pb-3">Status</th>
                         <th className="pb-3 text-right">Total Price</th>
                       </tr>
@@ -551,6 +606,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   </strong>
                                 </span>
                               ))}
+                            </div>
+                          </td>
+                          <td className="py-4 text-xs font-bold text-charcoal/60">
+                            <div className="flex items-center gap-1.5">
+                              <Truck className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span>{order.driver_name || "Unassigned"}</span>
                             </div>
                           </td>
                           <td className="py-4">

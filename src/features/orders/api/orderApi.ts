@@ -1,6 +1,15 @@
 import axiosInstance from "../../../api/axiosInstance";
 import type { Order } from "../components/types";
 
+interface SyncOrdersResponse {
+  orders: Order[];
+  sync_summary: {
+    customers_zone_updated: number;
+    routes_created: number;
+    route_errors: { zone: string; error: string }[];
+  };
+}
+
 /**
  * Order API Service
  */
@@ -11,6 +20,15 @@ export const orderApi = {
   getOrders: async (): Promise<Order[]> => {
     const response = await axiosInstance.get<Order[]>("/erp/orders/");
     return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Sync orders: auto-assign zones to customers, create routes for
+   * pending orders, and return the refreshed order list.
+   */
+  syncOrders: async (): Promise<SyncOrdersResponse> => {
+    const response = await axiosInstance.post<SyncOrdersResponse>("/erp/orders/sync/");
+    return response.data;
   },
 
   /**

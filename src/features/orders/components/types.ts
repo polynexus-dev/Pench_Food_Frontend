@@ -20,6 +20,8 @@ export interface Order {
   latitude: number | null;
   longitude: number | null;
   created_at?: string;
+  driver_name?: string | null;
+  zone_name?: string | null;
 }
 
 export interface OrderStats {
