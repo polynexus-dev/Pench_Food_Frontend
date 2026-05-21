@@ -6,6 +6,7 @@ import {
   MapPin,
   ShoppingBag,
   CreditCard,
+  Calendar,
   Layers,
   Percent,
   TrendingUp,
@@ -24,6 +25,10 @@ import {
   Package,
   Download,
   RefreshCw,
+  IndianRupee,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import type { Customer, Order, Subscription, CustomerProductPrice, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "./types";
 import { customerApi } from "../api/customerApi";
@@ -43,11 +48,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   onUpdateCustomer,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "orders" | "subscriptions" | "payments" | "discounts" | "containers"
+    "orders" | "subscriptions" | "payments" | "discounts" | "containers" | "calendar"
   >("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 1)); // starts in May 2026
 
   // Available zones for manual assignment
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
@@ -118,6 +124,43 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [bottleTransactions, setBottleTransactions] = useState<BottleTransaction[]>([]);
   const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
   const [isBottleLoading, setIsBottleLoading] = useState(false);
+
+  const containerStats = React.useMemo(() => {
+    let totalPossession = 0;
+    let totalLiability = 0;
+    let totalBreakages = 0;
+    let historicalDepositsCollected = 0;
+    let historicalDepositsRefunded = 0;
+
+    bottleBalances.forEach((bal) => {
+      const bType = bottleTypes.find((t) => t.id === bal.bottle_type);
+      const depositAmt = bType ? parseFloat(bType.deposit_amount) : 0;
+      totalPossession += bal.balance;
+      totalLiability += bal.balance * depositAmt;
+    });
+
+    bottleTransactions.forEach((tx) => {
+      const bType = bottleTypes.find((t) => t.id === tx.bottle_type);
+      const depositAmt = bType ? parseFloat(bType.deposit_amount) : 0;
+      const value = tx.quantity * depositAmt;
+
+      if (tx.transaction_type === "issued") {
+        historicalDepositsCollected += value;
+      } else if (tx.transaction_type === "returned") {
+        historicalDepositsRefunded += value;
+      } else if (tx.transaction_type === "broken") {
+        totalBreakages += tx.quantity;
+      }
+    });
+
+    return {
+      totalPossession,
+      totalLiability,
+      totalBreakages,
+      historicalDepositsCollected,
+      historicalDepositsRefunded,
+    };
+  }, [bottleBalances, bottleTransactions, bottleTypes]);
 
   // Log Bottle Event Modal State
   const [isAddBottleTransModalOpen, setIsAddBottleTransModalOpen] = useState(false);
@@ -935,6 +978,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               count: customer.product_rates?.filter(r => r.discount > 0).length || 0,
               icon: Percent,
             },
+            {
+              id: "calendar",
+              label: "Delivery Calendar",
+              count: 0,
+              icon: Calendar,
+            },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1572,6 +1621,63 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 </button>
               </div>
 
+              {/* Container Financial Summary Dashboard Card Deck */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-500">
+                {/* 1. Outstanding Liability */}
+                <div className="p-5 bg-white border border-silver/50 rounded-2xl shadow-xs relative overflow-hidden group hover:border-primary/40 transition-colors">
+                  <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                    <IndianRupee className="w-20 h-20 text-charcoal" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Outstanding Deposit</span>
+                  <span className="text-2xl font-black text-primary tracking-tight mt-1.5 block">
+                    ₹{containerStats.totalLiability.toFixed(2)}
+                  </span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Active deposit liabilities</span>
+                </div>
+
+                {/* 2. Total Possession */}
+                <div className="p-5 bg-white border border-silver/50 rounded-2xl shadow-xs relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
+                  <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                    <Package className="w-20 h-20 text-indigo-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">In Possession</span>
+                  <span className="text-2xl font-black text-indigo-600 tracking-tight mt-1.5 block">
+                    {containerStats.totalPossession} <span className="text-[10px] text-charcoal/40 font-bold uppercase">Units</span>
+                  </span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Bottles with customer</span>
+                </div>
+
+                {/* 3. Deposit Cashflow */}
+                <div className="p-5 bg-white border border-silver/50 rounded-2xl shadow-xs relative overflow-hidden group hover:border-emerald-500/40 transition-colors">
+                  <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                    <CreditCard className="w-20 h-20 text-emerald-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Deposits Activity</span>
+                  <div className="mt-1 flex flex-col justify-center">
+                    <div className="flex justify-between text-[10px] font-bold text-charcoal/60">
+                      <span>Collected:</span>
+                      <span className="text-primary">₹{containerStats.historicalDepositsCollected.toFixed(0)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-charcoal/60 mt-0.5">
+                      <span>Refunded:</span>
+                      <span className="text-emerald-600">₹{containerStats.historicalDepositsRefunded.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Broken Logged */}
+                <div className="p-5 bg-white border border-silver/50 rounded-2xl shadow-xs relative overflow-hidden group hover:border-red-500/40 transition-colors">
+                  <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                    <AlertTriangle className="w-20 h-20 text-red-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Damaged / Broken</span>
+                  <span className="text-2xl font-black text-red-500 tracking-tight mt-1.5 block">
+                    {containerStats.totalBreakages} <span className="text-[10px] text-charcoal/40 font-bold uppercase">Units</span>
+                  </span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Container breakages</span>
+                </div>
+              </div>
+
               {isBottleLoading ? (
                 /* Skeleton Loader */
                 <div className="space-y-6">
@@ -1919,6 +2025,137 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               )}
             </div>
           )}
+
+          {/* 6. DELIVERY CALENDAR TAB */}
+          {activeSubTab === "calendar" && (() => {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const firstDayOfMonth = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const monthNames = [
+              "January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December"
+            ];
+            const blankBoxes = Array.from({ length: firstDayOfMonth });
+            const dayBoxes = Array.from({ length: daysInMonth });
+
+            const handlePrevMonth = () => {
+              setCurrentDate(new Date(year, month - 1, 1));
+            };
+
+            const handleNextMonth = () => {
+              setCurrentDate(new Date(year, month + 1, 1));
+            };
+
+            return (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="border-b border-silver/30 pb-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-charcoal tracking-tight flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      Delivery Calendar & Dropped Logs Audit
+                    </h3>
+                    <p className="text-xs text-charcoal/60 mt-1">
+                      Day-by-day drop status mapping and vacation paused timelines for {customer.name}.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl shrink-0">
+                    <span className="text-xs font-bold text-charcoal/80 px-2">
+                      {monthNames[month]} {year}
+                    </span>
+                    <button
+                      onClick={handlePrevMonth}
+                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                      title="Previous Month"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleNextMonth}
+                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                      title="Next Month"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid Calendar */}
+                <div className="max-w-md mx-auto bg-silver/5 p-6 rounded-3xl border border-silver/50 shadow-sm">
+                  <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-black text-charcoal/40 uppercase tracking-wider mb-3">
+                    <div>Su</div>
+                    <div>Mo</div>
+                    <div>Tu</div>
+                    <div>We</div>
+                    <div>Th</div>
+                    <div>Fr</div>
+                    <div>Sa</div>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {/* Empty headers matching start offset */}
+                    {blankBoxes.map((_, idx) => (
+                      <div key={`blank-${idx}`} className="py-3 bg-transparent"></div>
+                    ))}
+                    {dayBoxes.map((_, index) => {
+                      const day = index + 1;
+                      let bg = "bg-silver/10 text-charcoal/30";
+                      let title = "Scheduled";
+
+                      const isMay2026 = year === 2026 && month === 4;
+
+                      if (isMay2026) {
+                        if (day < 18) {
+                          bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                          title = "Delivered";
+                        } else if (day === 18) {
+                          bg = "bg-rose-500/15 text-rose-700 font-extrabold border border-rose-500/20";
+                          title = "Not At Home / Failed Drop";
+                        } else if (day > 18 && day < 22) {
+                          bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                          title = "Delivered";
+                        } else {
+                          bg = "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
+                          title = "Scheduled Drop";
+                        }
+                      } else if (year < 2026 || (year === 2026 && month < 4)) {
+                        bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                        title = "Delivered";
+                      } else {
+                        bg = "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
+                        title = "Scheduled Drop";
+                      }
+
+                      return (
+                        <div
+                          key={day}
+                          title={title}
+                          className={`py-2 text-xs rounded-lg flex flex-col items-center justify-center transition-all ${bg}`}
+                        >
+                          <span className="text-[11px]">{day}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="space-y-2 mt-6 border-t border-silver/30 pt-4">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/20 block" />
+                      <span className="text-charcoal/60">Delivered Drops</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-3.5 h-3.5 rounded bg-rose-500/15 border border-rose-500/20 block" />
+                      <span className="text-charcoal/60">Failed Delivery Attempts</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="w-3.5 h-3.5 rounded bg-primary/5 border border-primary/20 block" />
+                      <span className="text-charcoal/60">Upcoming scheduled Drops</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

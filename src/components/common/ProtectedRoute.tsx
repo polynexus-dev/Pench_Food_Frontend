@@ -7,14 +7,23 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {
     // Redirect to login if not authenticated
     return <Navigate to="/login" replace />;
   }
 
-  // If authenticated, render the children or the nested route outlet
+  const roleLower = user?.role?.toLowerCase();
+  const isDriver = roleLower === "drivers" || roleLower === "driver";
+
+  // Double check that the authenticated user is authorized for the web app
+  if (user && !user.is_erp_user && !user.is_superuser && !user.is_staff && !user.is_customer && !isDriver) {
+    // Redirect back to login if they are completely unclassified
+    return <Navigate to="/login" replace />;
+  }
+
+  // If authenticated and authorized, render the children or the nested route outlet
   return children ? <>{children}</> : <Outlet />;
 };
 

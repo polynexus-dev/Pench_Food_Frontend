@@ -14,13 +14,15 @@ import {
   Check,
   User,
   CreditCard,
+  Briefcase,
+  Settings,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { companyApi } from "../../api/companyApi";
 import type { Company } from "../../api/companyApi";
 
 const Sidebar = () => {
-  const { tenant, setTenant, companyId, setCompanyId } = useAuthStore();
+  const { tenant, setTenant, companyId, setCompanyId, user } = useAuthStore();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -79,34 +81,55 @@ const Sidebar = () => {
   const currentCompany = companies.find(c => c.id === companyId);
   const currentCity = currentCompany?.cities.find(city => city.schema_name === tenant);
 
+  const isCustomer = user?.is_customer || user?.role?.toLowerCase() === "customer";
+  const isLockedRole = isCustomer || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver";
+
   return (
     <aside className="w-72 bg-gradient-to-b from-[#1a2e21] to-[#0a140d] text-white hidden md:flex flex-col h-full shrink-0 shadow-2xl relative z-30">
       <div className="p-6 relative select-none" ref={dropdownRef}>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full text-left p-3.5 hover:bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex items-center justify-between group cursor-pointer"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 group-hover:rotate-0 transition-transform shrink-0">
-              <Droplets className="text-primary w-6 h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
-                {currentCompany ? currentCompany.name : "PENCH"}
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
-                {currentCity ? currentCity.name : "Dairy ERP"}
-              </span>
+        {isLockedRole ? (
+          <div className="w-full text-left p-3.5 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between select-none">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 shrink-0">
+                <Droplets className="text-primary w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
+                  {currentCompany ? currentCompany.name : "PENCH"}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
+                  {currentCity ? currentCity.name : "Dairy ERP"}
+                </span>
+              </div>
             </div>
           </div>
-          <ChevronDown
-            className={`w-4 h-4 text-white/40 group-hover:text-white transition-transform duration-300 shrink-0 ml-2 ${
-              isOpen ? "rotate-180 text-white" : ""
-            }`}
-          />
-        </button>
+        ) : (
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full text-left p-3.5 hover:bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex items-center justify-between group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 group-hover:rotate-0 transition-transform shrink-0">
+                <Droplets className="text-primary w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
+                  {currentCompany ? currentCompany.name : "PENCH"}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
+                  {currentCity ? currentCity.name : "Dairy ERP"}
+                </span>
+              </div>
+            </div>
+            <ChevronDown
+              className={`w-4 h-4 text-white/40 group-hover:text-white transition-transform duration-300 shrink-0 ml-2 ${
+                isOpen ? "rotate-180 text-white" : ""
+              }`}
+            />
+          </button>
+        )}
 
-        {isOpen && (
+        {isOpen && !isLockedRole && (
           <div className="absolute top-[88px] left-6 right-6 bg-[#122217] border border-white/10 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
             <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white/40">
               Switch Company
@@ -163,41 +186,56 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex-1 px-4 mt-6 space-y-1.5 overflow-y-auto custom-scrollbar">
-        <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" end />
-        <SidebarItem icon={Building2} label="Tenants" to="/tenants" />
-        <SidebarItem icon={Truck} label="Logistics & Route" to="/logistics" />
-        <SidebarItem
-          icon={Navigation}
-          label="Live Tracking"
-          to="/tracking"
-          pulse
-        />
-        <SidebarItem icon={Package} label="Inventory" to="/inventory" />
-        <SidebarItem icon={ShoppingCart} label="Orders" to="/orders" />
-        <SidebarItem icon={CreditCard} label="Finance & Billing" to="/finance" />
-        <SidebarItem icon={Users} label="Customers" to="/customers" />
-        <SidebarItem icon={User} label="Drivers" to="/drivers" />
-        <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
+        {isCustomer ? (
+          <>
+            <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" end />
+            <SidebarItem icon={ClipboardList} label="My Subscriptions" to="/my-subscriptions" />
+            <SidebarItem icon={ShoppingCart} label="My Orders" to="/my-orders" />
+            <SidebarItem icon={CreditCard} label="My Bills" to="/my-bills" />
+            <SidebarItem icon={Package} label="Container Ledger" to="/my-containers" />
+          </>
+        ) : user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
+          <>
+            <SidebarItem icon={LayoutDashboard} label="Employee Dashboard" to="/" end />
+            <SidebarItem icon={Briefcase} label="My Payroll & Leaves" to="/my-payroll" />
+          </>
+        ) : (
+          <>
+            <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" end />
+            <SidebarItem icon={Building2} label="Tenants" to="/tenants" />
+            <SidebarItem icon={Truck} label="Logistics & Route" to="/logistics" />
+            <SidebarItem
+              icon={Navigation}
+              label="Live Tracking"
+              to="/tracking"
+              pulse
+            />
+            <SidebarItem icon={Package} label="Inventory" to="/inventory" />
+            <SidebarItem icon={ShoppingCart} label="Orders" to="/orders" />
+            <SidebarItem icon={CreditCard} label="Finance & Billing" to="/finance" />
+            <SidebarItem icon={Briefcase} label="HR & Payroll" to="/hr" />
+            <SidebarItem icon={Users} label="Customers" to="/customers" />
+            <SidebarItem icon={User} label="Drivers" to="/drivers" />
+            <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
+            <SidebarItem icon={Settings} label="System Settings" to="/settings" />
+          </>
+        )}
       </nav>
 
-      <div className="p-6 mt-auto">
-        <div className="bg-gradient-to-br from-white/10 to-white/5 p-5 rounded-2xl border border-white/10 backdrop-blur-sm">
-          <p className="text-[10px] text-accent uppercase tracking-widest mb-2 font-bold">
-            Logistics Goal
-          </p>
-          <div className="flex justify-between items-end mb-2">
-            <span className="text-2xl font-black">
-              85<span className="text-sm font-normal opacity-60">%</span>
+      {/* Brand Footer */}
+      <div className="p-5 mt-auto border-t border-white/5 bg-gradient-to-t from-white/[0.01] to-transparent shrink-0">
+        <div className="relative group flex flex-col items-center justify-center text-center p-3 bg-white/[0.02] border border-white/5 rounded-2xl transition-all duration-500 hover:bg-white/[0.04] hover:border-accent/20">
+          <span className="text-[8px] font-black tracking-widest text-white/30 uppercase group-hover:text-accent/60 transition-colors duration-300">
+            Developed & Powered By
+          </span>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-[11px] font-bold text-white tracking-tight group-hover:text-accent transition-all duration-300">
+              Pench Foods
             </span>
-            <span className="text-[10px] opacity-50 font-medium pb-1">
-              Target: 30k L
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent"></span>
             </span>
-          </div>
-          <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-            <div
-              className="bg-gradient-to-r from-accent to-sage h-full rounded-full shadow-[0_0_10px_rgba(240,192,86,0.3)]"
-              style={{ width: "85%" }}
-            ></div>
           </div>
         </div>
       </div>

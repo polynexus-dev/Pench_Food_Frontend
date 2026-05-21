@@ -22,6 +22,10 @@ export interface Order {
   created_at?: string;
   driver_name?: string | null;
   zone_name?: string | null;
+  pod_image?: string | null;
+  pod_latitude?: number | string | null;
+  pod_longitude?: number | string | null;
+  delivered_at?: string | null;
 }
 
 export interface OrderStats {

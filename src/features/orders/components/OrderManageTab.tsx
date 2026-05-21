@@ -12,9 +12,15 @@ import {
   Truck, 
   X, 
   ShoppingBag, 
-  PackageOpen
+  PackageOpen,
+  Camera,
+  ExternalLink,
+  Image as ImageIcon
 } from "lucide-react";
 import type { Order, OrderItem } from "./types";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { getCityUrl } from "../../../utils/constants";
+
 
 interface OrderManageTabProps {
   orders: Order[];
@@ -48,6 +54,17 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
     setExpandedOrderId(prev => (prev === id ? null : id));
   };
 
+  const getPodImageUrl = (podPath: string | null | undefined) => {
+    if (!podPath) return "";
+    if (podPath.startsWith("http://") || podPath.startsWith("https://")) {
+      return podPath;
+    }
+    const tenant = useAuthStore.getState().tenant || "nagpur";
+    const cityUrl = getCityUrl(tenant);
+    const baseHost = cityUrl.replace(/\/api\/?$/, ""); // Get base URL
+    return `${baseHost}${podPath.startsWith("/") ? "" : "/"}${podPath}`;
+  };
+
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     setUpdatingOrderId(orderId);
     try {
@@ -69,6 +86,8 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
         return "bg-sage/10 text-primary border border-primary/10";
       case "cancelled":
         return "bg-red-50 text-red-500 border border-red-100";
+      case "undelivered":
+        return "bg-rose-50 text-rose-600 border border-rose-100";
       case "pending":
       default:
         return "bg-amber-50 text-amber-600 border border-amber-100";
@@ -119,6 +138,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
       in_transit: orders.filter((o: Order) => o.status === "in_transit").length,
       delivered: orders.filter((o: Order) => o.status === "delivered").length,
       cancelled: orders.filter((o: Order) => o.status === "cancelled").length,
+      undelivered: orders.filter((o: Order) => o.status === "undelivered").length,
     };
   }, [orders]);
 
@@ -292,6 +312,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
           { id: "confirmed", label: "Confirmed", count: statusCounts.confirmed, color: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" },
           { id: "in_transit", label: "In Transit", count: statusCounts.in_transit, color: "bg-blue-500/10 border-blue-500/20 text-blue-600" },
           { id: "delivered", label: "Delivered", count: statusCounts.delivered, color: "bg-sage/10 border-primary/10 text-primary" },
+          { id: "undelivered", label: "Undelivered", count: statusCounts.undelivered, color: "bg-rose-500/10 border-rose-500/20 text-rose-600" },
           { id: "cancelled", label: "Cancelled", count: statusCounts.cancelled, color: "bg-red-500/10 border-red-500/20 text-red-600" }
         ].map(pill => (
           <button
@@ -422,36 +443,38 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                         <td colSpan={6} className="px-8 py-6">
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-top-2 duration-300">
                             {/* Product Items Table List */}
-                            <div className="lg:col-span-2 space-y-3 bg-white p-5 rounded-2xl border border-silver/50 shadow-xs">
-                              <h4 className="text-[10px] font-black text-charcoal/30 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <PackageOpen className="w-4 h-4 text-primary/40" />
-                                Order Products Summary
-                              </h4>
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                  <thead>
-                                    <tr className="border-b border-silver/30 text-[9px] uppercase tracking-wider text-charcoal/40 font-black">
-                                      <th className="pb-2">Product Name</th>
-                                      <th className="pb-2 text-center">Quantity</th>
-                                      <th className="pb-2 text-right">Unit Price</th>
-                                      <th className="pb-2 text-right">Line Total</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-silver/20 text-xs font-bold text-charcoal/70">
-                                    {order.items.map((it: OrderItem) => (
-                                      <tr key={it.id}>
-                                        <td className="py-2.5 text-charcoal font-black">{it.product_name}</td>
-                                        <td className="py-2.5 text-center text-primary font-black">x{it.quantity}</td>
-                                        <td className="py-2.5 text-right">₹{it.unit_price}</td>
-                                        <td className="py-2.5 text-right text-charcoal">₹{it.line_total}</td>
+                            <div className={`${order.pod_image ? "lg:col-span-1" : "lg:col-span-2"} space-y-3 bg-white p-5 rounded-2xl border border-silver/50 shadow-xs flex flex-col justify-between`}>
+                              <div className="space-y-3">
+                                <h4 className="text-[10px] font-black text-charcoal/30 uppercase tracking-[0.2em] flex items-center gap-2">
+                                  <PackageOpen className="w-4 h-4 text-primary/40" />
+                                  Order Products Summary
+                                </h4>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left">
+                                    <thead>
+                                      <tr className="border-b border-silver/30 text-[9px] uppercase tracking-wider text-charcoal/40 font-black">
+                                        <th className="pb-2">Product Name</th>
+                                        <th className="pb-2 text-center">Quantity</th>
+                                        <th className="pb-2 text-right">Unit Price</th>
+                                        <th className="pb-2 text-right">Line Total</th>
                                       </tr>
-                                    ))}
-                                    <tr className="border-t-2 border-silver/50 font-black text-sm text-charcoal">
-                                      <td colSpan={3} className="pt-3 text-right text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Total Amount:</td>
-                                      <td className="pt-3 text-right text-primary">₹{order.total}</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-silver/20 text-xs font-bold text-charcoal/70">
+                                      {order.items.map((it: OrderItem) => (
+                                        <tr key={it.id}>
+                                          <td className="py-2.5 text-charcoal font-black">{it.product_name}</td>
+                                          <td className="py-2.5 text-center text-primary font-black">x{it.quantity}</td>
+                                          <td className="py-2.5 text-right">₹{it.unit_price}</td>
+                                          <td className="py-2.5 text-right text-charcoal">₹{it.line_total}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                              <div className="border-t border-silver/30 pt-3 flex justify-between items-center font-black text-sm text-charcoal mt-4">
+                                <span className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Total Amount:</span>
+                                <span className="text-primary text-base">₹{order.total}</span>
                               </div>
                             </div>
 
@@ -471,10 +494,36 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                     {isUpdating && <span className="text-[9px] text-charcoal/40 font-bold animate-pulse">Updating...</span>}
                                   </div>
                                 </div>
+                                {(order.status === "delivered" || order.status === "undelivered" || order.delivered_at) && (
+                                  <div className="p-3.5 bg-silver/5 rounded-xl border border-silver/30 space-y-1">
+                                    <p className="text-[9px] font-bold text-charcoal/40 uppercase flex items-center gap-1.5">
+                                      <Clock className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                                      {order.status === "undelivered" ? "Attempted Time" : "Actual Completion Time"}
+                                    </p>
+                                    <p className="text-xs font-bold text-charcoal">
+                                      {order.delivered_at ? (
+                                        new Date(order.delivered_at).toLocaleString('en-IN', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          hour12: true
+                                        })
+                                      ) : (
+                                        `${new Date(order.scheduled_delivery_date).toLocaleDateString('en-IN', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric'
+                                        })} (Scheduled Date)`
+                                      )}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
 
                               {order.status !== "delivered" ? (
-                                <div className="space-y-2 mt-4 lg:mt-0">
+                                <div className="space-y-2 mt-4">
                                   <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest mb-2">Update status to:</p>
                                   <div className="grid grid-cols-2 gap-2">
                                     <button
@@ -499,21 +548,86 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                       <Check className="w-3 h-3" /> Delivered
                                     </button>
                                     <button
+                                      onClick={() => handleStatusChange(order.id, "undelivered")}
+                                      disabled={isUpdating}
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <X className="w-3 h-3" /> Undelivered
+                                    </button>
+                                    <button
                                       onClick={() => handleStatusChange(order.id, "cancelled")}
                                       disabled={isUpdating}
-                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer col-span-2"
                                     >
                                       <X className="w-3 h-3" /> Cancelled
                                     </button>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="p-3.5 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-2 text-[10px] font-bold text-primary mt-4 lg:mt-0">
+                                <div className="p-3.5 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-2 text-[10px] font-bold text-primary mt-4">
                                   <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                                   <span>Order has been completed and delivered.</span>
                                 </div>
                               )}
                             </div>
+
+                            {/* Proof of Delivery / Undelivery (POD) Photo & GPS */}
+                            {order.pod_image && (
+                              <div className="space-y-4 bg-white p-5 rounded-2xl border border-silver/50 shadow-xs flex flex-col justify-between">
+                                <div className="space-y-3">
+                                  <h4 className="text-[10px] font-black text-charcoal/30 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Camera className="w-4 h-4 text-primary/40" />
+                                    {order.status === "undelivered" ? "Delivery Exception (POD)" : "Proof of Delivery (POD)"}
+                                  </h4>
+                                  
+                                  {/* Beautiful Image Container */}
+                                  <div className="relative rounded-xl overflow-hidden border border-silver/40 bg-silver/5 aspect-video flex items-center justify-center group/pod">
+                                    <img 
+                                      src={getPodImageUrl(order.pod_image)} 
+                                      alt="Proof of Delivery" 
+                                      className="w-full h-full object-cover group-hover/pod:scale-105 transition-all duration-500 cursor-zoom-in"
+                                      onClick={() => window.open(getPodImageUrl(order.pod_image), "_blank")}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/pod:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+                                      <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                        <ExternalLink className="w-3.5 h-3.5" /> View Fullscreen
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Delivered At timestamp */}
+                                  {order.delivered_at && (
+                                    <div className="flex items-center gap-2 text-[10px] text-charcoal/50 font-bold bg-silver/5 p-2.5 rounded-lg border border-silver/20">
+                                      <Clock className="w-3.5 h-3.5 text-primary/40" />
+                                      <span>
+                                        Uploaded: {new Date(order.delivered_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* GPS Capture coordinates */}
+                                {(order.pod_latitude || order.pod_longitude) ? (
+                                  <div className="space-y-2 mt-4">
+                                    <div className="flex items-center gap-1 text-[9px] font-black uppercase text-charcoal/40 tracking-wider">
+                                      <MapPin className="w-3.5 h-3.5 text-primary/40" /> Captured Coordinates
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-charcoal/60 bg-silver/5 p-2.5 rounded-lg border border-silver/20">
+                                      <div>Lat: <span className="font-mono">{Number(order.pod_latitude).toFixed(6)}</span></div>
+                                      <div>Lng: <span className="font-mono">{Number(order.pod_longitude).toFixed(6)}</span></div>
+                                    </div>
+                                    <button
+                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${order.pod_latitude},${order.pod_longitude}`, "_blank")}
+                                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-silver/10 border border-silver/30 hover:bg-silver/20 text-charcoal rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer mt-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3 text-primary" /> View on Google Maps
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] text-charcoal/40 font-bold italic mt-4">No GPS tag available for this proof.</div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>

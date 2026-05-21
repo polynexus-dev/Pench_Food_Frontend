@@ -3,7 +3,7 @@ import {
   Layers,
   CheckCircle2,
   RotateCcw,
-  DollarSign,
+  IndianRupee,
   TrendingUp,
   BarChart3,
   Sparkles,
@@ -79,7 +79,7 @@ const InventoryDashboardTab: React.FC<InventoryDashboardTabProps> = ({
         {/* Average Unit Price */}
         <div className="bg-white p-5 rounded-2xl border border-silver/50 shadow-xs relative overflow-hidden group hover:border-primary/40 transition-colors">
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-            <DollarSign className="w-24 h-24 text-primary" />
+            <IndianRupee className="w-24 h-24 text-primary" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">Mean Base Pricing</span>
           <div className="flex items-baseline gap-1 mt-2">

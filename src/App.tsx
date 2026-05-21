@@ -9,6 +9,8 @@ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscr
 import InventoryPage from "./features/inventory/pages/InventoryPage";
 import OrderPage from "./features/orders/pages/OrderPage";
 import FinancePage from "./features/finance/pages/FinancePage";
+import HRPage from "./features/hr/pages/HRPage";
+import SystemSettingsPage from "./features/administration/pages/SystemSettingsPage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import "./styles/App.css";
@@ -17,8 +19,16 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { BrowserRouter as Router } from "react-router-dom";
 import DashboardLayout from "./layouts/DashboardLayout";
 
+import CustomerDashboard from "./features/dashboard/pages/CustomerDashboard";
+import DriverDashboard from "./features/dashboard/pages/DriverDashboard";
+import DriverPayrollPage from "./features/dashboard/pages/DriverPayrollPage";
+import CustomerSubscriptionsPage from "./features/subscriptions/pages/CustomerSubscriptionsPage";
+import CustomerOrdersPage from "./features/orders/pages/CustomerOrdersPage";
+import CustomerBillsPage from "./features/finance/pages/CustomerBillsPage";
+import CustomerContainerLedger from "./features/customers/pages/CustomerContainerLedger";
+
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   return (
     <Router>
@@ -35,29 +45,55 @@ function App() {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardLayout />}>
-              <Route path="/" element={<OverviewPage />} />
-              <Route path="/tenants" element={<TenantPage />} />
-              <Route path="/logistics" element={<LogisticsPage />} />
+              <Route
+                path="/"
+                element={
+                  user?.is_customer ? (
+                    <CustomerDashboard />
+                  ) : user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
+                    <DriverDashboard />
+                  ) : (
+                    <OverviewPage />
+                  )
+                }
+              />
+              
+              {/* Customer Routes */}
+              <Route path="/my-subscriptions" element={<CustomerSubscriptionsPage />} />
+              <Route path="/my-orders" element={<CustomerOrdersPage />} />
+              <Route path="/my-bills" element={<CustomerBillsPage />} />
+              <Route path="/my-containers" element={<CustomerContainerLedger />} />
+              <Route path="/my-payroll" element={<DriverPayrollPage />} />
+
+              {/* Admin-only Routes */}
+              <Route path="/tenants" element={user?.is_customer ? <Navigate to="/" replace /> : <TenantPage />} />
+              <Route path="/logistics" element={user?.is_customer ? <Navigate to="/" replace /> : <LogisticsPage />} />
               <Route element={<TrackingProvider />}>
-                <Route path="/tracking" element={<TrackingPage />} />
-                <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
+                <Route path="/tracking" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingPage />} />
+                <Route path="/tracking/map" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingFullscreenMapPage />} />
               </Route>
-              <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/orders" element={<OrderPage />} />
-              <Route path="/finance" element={<FinancePage />} />
-              <Route path="/customers" element={<CustomerPage />} />
-              <Route path="/drivers" element={<DriverPage />} />
+              <Route path="/inventory" element={user?.is_customer ? <Navigate to="/" replace /> : <InventoryPage />} />
+              <Route path="/orders" element={user?.is_customer ? <Navigate to="/" replace /> : <OrderPage />} />
+              <Route path="/finance" element={user?.is_customer ? <Navigate to="/" replace /> : <FinancePage />} />
+              <Route path="/hr" element={user?.is_customer ? <Navigate to="/" replace /> : <HRPage />} />
+              <Route path="/customers" element={user?.is_customer ? <Navigate to="/" replace /> : <CustomerPage />} />
+              <Route path="/drivers" element={user?.is_customer ? <Navigate to="/" replace /> : <DriverPage />} />
               <Route
                 path="/reports"
                 element={
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Business Reports</h1>
-                    <p className="text-charcoal/60 mt-2">
-                      Coming soon: Data-driven insights for your dairy business.
-                    </p>
-                  </div>
+                  user?.is_customer ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <div className="p-8">
+                      <h1 className="text-2xl font-bold">Business Reports</h1>
+                      <p className="text-charcoal/60 mt-2">
+                        Coming soon: Data-driven insights for your dairy business.
+                      </p>
+                    </div>
+                  )
                 }
               />
+              <Route path="/settings" element={user?.is_customer ? <Navigate to="/" replace /> : <SystemSettingsPage />} />
             </Route>
           </Route>
 

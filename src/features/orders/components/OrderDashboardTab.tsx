@@ -1,6 +1,6 @@
 import React from "react";
 import type { OrderStats } from "./types";
-import { CheckCircle2, Clock, DollarSign, ShoppingCart, TrendingUp, Truck } from "lucide-react";
+import { CheckCircle2, Clock, IndianRupee, ShoppingCart, TrendingUp, Truck } from "lucide-react";
 
 interface OrderDashboardTabProps {
   stats: OrderStats;
@@ -35,7 +35,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
         <StatCard 
           label="Revenue" 
           value={`₹${stats.totalRevenue.toLocaleString()}`} 
-          icon={DollarSign} 
+          icon={IndianRupee} 
           bgColor="bg-indigo-100"
           iconColor="text-indigo-600"
         />

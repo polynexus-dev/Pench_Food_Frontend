@@ -37,6 +37,15 @@ const LoginPage: React.FC<LoginPageProps> = () => {
 
       const { user, access, refresh } = response.data;
 
+      const roleLower = user.role?.toLowerCase();
+      const isDriver = roleLower === "drivers" || roleLower === "driver";
+
+      if (!user.is_erp_user && !user.is_superuser && !user.is_staff && !user.is_customer && !isDriver) {
+        setError("Access Denied: Your account does not have access to this portal.");
+        setIsLoading(false);
+        return;
+      }
+
       setAuth(user, access, refresh);
     } catch (err: any) {
       setError(
@@ -108,28 +117,24 @@ const LoginPage: React.FC<LoginPageProps> = () => {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-xs font-bold text-charcoal/70 uppercase tracking-wider">
-                  Password
-                </label>
-                <a
-                  href="#"
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  Forgot?
-                </a>
-              </div>
+              <label
+                htmlFor="password"
+                className="text-xs font-bold text-charcoal/70 uppercase tracking-wider ml-1"
+              >
+                Password
+              </label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/40 group-focus-within:text-primary transition-colors">
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
+                  id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-3.5 bg-silver/20 border border-silver/50 rounded-xl text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full pl-12 pr-12 py-3.5 bg-silver/20 border border-silver/50 rounded-xl text-charcoal placeholder:text-charcoal/30 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white transition-all"
                 />
                 <button
                   type="button"
@@ -145,16 +150,28 @@ const LoginPage: React.FC<LoginPageProps> = () => {
               </div>
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center gap-2 ml-1">
-              <input
-                type="checkbox"
-                id="remember"
-                className="w-4 h-4 rounded border-silver text-primary focus:ring-primary"
-              />
-              <label htmlFor="remember" className="text-sm text-charcoal/60">
-                Remember this device
+            {/* Remember Me & Forgot Password Row */}
+            <div className="flex items-center justify-between ml-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  className="w-4 h-4 rounded border-silver text-primary focus:ring-primary accent-primary cursor-pointer"
+                />
+                <span className="text-xs font-bold text-charcoal/60 hover:text-charcoal transition-colors">
+                  Remember me
+                </span>
               </label>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert("Please contact your system administrator to recover your account credentials.");
+                }}
+                className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+              >
+                Forgot Password?
+              </a>
             </div>
 
             {/* Submit Button */}
