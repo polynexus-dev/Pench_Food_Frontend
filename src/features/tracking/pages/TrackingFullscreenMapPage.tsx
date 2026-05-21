@@ -218,14 +218,22 @@ const TrackingFullscreenMapPage: React.FC = () => {
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r={isSelected ? "14" : "10"}
+                    r={isSelected ? "18" : "14"}
                     fill={isSelected ? "#F59E0B" : "#059669"}
                     stroke="#ffffff"
-                    strokeWidth="3"
+                    strokeWidth="2.5"
                     className="drop-shadow-lg"
                   />
 
-                  <circle cx={pt.x} cy={pt.y} r={isSelected ? "4" : "3"} fill="#ffffff" />
+                  <text
+                    x={pt.x}
+                    y={pt.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    style={{ fontSize: isSelected ? "20px" : "15px", userSelect: "none" }}
+                  >
+                    🏍️
+                  </text>
 
                   <foreignObject x={pt.x + 18} y={pt.y - 14} width="200" height="40" className="pointer-events-none">
                     <div className="flex items-center gap-2 px-3 py-1 bg-charcoal/90 backdrop-blur-md rounded-lg text-white shadow-xl border border-white/10 w-fit">

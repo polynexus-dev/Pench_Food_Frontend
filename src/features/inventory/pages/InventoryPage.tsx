@@ -1,22 +1,27 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axiosInstance from "../../../api/axiosInstance";
 import { useAuthStore } from "../../../store/useAuthStore";
-import type { Product } from "../components/types";
+import type { Product, BottleTrackingSummaryResponse } from "../components/types";
 import InventoryDashboardTab from "../components/InventoryDashboardTab";
 import InventoryManageTab from "../components/InventoryManageTab";
-import { Package, RefreshCw, PieChart, Sliders, Check } from "lucide-react";
+import InventoryBottleTrackingTab from "../components/InventoryBottleTrackingTab";
+import { Package, RefreshCw, PieChart, Sliders, Check, Boxes } from "lucide-react";
 
 const InventoryPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant) || "nagpur";
 
   // Navigation Sub-Tab State matching user custom design reference
-  const [activeTab, setActiveTab] = useState<"dashboard" | "manage">(
+  const [activeTab, setActiveTab] = useState<"dashboard" | "manage" | "bottles">(
     "dashboard",
   );
 
   // Catalog State mapping exclusively to real live backend API connection
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Bottle Tracking State
+  const [bottleSummary, setBottleSummary] = useState<BottleTrackingSummaryResponse | null>(null);
+  const [isBottleLoading, setIsBottleLoading] = useState<boolean>(false);
 
   // Optimization simulation state for enhanced dynamic appeal inside dashboard
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
@@ -60,9 +65,32 @@ const InventoryPage: React.FC = () => {
     }
   };
 
+  const fetchBottleSummary = async (silent = false) => {
+    if (!silent) {
+      setIsBottleLoading(true);
+    }
+    try {
+      const response = await axiosInstance.get<BottleTrackingSummaryResponse>(
+        "/erp/inventory/bottle-transactions/summary/"
+      );
+      setBottleSummary(response.data);
+    } catch (err) {
+      console.error("Failed to fetch returnable containers summary desk:", err);
+      setBottleSummary(null);
+    } finally {
+      setIsBottleLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInventory();
   }, [tenant]);
+
+  useEffect(() => {
+    if (activeTab === "bottles") {
+      fetchBottleSummary();
+    }
+  }, [activeTab, tenant]);
 
   // Compute filtering sets dynamically
   const filteredProducts = useMemo(() => {
@@ -149,15 +177,21 @@ const InventoryPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
           <button
-            onClick={() => fetchInventory(false)}
-            disabled={isLoading}
+            onClick={() => {
+              if (activeTab === "bottles") {
+                fetchBottleSummary(false);
+              } else {
+                fetchInventory(false);
+              }
+            }}
+            disabled={activeTab === "bottles" ? isBottleLoading : isLoading}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
             title="Reload items stream from active endpoint"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-primary ${isLoading ? "animate-spin" : ""}`}
+              className={`w-3.5 h-3.5 text-primary ${(activeTab === "bottles" ? isBottleLoading : isLoading) ? "animate-spin" : ""}`}
             />
-            Refresh Catalog
+            Refresh {activeTab === "bottles" ? "Assets" : "Catalog"}
           </button>
         </div>
       </div>
@@ -197,6 +231,23 @@ const InventoryPage: React.FC = () => {
             <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab("bottles")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "bottles"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <Boxes
+            className={`w-4 h-4 ${activeTab === "bottles" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Returnable Assets
+          {activeTab === "bottles" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
       </div>
 
       {/* Notification banner for optimizations */}
@@ -214,7 +265,7 @@ const InventoryPage: React.FC = () => {
           onSimulateOptimization={handleSimulateOptimization}
           isOptimizing={isOptimizing}
         />
-      ) : (
+      ) : activeTab === "manage" ? (
         <InventoryManageTab
           filteredProducts={filteredProducts}
           isLoading={isLoading}
@@ -228,9 +279,15 @@ const InventoryPage: React.FC = () => {
           setViewMode={setViewMode}
           onRefreshCatalog={() => fetchInventory(true)}
         />
+      ) : (
+        <InventoryBottleTrackingTab
+          summary={bottleSummary}
+          isLoading={isBottleLoading}
+        />
       )}
     </div>
   );
 };
 
 export default InventoryPage;
+

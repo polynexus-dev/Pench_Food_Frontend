@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Customer, Order, CustomerProductPrice, Subscription } from "../components/types";
+import type { Customer, Order, CustomerProductPrice, Subscription, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "../components/types";
 import type { Product } from "../../inventory/components/types";
 
 /**
@@ -173,6 +173,55 @@ export const customerApi = {
    */
   createSubscription: async (subscriptionData: any): Promise<Subscription> => {
     const response = await axiosInstance.post<Subscription>("/erp/subscriptions/", subscriptionData);
+    return response.data;
+  },
+
+  /**
+   * Fetch all monthly bills for a specific customer
+   */
+  getMonthlyBills: async (customerId: string): Promise<MonthlyBill[]> => {
+    const response = await axiosInstance.get<MonthlyBill[]>(`/erp/finance/bills/?customer=${customerId}`);
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Fetch all active bottle types
+   */
+  getBottleTypes: async (): Promise<BottleType[]> => {
+    const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Fetch customer bottle balance records
+   */
+  getCustomerBottleBalances: async (customerId: string): Promise<CustomerBottleBalance[]> => {
+    const response = await axiosInstance.get<CustomerBottleBalance[]>(
+      `/erp/inventory/bottle-balances/?customer=${customerId}`
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Fetch customer bottle transaction records
+   */
+  getBottleTransactions: async (customerId: string): Promise<BottleTransaction[]> => {
+    const response = await axiosInstance.get<BottleTransaction[]>(
+      `/erp/inventory/bottle-transactions/?customer=${customerId}`
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Record a new bottle movement transaction (issued, returned, broken, etc.)
+   */
+  createBottleTransaction: async (
+    transactionData: Partial<BottleTransaction>
+  ): Promise<BottleTransaction> => {
+    const response = await axiosInstance.post<BottleTransaction>(
+      "/erp/inventory/bottle-transactions/",
+      transactionData
+    );
     return response.data;
   }
 };

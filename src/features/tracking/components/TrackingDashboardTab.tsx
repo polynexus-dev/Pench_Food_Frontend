@@ -344,7 +344,7 @@ const TrackingDashboardTab: React.FC = () => {
                       <circle
                         cx={pt.x}
                         cy={pt.y}
-                        r={isSelected ? "28" : "18"}
+                        r={isSelected ? "32" : "22"}
                         fill={isSelected ? "#F59E0B" : "#059669"}
                         className="opacity-25 animate-ping"
                         style={{
@@ -356,19 +356,22 @@ const TrackingDashboardTab: React.FC = () => {
                       <circle
                         cx={pt.x}
                         cy={pt.y}
-                        r={isSelected ? "11" : "8"}
+                        r={isSelected ? "16" : "12"}
                         fill={isSelected ? "#F59E0B" : "#059669"}
                         stroke="#ffffff"
-                        strokeWidth="2.5"
+                        strokeWidth="2"
                         className="drop-shadow-md"
                       />
 
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={isSelected ? "3" : "2"}
-                        fill="#ffffff"
-                      />
+                      <text
+                        x={pt.x}
+                        y={pt.y}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        style={{ fontSize: isSelected ? "18px" : "13px", userSelect: "none" }}
+                      >
+                        🏍️
+                      </text>
 
                       <foreignObject
                         x={pt.x + 14}

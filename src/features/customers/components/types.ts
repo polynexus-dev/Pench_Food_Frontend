@@ -101,3 +101,59 @@ export interface PaymentHistory {
   transaction_id: string;
   status: "completed" | "pending" | "failed";
 }
+
+export interface FinanceTransaction {
+  id: string;
+  bill: string;
+  amount: string;
+  payment_method: string;
+  transaction_id: string;
+  payment_date: string;
+}
+
+export interface MonthlyBill {
+  id: string;
+  customer: string;
+  customer_name: string;
+  billing_month: string;
+  total_amount: string;
+  amount_paid: string;
+  status: "unpaid" | "partial" | "paid" | "cancelled";
+  status_display: string;
+  due_date: string;
+  invoice_number: string;
+  remaining_amount: number;
+  transactions: FinanceTransaction[];
+}
+
+export interface BottleType {
+  id: string;
+  name: string;
+  deposit_amount: string;
+  volume_ml: number;
+  is_active: boolean;
+}
+
+export interface CustomerBottleBalance {
+  id: string;
+  customer: string;
+  customer_name: string;
+  bottle_type: string;
+  bottle_type_name: string;
+  balance: number;
+}
+
+export interface BottleTransaction {
+  id: string;
+  bottle_type: string;
+  bottle_type_name: string;
+  customer?: string | null;
+  customer_name?: string;
+  order?: string | null;
+  transaction_type: "issued" | "returned" | "broken" | "refilled";
+  transaction_type_display: string;
+  quantity: number;
+  notes?: string;
+  recorded_by?: string | null;
+  created_at: string;
+}

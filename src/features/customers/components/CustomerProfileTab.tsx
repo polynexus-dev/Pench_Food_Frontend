@@ -21,8 +21,9 @@ import {
   CheckCircle,
   Plus,
   Trash2,
+  Package,
 } from "lucide-react";
-import type { Customer, Order, Subscription, PaymentHistory, CustomerProductPrice } from "./types";
+import type { Customer, Order, Subscription, CustomerProductPrice, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "./types";
 import { customerApi } from "../api/customerApi";
 import axiosInstance from "../../../api/axiosInstance";
 
@@ -39,7 +40,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   onUpdateCustomer,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "orders" | "subscriptions" | "payments" | "discounts"
+    "orders" | "subscriptions" | "payments" | "discounts" | "containers"
   >("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
@@ -90,8 +91,25 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   ]);
   const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
 
-  // Payments Mock Data
-  const [payments, setPayments] = useState<PaymentHistory[]>([]);
+  // Real Payments and Billing States
+  const [monthlyBills, setMonthlyBills] = useState<MonthlyBill[]>([]);
+  const [selectedBill, setSelectedBill] = useState<MonthlyBill | null>(null);
+  const [isBillsLoading, setIsBillsLoading] = useState(false);
+  const [billsError, setBillsError] = useState<string | null>(null);
+
+  // Returnable Containers tracking States
+  const [bottleBalances, setBottleBalances] = useState<CustomerBottleBalance[]>([]);
+  const [bottleTransactions, setBottleTransactions] = useState<BottleTransaction[]>([]);
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
+  const [isBottleLoading, setIsBottleLoading] = useState(false);
+
+  // Log Bottle Event Modal State
+  const [isAddBottleTransModalOpen, setIsAddBottleTransModalOpen] = useState(false);
+  const [selectedBottleType, setSelectedBottleType] = useState("");
+  const [bottleTransType, setBottleTransType] = useState<"issued" | "returned" | "broken" | "refilled">("returned");
+  const [bottleTransQty, setBottleTransQty] = useState(1);
+  const [bottleTransNotes, setBottleTransNotes] = useState("");
+  const [isBottleTransSubmitLoading, setIsBottleTransSubmitLoading] = useState(false);
 
   // Custom price override state
   const [productsList, setProductsList] = useState<any[]>([]);
@@ -102,38 +120,111 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [savingProductId, setSavingProductId] = useState<string | null>(null);
   const [priceSuccessMessages, setPriceSuccessMessages] = useState<Record<string, string>>({});
 
-  // Generate deterministic mock payments based on customer ID
-  useEffect(() => {
-    const custSeed =
-      customer.id.charCodeAt(0) +
-      customer.id.charCodeAt(customer.id.length - 1);
-
-    // Payments
-    const payList: PaymentHistory[] = [];
-    const payCount = (custSeed % 4) + 3; // 3 to 6 payment history records
-    for (let i = 0; i < payCount; i++) {
-      const payAmount = ((custSeed * (i + 1) * 123) % 1500) + 350;
-      payList.push({
-        id: `tx-${customer.id.substring(0, 4)}-${1000 + i}`,
-        customer: customer.id,
-        amount: payAmount.toFixed(2),
-        payment_date: new Date(
-          Date.now() - 1000 * 60 * 60 * 24 * (12 * (i + 1)),
-        )
-          .toISOString()
-          .split("T")[0],
-        payment_method:
-          (custSeed + i) % 3 === 0
-            ? "UPI"
-            : (custSeed + i) % 3 === 1
-              ? "Cash"
-              : "Wallet",
-        transaction_id: `TXN${90281489 + custSeed * i}`,
-        status: i === 0 && custSeed % 5 === 0 ? "pending" : "completed",
-      });
+  // Fetch real monthly bills from backend
+  const fetchCustomerBills = async () => {
+    setIsBillsLoading(true);
+    setBillsError(null);
+    try {
+      const bills = await customerApi.getMonthlyBills(customer.id);
+      setMonthlyBills(bills);
+      if (bills.length > 0) {
+        setSelectedBill(bills[0]);
+      } else {
+        setSelectedBill(null);
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch monthly bills:", error);
+      if (error.response?.status === 403) {
+        setBillsError(
+          "Access Restricted: Viewing billing invoices and payments requires Accountant or ERP_Admins group membership."
+        );
+      } else {
+        setBillsError("Failed to fetch billing history. Please try again later.");
+      }
+    } finally {
+      setIsBillsLoading(false);
     }
-    setPayments(payList);
-  }, [customer.id]);
+  };
+
+  // Fetch real bottle balances and transactions
+  const fetchCustomerBottles = async () => {
+    setIsBottleLoading(true);
+    try {
+      const [balances, transactions, types] = await Promise.all([
+        customerApi.getCustomerBottleBalances(customer.id),
+        customerApi.getBottleTransactions(customer.id),
+        customerApi.getBottleTypes(),
+      ]);
+      setBottleBalances(balances);
+      
+      // Sort transactions by date descending
+      const sortedTransactions = [...transactions].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setBottleTransactions(sortedTransactions);
+      
+      const activeTypes = types.filter((t) => t.is_active);
+      setBottleTypes(activeTypes);
+      if (activeTypes.length > 0) {
+        setSelectedBottleType(activeTypes[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch customer bottle details:", error);
+    } finally {
+      setIsBottleLoading(false);
+    }
+  };
+
+  // Log bottle event submit handler
+  const handleBottleTransSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBottleType) {
+      alert("Please select a container type.");
+      return;
+    }
+    if (bottleTransQty <= 0) {
+      alert("Quantity must be greater than zero.");
+      return;
+    }
+
+    setIsBottleTransSubmitLoading(true);
+    try {
+      await customerApi.createBottleTransaction({
+        customer: customer.id,
+        bottle_type: selectedBottleType,
+        transaction_type: bottleTransType,
+        quantity: bottleTransQty,
+        notes: bottleTransNotes,
+      });
+
+      // Refresh data
+      await fetchCustomerBottles();
+
+      // Close modal & reset form
+      setIsAddBottleTransModalOpen(false);
+      setBottleTransQty(1);
+      setBottleTransNotes("");
+    } catch (error) {
+      console.error("Failed to log container transaction:", error);
+      alert("Failed to submit container transaction. Please try again.");
+    } finally {
+      setIsBottleTransSubmitLoading(false);
+    }
+  };
+
+  // Trigger billing fetch on tab switch
+  useEffect(() => {
+    if (activeSubTab === "payments") {
+      fetchCustomerBills();
+    }
+  }, [activeSubTab, customer.id]);
+
+  // Trigger bottle fetch on tab switch
+  useEffect(() => {
+    if (activeSubTab === "containers") {
+      fetchCustomerBottles();
+    }
+  }, [activeSubTab, customer.id]);
 
   // Fetch real subscriptions from database
   const fetchCustomerSubscriptions = async () => {
@@ -813,8 +904,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             {
               id: "payments",
               label: "Payment History",
-              count: payments.length,
+              count: monthlyBills.length,
               icon: CreditCard,
+            },
+            {
+              id: "containers",
+              label: "Containers Tracking",
+              count: bottleBalances.reduce((acc, b) => acc + (b.balance > 0 ? b.balance : 0), 0),
+              icon: Package,
             },
             {
               id: "discounts",
@@ -1137,73 +1234,462 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
           {/* 3. PAYMENT HISTORY TAB */}
           {activeSubTab === "payments" && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              {payments.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="text-[9px] uppercase tracking-wider text-charcoal/40 font-black border-b border-silver/30 pb-3">
-                      <tr>
-                        <th className="pb-3">Transaction ID</th>
-                        <th className="pb-3">Payment Date</th>
-                        <th className="pb-3">Payment Method</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3 text-right">Amount Paid</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-silver/30">
-                      {payments.map((pay) => (
-                        <tr
-                          key={pay.id}
-                          className="hover:bg-silver/5 transition-colors"
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Billing Header */}
+              <div className="border-b border-silver/30 pb-5">
+                <h3 className="text-lg font-black text-charcoal">
+                  Invoices & Payments History
+                </h3>
+                <p className="text-xs text-charcoal/40 mt-1">
+                  Track monthly aggregate billings, current outstanding balances, and logged payment receipts.
+                </p>
+              </div>
+
+              {/* Error State / 403 Restricted Permissions Banner */}
+              {billsError ? (
+                <div className="p-6 bg-red-50/50 border border-red-100 rounded-3xl flex gap-4 max-w-2xl mx-auto my-6">
+                  <div className="p-3 bg-red-100/50 rounded-2xl text-red-600 shrink-0 h-fit">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-red-800 uppercase tracking-wider">
+                      Access Restricted
+                    </h4>
+                    <p className="text-xs font-semibold text-charcoal/60 leading-relaxed">
+                      {billsError}
+                    </p>
+                    <p className="text-[10px] font-medium text-charcoal/40">
+                      Standard security protocols isolate financial ledgers to authorized accounting personnel.
+                    </p>
+                  </div>
+                </div>
+              ) : isBillsLoading ? (
+                /* Loading Skeleton Grid */
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-1 space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-24 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"></div>
+                    ))}
+                  </div>
+                  <div className="lg:col-span-2 h-72 bg-silver/10 border border-silver/30 rounded-3xl animate-pulse"></div>
+                </div>
+              ) : monthlyBills.length > 0 ? (
+                /* Main Dual-Pane Billing UI */
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Left Pane: Invoices Ledger */}
+                  <div className="lg:col-span-1 space-y-3.5 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
+                    <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest px-1">
+                      Billing Statements ({monthlyBills.length})
+                    </p>
+                    
+                    {monthlyBills.map((bill) => {
+                      const isSelected = selectedBill?.id === bill.id;
+                      
+                      // Format "YYYY-MM" to readable "Month YYYY"
+                      let monthDisplay = bill.billing_month;
+                      try {
+                        const [yr, mn] = bill.billing_month.split("-");
+                        const dateObj = new Date(parseInt(yr), parseInt(mn) - 1, 1);
+                        monthDisplay = dateObj.toLocaleDateString("en-IN", {
+                          month: "long",
+                          year: "numeric",
+                        });
+                      } catch (e) {
+                        // fallback
+                      }
+
+                      return (
+                        <div
+                          key={bill.id}
+                          onClick={() => setSelectedBill(bill)}
+                          className={`p-4 border rounded-2xl cursor-pointer transition-all flex flex-col justify-between hover:scale-[1.01] ${
+                            isSelected
+                              ? "bg-white border-primary shadow-md shadow-primary/5"
+                              : "bg-silver/5 border-silver/50 hover:bg-silver/10"
+                          }`}
                         >
-                          <td className="py-4 font-black text-xs text-charcoal">
-                            {pay.transaction_id}
-                          </td>
-                          <td className="py-4 text-xs font-bold text-charcoal/60">
-                            {new Date(pay.payment_date).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </td>
-                          <td className="py-4 text-xs font-bold text-charcoal/60">
-                            {pay.payment_method}
-                          </td>
-                          <td className="py-4">
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <h4 className="text-xs font-black text-charcoal truncate max-w-[120px]">
+                                {bill.invoice_number || "Invoice"}
+                              </h4>
+                              <p className="text-[10px] text-charcoal/40 font-bold uppercase tracking-wider mt-0.5">
+                                {monthDisplay}
+                              </p>
+                            </div>
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${
-                                pay.status === "completed"
+                              className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border shrink-0 ${
+                                bill.status === "paid"
                                   ? "bg-sage/10 text-primary border-primary/10"
-                                  : "bg-amber-50 text-amber-500 border-amber-100"
+                                  : bill.status === "partial"
+                                    ? "bg-amber-50 text-amber-600 border-amber-100"
+                                    : "bg-red-50 text-red-500 border-red-100"
                               }`}
                             >
-                              {pay.status}
+                              {bill.status_display || bill.status}
                             </span>
-                          </td>
-                          <td className="py-4 text-right font-black text-xs text-primary">
-                            ₹{pay.amount}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+
+                          <div className="flex justify-between items-end mt-4 pt-3 border-t border-silver/20">
+                            <div>
+                              <p className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest">
+                                Due Date
+                              </p>
+                              <p className="text-[10px] font-bold text-charcoal/60">
+                                {new Date(bill.due_date).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest">
+                                Remaining
+                              </p>
+                              <p className={`text-xs font-black ${bill.remaining_amount > 0 ? "text-red-600" : "text-primary"}`}>
+                                ₹{parseFloat(bill.total_amount) - parseFloat(bill.amount_paid) <= 0 ? "0.00" : (parseFloat(bill.total_amount) - parseFloat(bill.amount_paid)).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right Pane: Selected Invoice Detailed Receipts Ledger */}
+                  <div className="lg:col-span-2 bg-silver/5 border border-silver/50 rounded-3xl p-6 flex flex-col min-h-[300px]">
+                    {selectedBill ? (
+                      <div className="space-y-6 flex-1 flex flex-col justify-between">
+                        
+                        {/* Selected Invoice Details Section */}
+                        <div className="space-y-4">
+                          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-silver/30 pb-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                  Invoice Details
+                                </span>
+                                <span className="text-[10px] font-bold text-charcoal/40">
+                                  Statement No: {selectedBill.invoice_number}
+                                </span>
+                              </div>
+                              <h4 className="text-base font-black text-charcoal mt-1">
+                                Monthly Statement for {(() => {
+                                  try {
+                                    const [yr, mn] = selectedBill.billing_month.split("-");
+                                    return new Date(parseInt(yr), parseInt(mn) - 1, 1).toLocaleDateString("en-IN", {
+                                      month: "long",
+                                      year: "numeric",
+                                    });
+                                  } catch (e) {
+                                    return selectedBill.billing_month;
+                                  }
+                                })()}
+                              </h4>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                Total Bill Value
+                              </span>
+                              <span className="text-xl font-black text-charcoal">
+                                ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white rounded-2xl border border-silver/30">
+                            <div>
+                              <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                Amount Invoiced
+                              </span>
+                              <span className="text-xs font-black text-charcoal">
+                                ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                Total Payments Received
+                              </span>
+                              <span className="text-xs font-black text-primary">
+                                ₹{parseFloat(selectedBill.amount_paid).toFixed(2)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                Outstanding Dues
+                              </span>
+                              <span className={`text-xs font-black ${parseFloat(selectedBill.total_amount) - parseFloat(selectedBill.amount_paid) > 0 ? "text-red-600" : "text-primary"}`}>
+                                ₹{Math.max(0, parseFloat(selectedBill.total_amount) - parseFloat(selectedBill.amount_paid)).toFixed(2)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                Due Date Limit
+                              </span>
+                              <span className="text-xs font-bold text-charcoal/60">
+                                {new Date(selectedBill.due_date).toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Receipts List */}
+                        <div className="space-y-3.5 pt-4 flex-1">
+                          <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest">
+                            Transaction Payments Logs ({selectedBill.transactions?.length || 0})
+                          </p>
+
+                          {selectedBill.transactions && selectedBill.transactions.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left">
+                                <thead className="text-[8px] uppercase tracking-wider text-charcoal/40 font-black border-b border-silver/30 pb-2">
+                                  <tr>
+                                    <th className="pb-2">Receipt ID</th>
+                                    <th className="pb-2">Recorded Date</th>
+                                    <th className="pb-2">Payment Method</th>
+                                    <th className="pb-2 text-right">Value Settled</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-silver/30">
+                                  {selectedBill.transactions.map((tx) => (
+                                    <tr key={tx.id} className="hover:bg-silver/5">
+                                      <td className="py-2.5 font-black text-xs text-charcoal max-w-[120px] truncate" title={tx.transaction_id || tx.id}>
+                                        {tx.transaction_id || tx.id.substring(0, 10).toUpperCase()}
+                                      </td>
+                                      <td className="py-2.5 text-[11px] font-bold text-charcoal/60">
+                                        {new Date(tx.payment_date).toLocaleDateString("en-IN", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })}
+                                      </td>
+                                      <td className="py-2.5 text-[11px] font-bold text-charcoal/60 uppercase">
+                                        {tx.payment_method}
+                                      </td>
+                                      <td className="py-2.5 text-right font-black text-xs text-primary">
+                                        ₹{parseFloat(tx.amount).toFixed(2)}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="py-8 bg-white border border-silver/30 rounded-2xl text-center">
+                              <CreditCard className="w-5 h-5 text-charcoal/20 mx-auto mb-1.5" />
+                              <p className="text-xs font-bold text-charcoal/50">No payments captured</p>
+                              <p className="text-[10px] text-charcoal/30 mt-0.5">No offset transaction files exist for this invoice period.</p>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-14 h-14 bg-white border border-silver/50 rounded-full flex items-center justify-center mb-3 text-primary shadow-xs">
+                          <CreditCard className="w-6 h-6" />
+                        </div>
+                        <h4 className="text-sm font-bold text-charcoal">Select Billing Cycle</h4>
+                        <p className="text-xs text-charcoal/40 mt-1">Select an invoice statement from the ledger to view receipt logs.</p>
+                      </div>
+                    )}
+                  </div>
+                  
                 </div>
               ) : (
-                <div className="py-12 text-center">
+                <div className="py-12 bg-silver/5 border border-silver/50 rounded-3xl text-center">
                   <div className="w-14 h-14 bg-silver/10 rounded-full flex items-center justify-center mx-auto mb-3">
                     <CreditCard className="w-6 h-6 text-charcoal/20" />
                   </div>
                   <h4 className="text-sm font-bold text-charcoal">
-                    No Payment Records
+                    No Billing Records Found
                   </h4>
                   <p className="text-xs text-charcoal/40 mt-1">
-                    There are no processed invoice payments found for this
-                    customer.
+                    There are no recorded monthly bills or invoice cycles for this customer partner.
                   </p>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* 3.5. CONTAINERS TRACKING TAB */}
+          {activeSubTab === "containers" && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Containers Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-silver/30 pb-5">
+                <div>
+                  <h3 className="text-lg font-black text-charcoal">
+                    Containers & Returnable Bottles Tracking
+                  </h3>
+                  <p className="text-xs text-charcoal/40 mt-1">
+                    Monitor customer container balances, compute outstanding deposit liabilities, and manage container returns.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAddBottleTransModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Log Container Event
+                </button>
+              </div>
+
+              {isBottleLoading ? (
+                /* Skeleton Loader */
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-28 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"></div>
+                    ))}
+                  </div>
+                  <div className="h-48 bg-silver/10 border border-silver/30 rounded-3xl animate-pulse"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Bottle Balances Grid */}
+                  <div className="space-y-3.5">
+                    <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest animate-in fade-in duration-300">
+                      Current Balances in Possession
+                    </p>
+                    
+                    {bottleBalances.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+                        {bottleBalances.map((bal) => {
+                          const bType = bottleTypes.find((t) => t.id === bal.bottle_type);
+                          const depositAmt = bType ? parseFloat(bType.deposit_amount) : 0;
+                          const liability = bal.balance * depositAmt;
+
+                          return (
+                            <div
+                              key={bal.id}
+                              className="p-5 bg-white border border-silver/50 rounded-2xl shadow-xs hover:border-primary/20 transition-all flex justify-between items-center group"
+                            >
+                              <div className="space-y-2">
+                                <div>
+                                  <h4 className="font-black text-charcoal text-xs uppercase tracking-wider">
+                                    {bal.bottle_type_name}
+                                  </h4>
+                                  <p className="text-[10px] text-charcoal/40 font-bold uppercase tracking-wider mt-0.5">
+                                    Deposit Value: ₹{depositAmt.toFixed(2)} / unit
+                                  </p>
+                                </div>
+
+                                <div className="pt-2">
+                                  <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                    Total Liabilities Outstanding
+                                  </span>
+                                  <span className={`text-sm font-black ${liability > 0 ? "text-primary" : "text-charcoal/40"}`}>
+                                    ₹{liability.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                  In Possession
+                                </span>
+                                <span className="text-2xl font-black text-charcoal group-hover:text-primary transition-colors">
+                                  {bal.balance}
+                                </span>
+                                <span className="text-[10px] font-bold text-charcoal/40 ml-1">units</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-5 bg-silver/5 border border-silver/30 rounded-2xl text-center text-xs font-bold text-charcoal/40 animate-in fade-in duration-300">
+                        No outstanding bottle container balances are currently mapped to this customer account.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Audit Trail Log */}
+                  <div className="space-y-3.5 pt-4">
+                    <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest">
+                      Container Movement Audit Trail ({bottleTransactions.length} logs)
+                    </p>
+
+                    {bottleTransactions.length > 0 ? (
+                      <div className="bg-white border border-silver/50 rounded-3xl overflow-hidden shadow-xs animate-in fade-in duration-300">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="text-[9px] uppercase tracking-wider text-charcoal/40 bg-silver/5 font-black border-b border-silver/30">
+                              <tr>
+                                <th className="py-3 px-5">Timestamp</th>
+                                <th className="py-3 px-5">Bottle Type</th>
+                                <th className="py-3 px-5">Movement Event</th>
+                                <th className="py-3 px-5">Quantity</th>
+                                <th className="py-3 px-5">Recorded By</th>
+                                <th className="py-3 px-5">Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-silver/30">
+                              {bottleTransactions.map((tx) => (
+                                <tr
+                                  key={tx.id}
+                                  className="hover:bg-silver/5 transition-colors text-xs text-charcoal/80 font-bold"
+                                >
+                                  <td className="py-3.5 px-5 font-semibold text-charcoal/50 whitespace-nowrap">
+                                    {new Date(tx.created_at).toLocaleDateString("en-IN", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}{" "}
+                                    {new Date(tx.created_at).toLocaleTimeString("en-IN", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </td>
+                                  <td className="py-3.5 px-5 text-charcoal font-black">
+                                    {tx.bottle_type_name}
+                                  </td>
+                                  <td className="py-3.5 px-5">
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border whitespace-nowrap ${
+                                        tx.transaction_type === "returned"
+                                          ? "bg-sage/10 text-primary border-primary/10"
+                                          : tx.transaction_type === "issued"
+                                            ? "bg-blue-50 text-blue-600 border-blue-100"
+                                            : tx.transaction_type === "broken"
+                                              ? "bg-red-50 text-red-500 border-red-100"
+                                              : "bg-amber-50 text-amber-600 border-amber-100"
+                                      }`}
+                                    >
+                                      {tx.transaction_type_display || tx.transaction_type}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-5 text-primary font-black">
+                                    {tx.quantity} units
+                                  </td>
+                                  <td className="py-3.5 px-5 text-charcoal/50 font-semibold whitespace-nowrap">
+                                    {tx.recorded_by || "System Driver"}
+                                  </td>
+                                  <td className="py-3.5 px-5 text-charcoal/60 font-semibold max-w-[200px] truncate" title={tx.notes}>
+                                    {tx.notes || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-12 bg-silver/5 border border-silver/50 rounded-3xl text-center animate-in fade-in duration-300">
+                        <Package className="w-6 h-6 text-charcoal/20 mx-auto mb-2" />
+                        <h4 className="text-sm font-bold text-charcoal">No Container Events</h4>
+                        <p className="text-xs text-charcoal/40 mt-1">There are no movement logs on file for this account.</p>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -1762,6 +2248,120 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     {isAddSubSubmitLoading ? "Creating..." : "Create Subscription"}
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Container Event Modal */}
+      {isAddBottleTransModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-cream/20 border-b border-silver/30 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Log Container Event
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  Record container movement or status updates
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddBottleTransModalOpen(false)}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleBottleTransSubmit} className="p-6 space-y-5">
+              {/* Container Type */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                  Container Type
+                </label>
+                <select
+                  required
+                  value={selectedBottleType}
+                  onChange={(e) => setSelectedBottleType(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                >
+                  {bottleTypes.map((bt) => (
+                    <option key={bt.id} value={bt.id}>
+                      {bt.name} (Deposit: ₹{parseFloat(bt.deposit_amount).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Movement Type & Quantity Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    Event Type
+                  </label>
+                  <select
+                    required
+                    value={bottleTransType}
+                    onChange={(e) => setBottleTransType(e.target.value as any)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  >
+                    <option value="returned">Returned</option>
+                    <option value="issued">Issued</option>
+                    <option value="broken">Broken</option>
+                    <option value="refilled">Refilled</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    Quantity (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={bottleTransQty}
+                    onChange={(e) => setBottleTransQty(parseInt(e.target.value) || 1)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                  Movement Notes / Context
+                </label>
+                <textarea
+                  value={bottleTransNotes}
+                  onChange={(e) => setBottleTransNotes(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Returned with daily morning delivery, credited driver..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-silver/30">
+                <button
+                  type="button"
+                  onClick={() => setIsAddBottleTransModalOpen(false)}
+                  className="px-4 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBottleTransSubmitLoading}
+                  className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/95 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isBottleTransSubmitLoading ? "Submitting..." : "Submit Event"}
+                </button>
               </div>
             </form>
           </div>

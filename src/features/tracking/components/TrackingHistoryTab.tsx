@@ -410,13 +410,21 @@ const TrackingHistoryTab: React.FC = () => {
                           <circle
                             cx={svgPt.x}
                             cy={svgPt.y}
-                            r="20"
+                            r="28"
                             fill="#01522D"
                             className="opacity-20 animate-ping"
                             style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
                           />
-                          <circle cx={svgPt.x} cy={svgPt.y} r="9" fill="#01522D" stroke="#ffffff" strokeWidth="2" className="drop-shadow-md" />
-                          <circle cx={svgPt.x} cy={svgPt.y} r="3" fill="#ffffff" />
+                          <circle cx={svgPt.x} cy={svgPt.y} r="14" fill="#01522D" stroke="#ffffff" strokeWidth="2" className="drop-shadow-md" />
+                          <text
+                            x={svgPt.x}
+                            y={svgPt.y}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            style={{ fontSize: "15px", userSelect: "none" }}
+                          >
+                            🏍️
+                          </text>
                         </g>
                       );
                     })()}
