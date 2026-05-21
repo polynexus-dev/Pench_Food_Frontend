@@ -1,3 +1,20 @@
+export interface ProductRate {
+  product_id: string;
+  product_name: string;
+  mrp: number;
+  discount: number;
+  final_amount: number;
+}
+
+export interface CustomerProductPrice {
+  id: string;
+  customer: string;
+  customer_name?: string;
+  product: string;
+  product_name?: string;
+  custom_price: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -11,6 +28,7 @@ export interface Customer {
   qr_code_id: string;
   created_at: string;
   discount_rate?: number;
+  product_rates?: ProductRate[];
   dashboard?: {
     active_subscriptions: number;
     pending_balance: number;
@@ -19,6 +37,7 @@ export interface Customer {
   zone?: string | null;
   zone_name?: string | null;
 }
+
 
 export interface OrderItem {
   id: string;
@@ -45,17 +64,32 @@ export interface Order {
   zone_name?: string | null;
 }
 
+export interface SubscriptionItem {
+  id: string;
+  product: string;
+  product_name: string;
+  quantity: number;
+}
+
 export interface Subscription {
   id: string;
   customer: string;
-  product_name: string;
-  quantity: number;
-  frequency: "daily" | "alternate_days" | "custom";
+  customer_name?: string;
+  status: "active" | "paused" | "cancelled" | "expired";
+  status_display: string;
+  frequency: "daily" | "alternate" | "weekdays" | "weekends" | "custom";
   frequency_display: string;
-  status: "active" | "paused" | "cancelled";
+  custom_days: number[];
   start_date: string;
-  end_date?: string;
-  price_per_unit: number;
+  end_date?: string | null;
+  is_paused: boolean;
+  pause_start?: string | null;
+  pause_end?: string | null;
+  pause_updated_by?: string | null;
+  pause_updated_by_name?: string | null;
+  delivery_address?: string;
+  special_instructions?: string;
+  items: SubscriptionItem[];
 }
 
 export interface PaymentHistory {

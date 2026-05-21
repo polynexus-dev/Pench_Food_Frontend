@@ -8,7 +8,6 @@ import {
   CreditCard,
   Layers,
   Percent,
-  Check,
   TrendingUp,
   AlertTriangle,
   UserCheck,
@@ -16,10 +15,17 @@ import {
   Briefcase,
   Globe,
   Truck,
+  Search,
+  Tag,
+  RotateCcw,
+  CheckCircle,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import type { Customer, Order, Subscription, PaymentHistory } from "./types";
+import type { Customer, Order, Subscription, PaymentHistory, CustomerProductPrice } from "./types";
 import { customerApi } from "../api/customerApi";
 import axiosInstance from "../../../api/axiosInstance";
+
 
 interface CustomerProfileTabProps {
   customer: Customer;
@@ -60,80 +66,47 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     fetchZones();
   }, []);
 
-  // Subscriptions Mock Data (Scoped dynamically to customer ID for realism)
+  // Subscriptions Database-Backed State
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [isSubscriptionsLoading, setIsSubscriptionsLoading] = useState(false);
+  const [hasFetchedSubs, setHasFetchedSubs] = useState(false);
+  const [selectedSubToPause, setSelectedSubToPause] = useState<Subscription | null>(null);
+  const [pauseStart, setPauseStart] = useState("");
+  const [pauseEnd, setPauseEnd] = useState("");
+  const [isPauseSubmitLoading, setIsPauseSubmitLoading] = useState(false);
+
+  // Create Subscription Form State
+  const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
+  const [addSubFrequency, setAddSubFrequency] = useState<
+    "daily" | "alternate" | "weekdays" | "weekends" | "custom"
+  >("daily");
+  const [addSubCustomDays, setAddSubCustomDays] = useState<number[]>([]);
+  const [addSubStartDate, setAddSubStartDate] = useState("");
+  const [addSubEndDate, setAddSubEndDate] = useState("");
+  const [addSubDeliveryAddress, setAddSubDeliveryAddress] = useState("");
+  const [addSubSpecialInstructions, setAddSubSpecialInstructions] = useState("");
+  const [addSubItems, setAddSubItems] = useState<{ product: string; quantity: number }[]>([
+    { product: "", quantity: 1 },
+  ]);
+  const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
+
   // Payments Mock Data
   const [payments, setPayments] = useState<PaymentHistory[]>([]);
 
-  // Discount form state
-  const [discountRate, setDiscountRate] = useState<string>(
-    customer.discount_rate !== undefined
-      ? customer.discount_rate.toString()
-      : "0",
-  );
-  const [discountType, setDiscountType] = useState<"percentage" | "flat">(
-    "percentage",
-  );
-  const [discountScope, setDiscountScope] = useState<
-    "all" | "milk" | "cheese" | "butter"
-  >("all");
-  const [discountNotes, setDiscountNotes] = useState("");
-  const [discountSuccessMessage, setDiscountSuccessMessage] = useState("");
-  const [isDiscountSaving, setIsDiscountSaving] = useState(false);
+  // Custom price override state
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [customPricesList, setCustomPricesList] = useState<CustomerProductPrice[]>([]);
+  const [isPricesLoading, setIsPricesLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priceInputs, setPriceInputs] = useState<Record<string, { customPrice: string; discountPct: string }>>({});
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
+  const [priceSuccessMessages, setPriceSuccessMessages] = useState<Record<string, string>>({});
 
-  // Generate deterministic mock subscriptions and payments based on customer ID
+  // Generate deterministic mock payments based on customer ID
   useEffect(() => {
     const custSeed =
       customer.id.charCodeAt(0) +
       customer.id.charCodeAt(customer.id.length - 1);
-
-    // Subscriptions
-    const subTemplates = [
-      {
-        product_name: "Fresh Whole Milk (1L)",
-        price: 65,
-        frequency: "daily" as const,
-        freqLabel: "Daily",
-      },
-      {
-        product_name: "Premium Buffalo Milk (1L)",
-        price: 82,
-        frequency: "daily" as const,
-        freqLabel: "Daily",
-      },
-      {
-        product_name: "Organic Cow Ghee (500ml)",
-        price: 420,
-        frequency: "custom" as const,
-        freqLabel: "Every Sunday",
-      },
-      {
-        product_name: "Fresh Paneer (250g)",
-        price: 110,
-        frequency: "alternate_days" as const,
-        freqLabel: "Alternate Days",
-      },
-    ];
-
-    const count = (custSeed % 3) + 1; // 1 to 3 subscriptions
-    const subList: Subscription[] = [];
-    for (let i = 0; i < count; i++) {
-      const template = subTemplates[(custSeed + i) % subTemplates.length];
-      subList.push({
-        id: `sub-${customer.id}-${i}`,
-        customer: customer.id,
-        product_name: template.product_name,
-        quantity: (custSeed % 2) + 1,
-        frequency: template.frequency,
-        frequency_display: template.freqLabel,
-        status: i === 2 ? "paused" : "active",
-        start_date: new Date(Date.now() - 1000 * 60 * 60 * 24 * (30 * (i + 1)))
-          .toISOString()
-          .split("T")[0],
-        price_per_unit: template.price,
-      });
-    }
-    setSubscriptions(subList);
 
     // Payments
     const payList: PaymentHistory[] = [];
@@ -161,6 +134,213 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     }
     setPayments(payList);
   }, [customer.id]);
+
+  // Fetch real subscriptions from database
+  const fetchCustomerSubscriptions = async () => {
+    setIsSubscriptionsLoading(true);
+    try {
+      const [subs, prods, cp] = await Promise.all([
+        customerApi.getSubscriptions(customer.id),
+        productsList.length > 0 ? Promise.resolve(productsList) : customerApi.getProducts(),
+        customPricesList.length > 0 ? Promise.resolve(customPricesList) : customerApi.getCustomerPrices(customer.id),
+      ]);
+      setSubscriptions(subs);
+      if (productsList.length === 0) setProductsList(prods);
+      if (customPricesList.length === 0) setCustomPricesList(cp);
+      setHasFetchedSubs(true);
+    } catch (error) {
+      console.error("Failed to fetch customer subscriptions:", error);
+    } finally {
+      setIsSubscriptionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setHasFetchedSubs(false);
+    setSubscriptions([]);
+  }, [customer.id]);
+
+  useEffect(() => {
+    if (activeSubTab === "subscriptions") {
+      fetchCustomerSubscriptions();
+    }
+  }, [activeSubTab, customer.id]);
+
+  // Get price for a product (custom discount override or mrp)
+  const getProductPrice = (productId: string) => {
+    const override = customPricesList.find((o) => o.product === productId);
+    if (override) {
+      return parseFloat(override.custom_price);
+    }
+    const prod = productsList.find((p) => p.id === productId);
+    if (prod) {
+      return parseFloat(prod.unit_price);
+    }
+    return 0;
+  };
+
+  // Pause submit handler
+  const handlePauseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSubToPause) return;
+    if (!pauseStart || !pauseEnd) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    if (new Date(pauseEnd) < new Date(pauseStart)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    setIsPauseSubmitLoading(true);
+    try {
+      await customerApi.pauseSubscription(selectedSubToPause.id, pauseStart, pauseEnd);
+      await fetchCustomerSubscriptions();
+      
+      // Update parent-level customer list
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setSelectedSubToPause(null);
+      setPauseStart("");
+      setPauseEnd("");
+    } catch (error) {
+      console.error("Failed to pause subscription:", error);
+      alert("Failed to pause subscription. Please check dates and try again.");
+    } finally {
+      setIsPauseSubmitLoading(false);
+    }
+  };
+
+  // Resume handler
+  const handleResumeSub = async (subId: string) => {
+    if (!confirm("Are you sure you want to resume this subscription?")) return;
+    
+    try {
+      await customerApi.resumeSubscription(subId);
+      await fetchCustomerSubscriptions();
+
+      // Update parent-level customer list
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+    } catch (error) {
+      console.error("Failed to resume subscription:", error);
+      alert("Failed to resume subscription. Please try again.");
+    }
+  };
+
+  // Add Subscription Action Handlers
+  const handleOpenAddSubModal = () => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    setAddSubStartDate(todayStr);
+    setAddSubEndDate("");
+    setAddSubFrequency("daily");
+    setAddSubCustomDays([]);
+    setAddSubDeliveryAddress(customer.address || "");
+    setAddSubSpecialInstructions("");
+    setAddSubItems([{ product: "", quantity: 1 }]);
+    setIsAddSubModalOpen(true);
+  };
+
+  const handleAddSubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!addSubStartDate) {
+      alert("Please select a start date.");
+      return;
+    }
+
+    if (addSubEndDate && new Date(addSubEndDate) < new Date(addSubStartDate)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    if (addSubFrequency === "custom" && addSubCustomDays.length === 0) {
+      alert("Please select at least one day for custom frequency.");
+      return;
+    }
+
+    const validItems = addSubItems.filter((item) => item.product && item.quantity > 0);
+    if (validItems.length === 0) {
+      alert("Please add at least one valid product with quantity greater than 0.");
+      return;
+    }
+
+    const productIds = validItems.map((item) => item.product);
+    const hasDuplicates = productIds.some((val, i) => productIds.indexOf(val) !== i);
+    if (hasDuplicates) {
+      alert("You have duplicate product selections. Please combine them or select different products.");
+      return;
+    }
+
+    setIsAddSubSubmitLoading(true);
+    try {
+      const payload = {
+        customer: customer.id,
+        frequency: addSubFrequency,
+        custom_days: addSubFrequency === "custom" ? addSubCustomDays : [],
+        start_date: addSubStartDate,
+        end_date: addSubEndDate || null,
+        delivery_address: addSubDeliveryAddress,
+        special_instructions: addSubSpecialInstructions,
+        items: validItems.map((item) => ({
+          product: item.product,
+          quantity: item.quantity,
+        })),
+      };
+
+      await customerApi.createSubscription(payload);
+      await fetchCustomerSubscriptions();
+
+      // Update parent-level customer stats
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setIsAddSubModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create subscription:", error);
+      alert("Failed to create subscription. Please verify inputs and try again.");
+    } finally {
+      setIsAddSubSubmitLoading(false);
+    }
+  };
+
+  const handleAddSubItemRow = () => {
+    setAddSubItems([...addSubItems, { product: "", quantity: 1 }]);
+  };
+
+  const handleRemoveSubItemRow = (index: number) => {
+    const updated = [...addSubItems];
+    updated.splice(index, 1);
+    setAddSubItems(updated);
+  };
+
+  const handleUpdateSubItemRow = (index: number, field: "product" | "quantity", value: any) => {
+    const updated = [...addSubItems];
+    updated[index] = {
+      ...updated[index],
+      [field]: value,
+    };
+    setAddSubItems(updated);
+  };
+
+  const handleToggleCustomDay = (dayIndex: number) => {
+    if (addSubCustomDays.includes(dayIndex)) {
+      setAddSubCustomDays(addSubCustomDays.filter((d) => d !== dayIndex));
+    } else {
+      setAddSubCustomDays([...addSubCustomDays, dayIndex].sort());
+    }
+  };
+
+  // Format date helper
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   // Fetch orders
   useEffect(() => {
@@ -201,48 +381,173 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     }
   };
 
-  // Save custom discount
-  const handleSaveDiscount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsDiscountSaving(true);
-    setDiscountSuccessMessage("");
+  const fetchCustomerPricing = async () => {
     try {
-      const numericDiscount = parseFloat(discountRate);
-      if (
-        isNaN(numericDiscount) ||
-        numericDiscount < 0 ||
-        numericDiscount > 100
-      ) {
-        throw new Error("Invalid discount rate");
-      }
+      setIsPricesLoading(true);
+      const [prods, cp] = await Promise.all([
+        customerApi.getProducts(),
+        customerApi.getCustomerPrices(customer.id),
+      ]);
+      setProductsList(prods);
+      setCustomPricesList(cp);
 
-      // Update custom discount via API updateCustomer patch
-      const updated = await customerApi.updateCustomer(customer.id, {
-        discount_rate: numericDiscount,
+      // Initialize inputs from the active custom prices or default MRP
+      const initialInputs: Record<string, { customPrice: string; discountPct: string }> = {};
+      prods.forEach((p: any) => {
+        const override = cp.find((o) => o.product === p.id);
+        const mrp = parseFloat(p.unit_price);
+        if (override) {
+          const customPriceNum = parseFloat(override.custom_price);
+          const discountPctVal = mrp > 0 ? ((mrp - customPriceNum) / mrp) * 100 : 0;
+          initialInputs[p.id] = {
+            customPrice: customPriceNum.toFixed(2),
+            discountPct: discountPctVal.toFixed(1),
+          };
+        } else {
+          initialInputs[p.id] = {
+            customPrice: mrp.toFixed(2),
+            discountPct: "0.0",
+          };
+        }
       });
-      onUpdateCustomer({
-        ...customer,
-        ...updated,
-        discount_rate: numericDiscount,
-      });
-      setDiscountSuccessMessage(
-        `Successfully updated custom discount rate to ${numericDiscount}%!`,
-      );
-
-      // Auto clear toast after 4s
-      setTimeout(() => {
-        setDiscountSuccessMessage("");
-      }, 4000);
+      setPriceInputs(initialInputs);
     } catch (error) {
-      console.error("Failed to save discount:", error);
+      console.error("Failed to load customer pricing catalog:", error);
     } finally {
-      setIsDiscountSaving(false);
+      setIsPricesLoading(false);
     }
   };
 
-  const activeSubscriptionsCount = subscriptions.filter(
-    (s) => s.status === "active",
-  ).length;
+  useEffect(() => {
+    if (activeSubTab === "discounts") {
+      fetchCustomerPricing();
+    }
+  }, [activeSubTab, customer.id]);
+
+  const handlePriceChange = (productId: string, value: string, mrp: number) => {
+    const numericVal = parseFloat(value);
+    let discountPctVal = "0.0";
+    if (!isNaN(numericVal) && mrp > 0) {
+      const clampedPrice = Math.min(Math.max(numericVal, 0), mrp);
+      discountPctVal = (((mrp - clampedPrice) / mrp) * 100).toFixed(1);
+    }
+    setPriceInputs((prev) => ({
+      ...prev,
+      [productId]: {
+        customPrice: value,
+        discountPct: discountPctVal,
+      },
+    }));
+  };
+
+  const handleDiscountChange = (productId: string, value: string, mrp: number) => {
+    const numericVal = parseFloat(value);
+    let customPriceVal = mrp.toFixed(2);
+    if (!isNaN(numericVal)) {
+      const clampedDiscount = Math.min(Math.max(numericVal, 0), 100);
+      customPriceVal = (mrp - (mrp * clampedDiscount) / 100).toFixed(2);
+    }
+    setPriceInputs((prev) => ({
+      ...prev,
+      [productId]: {
+        customPrice: customPriceVal,
+        discountPct: value,
+      },
+    }));
+  };
+
+  const handleSavePriceOverride = async (productId: string, mrp: number) => {
+    const inputs = priceInputs[productId];
+    if (!inputs) return;
+
+    const customPriceNum = parseFloat(inputs.customPrice);
+    if (isNaN(customPriceNum) || customPriceNum < 0 || customPriceNum > mrp) {
+      alert(`Invalid custom price. Must be between ₹0.00 and the base MRP of ₹${mrp.toFixed(2)}.`);
+      return;
+    }
+
+    setSavingProductId(productId);
+    setPriceSuccessMessages((prev) => ({ ...prev, [productId]: "" }));
+
+    try {
+      const override = customPricesList.find((o) => o.product === productId);
+      const discount = mrp - customPriceNum;
+
+      if (discount <= 0) {
+        if (override) {
+          await customerApi.deleteCustomerPrice(override.id);
+        }
+      } else {
+        if (override) {
+          await customerApi.updateCustomerPrice(override.id, customPriceNum);
+        } else {
+          await customerApi.createCustomerPrice(customer.id, productId, customPriceNum);
+        }
+      }
+
+      const cp = await customerApi.getCustomerPrices(customer.id);
+      setCustomPricesList(cp);
+
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setPriceSuccessMessages((prev) => ({
+        ...prev,
+        [productId]: discount <= 0 ? "Reset to MRP!" : "Saved override!",
+      }));
+
+      setTimeout(() => {
+        setPriceSuccessMessages((prev) => ({ ...prev, [productId]: "" }));
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to save price override:", error);
+      alert("Failed to save custom price. Please try again.");
+    } finally {
+      setSavingProductId(null);
+    }
+  };
+
+  const handleResetToMrp = async (productId: string, mrp: number) => {
+    const override = customPricesList.find((o) => o.product === productId);
+    if (!override) return;
+
+    setSavingProductId(productId);
+    try {
+      await customerApi.deleteCustomerPrice(override.id);
+
+      const cp = await customerApi.getCustomerPrices(customer.id);
+      setCustomPricesList(cp);
+
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setPriceInputs((prev) => ({
+        ...prev,
+        [productId]: {
+          customPrice: mrp.toFixed(2),
+          discountPct: "0.0",
+        },
+      }));
+
+      setPriceSuccessMessages((prev) => ({
+        ...prev,
+        [productId]: "Reset to MRP!",
+      }));
+
+      setTimeout(() => {
+        setPriceSuccessMessages((prev) => ({ ...prev, [productId]: "" }));
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to delete price override:", error);
+      alert("Failed to reset price. Please try again.");
+    } finally {
+      setSavingProductId(null);
+    }
+  };
+
+  const activeSubscriptionsCount = hasFetchedSubs
+    ? subscriptions.filter((s) => s.status === "active" && !s.is_paused).length
+    : (customer.dashboard?.active_subscriptions || 0);
   const totalOrdersCount =
     orders.length || customer.dashboard?.total_orders || 0;
   const pendingBalance = customer.dashboard?.pending_balance || 0;
@@ -475,10 +780,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         <div className="bg-white p-5 rounded-3xl border border-silver/50 shadow-xs flex items-center justify-between group hover:border-primary/20 transition-all duration-300">
           <div className="space-y-1">
             <p className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest">
-              Applied Discount
+              Custom Prices
             </p>
             <p className="text-2xl font-black text-amber-600">
-              {customer.discount_rate || 0}%
+              {customer.product_rates?.filter(r => r.discount > 0).length || 0}
+              <span className="text-xs font-bold text-charcoal/30"> Active</span>
             </p>
           </div>
           <div className="p-3.5 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-105 transition-transform">
@@ -501,7 +807,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             {
               id: "subscriptions",
               label: "Subscriptions",
-              count: subscriptions.length,
+              count: hasFetchedSubs ? subscriptions.length : (customer.dashboard?.active_subscriptions || 0),
               icon: Layers,
             },
             {
@@ -512,8 +818,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             },
             {
               id: "discounts",
-              label: "Custom Discount",
-              count: customer.discount_rate ? 1 : 0,
+              label: "Custom Prices",
+              count: customer.product_rates?.filter(r => r.discount > 0).length || 0,
               icon: Percent,
             },
           ].map((tab) => (
@@ -652,54 +958,166 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
           {/* 2. SUBSCRIPTIONS TAB */}
           {activeSubTab === "subscriptions" && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              {subscriptions.length > 0 ? (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Subscription Tab Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-silver/30 pb-5">
+                <div>
+                  <h3 className="text-lg font-black text-charcoal">
+                    Subscription Schedules
+                  </h3>
+                  <p className="text-xs text-charcoal/40 mt-1">
+                    Manage recurring delivery schedules, pause vacations, and set active routes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenAddSubModal}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Subscription
+                </button>
+              </div>
+
+              {isSubscriptionsLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {subscriptions.map((sub) => (
+                  {[1, 2].map((i) => (
                     <div
-                      key={sub.id}
-                      className="p-5 bg-white border border-silver/50 rounded-2xl hover:border-primary/20 transition-all shadow-xs flex flex-col justify-between"
+                      key={i}
+                      className="p-5 bg-white border border-silver/50 rounded-2xl animate-pulse min-h-[180px] space-y-4"
                     >
                       <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-black text-charcoal text-sm leading-snug">
-                            {sub.product_name}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-bold text-charcoal/40 uppercase">
-                              Qty: {sub.quantity}
-                            </span>
-                            <span className="w-1 h-1 rounded-full bg-silver"></span>
-                            <span className="text-[10px] font-black text-primary uppercase tracking-wider">
-                              {sub.frequency_display}
-                            </span>
-                          </div>
+                        <div className="space-y-2 w-2/3">
+                          <div className="h-4 bg-silver/20 rounded-lg w-3/4"></div>
+                          <div className="h-3 bg-silver/20 rounded-lg w-1/2"></div>
                         </div>
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${
-                            sub.status === "active"
-                              ? "bg-sage/10 text-primary border-primary/10"
-                              : "bg-amber-50 text-amber-500 border-amber-100"
-                          }`}
-                        >
-                          {sub.status}
-                        </span>
+                        <div className="h-5 bg-silver/20 rounded-full w-16"></div>
                       </div>
-
-                      <div className="mt-5 pt-4 border-t border-silver/30 flex justify-between items-center text-[10px]">
-                        <span className="font-bold text-charcoal/40">
-                          Started:{" "}
-                          {new Date(sub.start_date).toLocaleDateString(
-                            "en-IN",
-                            { month: "short", day: "numeric", year: "numeric" },
-                          )}
-                        </span>
-                        <span className="font-black text-charcoal">
-                          ₹{sub.price_per_unit} / unit
-                        </span>
+                      <div className="space-y-2 pt-4 border-t border-silver/30">
+                        <div className="h-3 bg-silver/20 rounded-lg w-5/6"></div>
+                        <div className="h-3 bg-silver/20 rounded-lg w-2/3"></div>
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : subscriptions.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {subscriptions.map((sub) => {
+                    const subTotal = sub.items?.reduce((acc, item) => acc + item.quantity * getProductPrice(item.product), 0) || 0;
+
+                    return (
+                      <div
+                        key={sub.id}
+                        className={`p-5 bg-white border rounded-2xl transition-all shadow-xs flex flex-col justify-between min-h-[220px] ${
+                          sub.is_paused
+                            ? "border-amber-200 bg-amber-50/[0.01]"
+                            : "border-silver/50 hover:border-primary/20"
+                        }`}
+                      >
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <h4 className="font-black text-charcoal text-xs uppercase tracking-widest bg-silver/10 px-2.5 py-1 rounded-lg inline-block">
+                                ID: #{sub.id.substring(0, 8).toUpperCase()}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/10 px-2 py-0.5 rounded-md">
+                                  {sub.frequency_display}
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border shrink-0 ${
+                                sub.is_paused
+                                  ? "bg-amber-50 text-amber-600 border-amber-100"
+                                  : sub.status === "active"
+                                    ? "bg-sage/10 text-primary border-primary/10"
+                                    : "bg-red-50 text-red-500 border-red-100"
+                              }`}
+                            >
+                              {sub.is_paused ? "Paused / Vacation" : sub.status_display || sub.status}
+                            </span>
+                          </div>
+
+                          {/* List of items inside this subscription */}
+                          {sub.items && sub.items.length > 0 ? (
+                            <div className="space-y-2">
+                              {sub.items.map((item) => {
+                                const price = getProductPrice(item.product);
+                                return (
+                                  <div key={item.id} className="flex justify-between items-center bg-silver/5 p-2.5 rounded-xl border border-silver/20">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-charcoal truncate">{item.product_name}</p>
+                                      <p className="text-[10px] text-charcoal/40 font-semibold">Qty: {item.quantity} × ₹{price.toFixed(2)}</p>
+                                    </div>
+                                    <p className="text-xs font-black text-charcoal shrink-0">₹{(item.quantity * price).toFixed(2)}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-charcoal/40 italic">No items in this subscription</p>
+                          )}
+
+                          {/* Vacation pause range banner */}
+                          {sub.is_paused && (
+                            <div className="p-3 bg-amber-50/60 border border-amber-100 rounded-xl text-[10px] text-amber-800 space-y-1">
+                              <p className="font-bold flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                Vacation Pause Active
+                              </p>
+                              <p className="font-semibold text-charcoal/60">
+                                Range: {formatDate(sub.pause_start)} to {formatDate(sub.pause_end)}
+                              </p>
+                              {sub.pause_updated_by_name && (
+                                <p className="text-[9px] text-charcoal/40 font-medium">
+                                  Paused by: {sub.pause_updated_by_name}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-silver/30 flex flex-col gap-3">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-charcoal/40">
+                              Started: {formatDate(sub.start_date)}
+                            </span>
+                            <span className="font-black text-primary">
+                              Total: ₹{subTotal.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {sub.status === "active" && (
+                            <div className="flex items-center gap-2 mt-1">
+                              {sub.is_paused ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResumeSub(sub.id)}
+                                  className="w-full py-2 px-3 bg-primary text-white hover:bg-primary/90 rounded-xl text-[10px] font-black transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                                >
+                                  Resume Subscription
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSubToPause(sub);
+                                    const today = new Date().toISOString().split("T")[0];
+                                    setPauseStart(today);
+                                    setPauseEnd(today);
+                                  }}
+                                  className="w-full py-2 px-3 border border-amber-200 bg-amber-50 hover:bg-amber-100/50 text-amber-700 rounded-xl text-[10px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                                >
+                                  Pause / Vacation
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-12 text-center">
@@ -792,152 +1210,563 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
           {/* 4. CUSTOM DISCOUNT TAB */}
           {activeSubTab === "discounts" && (
-            <div className="max-w-2xl animate-in fade-in duration-300 space-y-6">
-              <div>
-                <h3 className="text-lg font-black text-charcoal">
-                  Configure Partner Discount Rules
-                </h3>
-                <p className="text-xs text-charcoal/40 mt-1">
-                  Apply a persistent custom discount percentage to this
-                  customer. This rate is subtracted from checkout totals.
-                </p>
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Header with Search */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-silver/30 pb-5">
+                <div>
+                  <h3 className="text-lg font-black text-charcoal">
+                    Customer Product Prices
+                  </h3>
+                  <p className="text-xs text-charcoal/40 mt-1">
+                    Manage per-product custom pricing. Changes are persisted in the central inventory schema immediately.
+                  </p>
+                </div>
+                <div className="relative w-full sm:w-80">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search catalog by name or SKU..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                  <Search className="w-4 h-4 text-charcoal/30 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-charcoal/40 hover:text-charcoal text-xs font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {discountSuccessMessage && (
-                <div className="flex items-center gap-3 p-4 bg-sage/10 border border-primary/10 rounded-2xl text-primary animate-in slide-in-from-top-4 duration-300">
-                  <Check className="w-5 h-5 shrink-0" />
-                  <p className="text-xs font-bold">{discountSuccessMessage}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSaveDiscount} className="space-y-6">
+              {/* Loader Skeleton */}
+              {isPricesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Rate Input */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
-                      Discount Rate (%)
-                    </label>
-                    <div className="relative group">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                        value={discountRate}
-                        onChange={(e) => setDiscountRate(e.target.value)}
-                        className="w-full pl-4 pr-12 py-3 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-sm"
-                        placeholder="e.g. 5"
-                        required
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-charcoal/40 font-bold text-sm">
-                        %
-                      </span>
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="h-44 bg-silver/10 border border-silver/30 rounded-3xl animate-pulse"
+                    ></div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {/* Products Grid */}
+                  {(() => {
+                    const filtered = productsList.filter(
+                      (p) =>
+                        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="py-12 text-center bg-silver/5 rounded-3xl border border-dashed border-silver/50">
+                          <div className="w-14 h-14 bg-silver/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Search className="w-6 h-6 text-charcoal/20" />
+                          </div>
+                          <h4 className="text-sm font-bold text-charcoal">
+                            No Products Found
+                          </h4>
+                          <p className="text-xs text-charcoal/40 mt-1">
+                            No active products matched "{searchQuery}".
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        {filtered.map((p) => {
+                          const override = customPricesList.find((o) => o.product === p.id);
+                          const mrp = parseFloat(p.unit_price);
+                          const input = priceInputs[p.id] || { customPrice: mrp.toFixed(2), discountPct: "0.0" };
+                          const isCustomized = !!override;
+                          const isSaving = savingProductId === p.id;
+                          const successMsg = priceSuccessMessages[p.id];
+
+                          return (
+                            <div
+                              key={p.id}
+                              className={`p-5 rounded-3xl border transition-all duration-300 flex flex-col justify-between min-h-[170px] bg-white ${
+                                isCustomized
+                                  ? "border-primary/30 shadow-md shadow-primary/5 bg-primary/[0.01]"
+                                  : "border-silver/50 shadow-xs hover:border-silver"
+                              }`}
+                            >
+                              {/* Product Header */}
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2.5 py-1 rounded-full text-center min-w-[70px] inline-block">
+                                    {p.sku}
+                                  </span>
+                                  <h4 className="font-black text-charcoal text-sm pt-2">
+                                    {p.name}
+                                  </h4>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] font-bold text-charcoal/40 uppercase tracking-widest">
+                                    Base MRP
+                                  </p>
+                                  <p className="text-sm font-black text-charcoal">
+                                    ₹{mrp.toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Pricing Inputs */}
+                              <div className="grid grid-cols-2 gap-4 mt-5">
+                                <div className="space-y-1.5">
+                                  <label className="text-[9px] font-black text-charcoal/50 uppercase tracking-wider block">
+                                    Custom Price (₹)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={mrp}
+                                    step="0.01"
+                                    value={input.customPrice}
+                                    onChange={(e) => handlePriceChange(p.id, e.target.value, mrp)}
+                                    className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[9px] font-black text-charcoal/50 uppercase tracking-wider block">
+                                    Discount (%)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={input.discountPct}
+                                    onChange={(e) => handleDiscountChange(p.id, e.target.value, mrp)}
+                                    className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Controls */}
+                              <div className="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-silver/30">
+                                <div className="flex items-center gap-2">
+                                  {isCustomized ? (
+                                    <span className="flex items-center gap-1.5 text-[10px] font-black text-primary bg-sage/15 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                      <Tag className="w-3.5 h-3.5" />
+                                      Customized
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider">
+                                      Standard Price
+                                    </span>
+                                  )}
+                                  {successMsg && (
+                                    <span className="text-[10px] font-black text-primary animate-in fade-in duration-300 flex items-center gap-1">
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                      {successMsg}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {isCustomized && (
+                                    <button
+                                      type="button"
+                                      disabled={isSaving}
+                                      onClick={() => handleResetToMrp(p.id, mrp)}
+                                      className="px-3 py-2 border border-silver/50 hover:bg-silver/10 rounded-xl text-[10px] font-bold text-charcoal active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                                      title="Reset to MRP"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5 text-charcoal/50" />
+                                      Reset
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    disabled={isSaving}
+                                    onClick={() => handleSavePriceOverride(p.id, mrp)}
+                                    className="px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                                  >
+                                    {isSaving ? "Saving..." : "Save Price"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Vacation Pause Modal */}
+      {selectedSubToPause && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-cream/20 border-b border-silver/30 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Pause Subscription / Vacation
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  Set date range for vacation pause
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSubToPause(null)}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handlePauseSubmit} className="p-6 space-y-5">
+              <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex gap-3 text-xs text-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Important Notice</p>
+                  <p className="text-[11px] font-semibold text-charcoal/60 leading-relaxed">
+                    No deliveries will be scheduled or charged during this period. The subscription will automatically resume after the end date.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={pauseStart}
+                    onChange={(e) => setPauseStart(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={pauseEnd}
+                    onChange={(e) => setPauseEnd(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-silver/30">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubToPause(null)}
+                  className="px-4 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPauseSubmitLoading}
+                  className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isPauseSubmitLoading ? "Pausing..." : "Confirm Pause"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Subscription Modal */}
+      {isAddSubModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-cream/20 border-b border-silver/30 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Create New Subscription
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  Configure recurring delivery schedules and items for {customer.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddSubModalOpen(false)}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body Form */}
+            <form onSubmit={handleAddSubSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                {/* 1. Schedule Configuration */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    1. Scheduling & Frequency
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Frequency
+                      </label>
+                      <select
+                        value={addSubFrequency}
+                        onChange={(e) => setAddSubFrequency(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                      >
+                        <option value="daily">Daily Delivery</option>
+                        <option value="alternate">Alternate Days</option>
+                        <option value="weekdays">Mon - Fri (Weekdays)</option>
+                        <option value="weekends">Sat - Sun (Weekends)</option>
+                        <option value="custom">Custom Days of Week</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={addSubStartDate}
+                          onChange={(e) => setAddSubStartDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          End Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={addSubEndDate}
+                          onChange={(e) => setAddSubEndDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Mode Select */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
-                      Adjustment Type
-                    </label>
-                    <select
-                      value={discountType}
-                      onChange={(e) => setDiscountType(e.target.value as any)}
-                      className="w-full px-4 py-3 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-sm appearance-none cursor-pointer"
+                  {/* Custom Days Grid (rendered only when custom selected) */}
+                  {addSubFrequency === "custom" && (
+                    <div className="space-y-2 p-4 bg-silver/5 border border-silver/30 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Select Days of Delivery
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { val: 0, label: "Mon" },
+                          { val: 1, label: "Tue" },
+                          { val: 2, label: "Wed" },
+                          { val: 3, label: "Thu" },
+                          { val: 4, label: "Fri" },
+                          { val: 5, label: "Sat" },
+                          { val: 6, label: "Sun" },
+                        ].map((day) => {
+                          const isSelected = addSubCustomDays.includes(day.val);
+                          return (
+                            <button
+                              key={day.val}
+                              type="button"
+                              onClick={() => handleToggleCustomDay(day.val)}
+                              className={`px-4 py-2 border rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                                isSelected
+                                  ? "bg-primary text-white border-primary shadow-xs"
+                                  : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Items configuration */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex justify-between items-center border-b border-silver/20 pb-2">
+                    <h4 className="text-xs font-black text-charcoal uppercase tracking-wider">
+                      2. Subscription Items
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleAddSubItemRow}
+                      className="flex items-center gap-1 text-[10px] font-black text-primary hover:text-primary/80 uppercase tracking-wider cursor-pointer"
                     >
-                      <option value="percentage">Percentage Offset (%)</option>
-                      <option value="flat" disabled>
-                        Flat Deductible (Coming Soon)
-                      </option>
-                    </select>
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Item
+                    </button>
                   </div>
 
-                  {/* Category Scope */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
-                      Applicable Products Scope
-                    </label>
-                    <select
-                      value={discountScope}
-                      onChange={(e) => setDiscountScope(e.target.value as any)}
-                      className="w-full px-4 py-3 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-sm appearance-none cursor-pointer"
-                    >
-                      <option value="all">
-                        Apply to All Products (Global)
-                      </option>
-                      <option value="milk">Milk Only</option>
-                      <option value="cheese">Cheese Only</option>
-                      <option value="butter">Butter Only</option>
-                    </select>
-                  </div>
+                  <div className="space-y-3">
+                    {addSubItems.map((item, index) => {
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-end gap-3 p-3 bg-silver/5 border border-silver/30 rounded-2xl hover:border-silver/60 transition-colors animate-in fade-in duration-200"
+                        >
+                          <div className="flex-1 space-y-1.5">
+                            <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider">
+                              Product Selection
+                            </label>
+                            <select
+                              required
+                              value={item.product}
+                              onChange={(e) =>
+                                handleUpdateSubItemRow(index, "product", e.target.value)
+                              }
+                              className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                            >
+                              <option value="">Select a product...</option>
+                              {productsList.map((p) => {
+                                const price = getProductPrice(p.id);
+                                const isAlreadySelected = addSubItems.some(
+                                  (it, idx) => it.product === p.id && idx !== index
+                                );
+                                return (
+                                  <option
+                                    key={p.id}
+                                    value={p.id}
+                                    disabled={isAlreadySelected}
+                                  >
+                                    {p.name} - ₹{price.toFixed(2)}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
 
-                  {/* Audit Notes */}
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
-                      Internal Approval Notes / Rationale
-                    </label>
-                    <textarea
-                      value={discountNotes}
-                      onChange={(e) => setDiscountNotes(e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-medium text-xs leading-relaxed"
-                      placeholder="Explain why this custom rate is applied (e.g. bulk buying agreement, promotion campaign)..."
-                    />
+                          <div className="w-24 space-y-1.5 shrink-0">
+                            <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider block">
+                              Quantity
+                            </label>
+                            <input
+                              type="number"
+                              required
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) =>
+                                handleUpdateSubItemRow(
+                                  index,
+                                  "quantity",
+                                  parseInt(e.target.value) || 0
+                                )
+                              }
+                              className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                            />
+                          </div>
+
+                          {addSubItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSubItemRow(index)}
+                              className="p-2.5 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl transition-colors cursor-pointer shrink-0"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100/50 flex gap-3 text-amber-700">
-                  <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500" />
-                  <p className="text-[11px] font-semibold leading-relaxed">
-                    Custom discounts are applied immediately to all newly
-                    scheduled orders. Existing active orders/subscriptions will
-                    remain unchanged unless updated manually.
+                {/* 3. Delivery Details */}
+                <div className="space-y-4 pt-2">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    3. Delivery Details & Notes
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Address Override
+                      </label>
+                      <textarea
+                        value={addSubDeliveryAddress}
+                        onChange={(e) => setAddSubDeliveryAddress(e.target.value)}
+                        rows={2}
+                        placeholder="Default customer address is used if blank..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Special Instructions
+                      </label>
+                      <textarea
+                        value={addSubSpecialInstructions}
+                        onChange={(e) => setAddSubSpecialInstructions(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Leave at door, call before delivery..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer / Summary */}
+              <div className="px-6 py-5 bg-silver/5 border-t border-silver/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+                <div>
+                  <p className="text-[10px] font-bold text-charcoal/40 uppercase tracking-wider">
+                    Estimated Cost per Delivery
+                  </p>
+                  <p className="text-lg font-black text-primary">
+                    ₹
+                    {addSubItems
+                      .reduce((acc, item) => {
+                        const price = getProductPrice(item.product);
+                        return acc + (item.quantity || 0) * price;
+                      }, 0)
+                      .toFixed(2)}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <button
-                    type="submit"
-                    disabled={isDiscountSaving}
-                    className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    type="button"
+                    onClick={() => setIsAddSubModalOpen(false)}
+                    className="px-5 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
                   >
-                    {isDiscountSaving ? "Saving..." : "Apply Custom Discount"}
+                    Cancel
                   </button>
-                  {customer.discount_rate !== undefined &&
-                    customer.discount_rate > 0 && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setIsDiscountSaving(true);
-                          try {
-                            const updated = await customerApi.updateCustomer(
-                              customer.id,
-                              {
-                                discount_rate: 0,
-                              },
-                            );
-                            onUpdateCustomer(updated);
-                            setDiscountRate("0");
-                            setDiscountSuccessMessage(
-                              "Custom discount cleared successfully.",
-                            );
-                          } catch (e) {
-                            console.error(e);
-                          } finally {
-                            setIsDiscountSaving(false);
-                          }
-                        }}
-                        className="px-5 py-3 bg-white border border-silver/50 text-charcoal hover:bg-silver/10 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                      >
-                        Clear Discount
-                      </button>
-                    )}
+                  <button
+                    type="submit"
+                    disabled={isAddSubSubmitLoading}
+                    className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isAddSubSubmitLoading ? "Creating..." : "Create Subscription"}
+                  </button>
                 </div>
-              </form>
-            </div>
-          )}
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
