@@ -147,7 +147,10 @@ const CustomerPage: React.FC = () => {
       {/* 2. Top-level Nested Section Tabs matching custom UI design layout reference */}
       <div className="border-b border-silver/60 mb-8 flex items-center gap-8 px-2">
         <button
-          onClick={() => setActiveTab("dashboard")}
+          onClick={() => {
+            setActiveTab("dashboard");
+            setSelectedCustomerId(null);
+          }}
           className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
             activeTab === "dashboard"
               ? "text-primary font-black"
@@ -164,7 +167,10 @@ const CustomerPage: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab("detail")}
+          onClick={() => {
+            setActiveTab("detail");
+            setSelectedCustomerId(null);
+          }}
           className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
             activeTab === "detail"
               ? "text-primary font-black"
@@ -214,7 +220,10 @@ const CustomerPage: React.FC = () => {
           customers={customers}
           selectedCustomerId={selectedCustomerId}
           setSelectedCustomerId={setSelectedCustomerId}
-          onBack={() => setActiveTab("dashboard")}
+          onBack={() => {
+            setActiveTab("dashboard");
+            setSelectedCustomerId(null);
+          }}
           onManageProfile={handleViewProfile}
         />
       )}
@@ -222,7 +231,10 @@ const CustomerPage: React.FC = () => {
       {activeTab === "profile" && selectedCustomer && (
         <CustomerProfileTab
           customer={selectedCustomer}
-          onBack={() => setActiveTab("dashboard")}
+          onBack={() => {
+            setActiveTab("dashboard");
+            setSelectedCustomerId(null);
+          }}
           onUpdateCustomer={(updatedCustomer) => {
             setCustomers((prev) =>
               prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))

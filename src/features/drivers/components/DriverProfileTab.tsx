@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Hash,
   MapPin,
+  Users,
+  Search,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
@@ -23,6 +25,7 @@ import axiosInstance from "../../../api/axiosInstance";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import type { Zone } from "../../tenant/components/types";
 import { driverApi } from "../api/driverApi";
+import { customerApi } from "../../customers/api/customerApi";
 
 interface DriverProfileTabProps {
   driver: Driver;
@@ -35,7 +38,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   onBack,
   onUpdateDriver,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries">("basic");
+  const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers">("basic");
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
@@ -45,6 +48,44 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState<boolean>(true);
   const [isUpdatingZone, setIsUpdatingZone] = useState<boolean>(false);
+
+  // Assigned Customers State
+  const [assignedCustomers, setAssignedCustomers] = useState<any[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(true);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
+
+  // Fetch customers assigned to this rider's zone
+  useEffect(() => {
+    const fetchAssignedCustomers = async () => {
+      if (!driver.zone) {
+        setAssignedCustomers([]);
+        setIsLoadingCustomers(false);
+        return;
+      }
+      try {
+        setIsLoadingCustomers(true);
+        const allCustomers = await customerApi.getCustomers();
+        const filtered = allCustomers.filter((c) => c.zone === driver.zone);
+        setAssignedCustomers(filtered);
+      } catch (error) {
+        console.error("Failed to fetch assigned customers:", error);
+      } finally {
+        setIsLoadingCustomers(false);
+      }
+    };
+
+    fetchAssignedCustomers();
+  }, [driver.zone]);
+
+  const filteredCustomers = React.useMemo(() => {
+    return assignedCustomers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+        (c.company && c.company.toLowerCase().includes(customerSearchQuery.toLowerCase())) ||
+        (c.email && c.email.toLowerCase().includes(customerSearchQuery.toLowerCase())) ||
+        (c.address && c.address.toLowerCase().includes(customerSearchQuery.toLowerCase()))
+    );
+  }, [assignedCustomers, customerSearchQuery]);
 
   // Fetch zones on mount
   useEffect(() => {
@@ -143,11 +184,11 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
           className="flex items-center gap-2.5 px-4 py-2.5 bg-white border border-silver/50 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs cursor-pointer outline-none focus:outline-none"
         >
           <ArrowLeft className="w-4 h-4 text-primary" />
-          Back to Drivers
+          Back to Riders
         </button>
 
         <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-[0.2em]">
-          Driver Profile Manager
+          Rider Profile Manager
         </span>
       </div>
 
@@ -341,6 +382,21 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                   <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full"></div>
                 )}
               </button>
+
+              <button
+                onClick={() => setActiveSubTab("customers")}
+                className={`py-4 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap flex items-center gap-2 cursor-pointer outline-none focus:outline-none ${
+                  activeSubTab === "customers"
+                    ? "text-primary"
+                    : "text-charcoal/40 hover:text-charcoal"
+                }`}
+              >
+                <Users className={`w-4 h-4 ${activeSubTab === "customers" ? "text-primary" : "text-charcoal/30"}`} />
+                Assigned Customers
+                {activeSubTab === "customers" && (
+                  <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full"></div>
+                )}
+              </button>
             </div>
 
             {/* Tab content screens */}
@@ -348,10 +404,10 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
               {activeSubTab === "basic" && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Driver Profile Summary Card */}
+                    {/* Rider Profile Summary Card */}
                     <div className="p-6 bg-silver/5 rounded-2xl border border-silver/30">
                       <h4 className="text-xs font-black text-charcoal uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <User className="w-4 h-4 text-primary" /> Driver Information
+                        <User className="w-4 h-4 text-primary" /> Rider Information
                       </h4>
                       <div className="space-y-3.5">
                         <div className="flex justify-between items-center text-xs">
@@ -435,7 +491,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                       <ShieldCheck className="w-4 h-4 text-primary" /> Logistics Operations Note
                     </h4>
                     <p className="text-xs text-charcoal/60 leading-relaxed font-medium">
-                      This driver is registered under the active dairy tenant schema. Their vehicle plate matches local RTO configurations and their maximum carrying load capacity represents weight thresholds allowed for routing optimization in automated dispatch schedules.
+                      This rider is registered under the active dairy tenant schema. Their vehicle plate matches local RTO configurations and their maximum carrying load capacity represents weight thresholds allowed for routing optimization in automated dispatch schedules.
                     </p>
                   </div>
                 </div>
@@ -515,7 +571,99 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                     <div className="py-16 text-center border border-dashed border-silver/50 rounded-2xl bg-silver/5">
                       <Truck className="w-10 h-10 text-charcoal/20 mx-auto mb-2" />
                       <p className="text-sm font-black text-charcoal/40">No assigned routes found</p>
-                      <p className="text-xs text-charcoal/30 mt-0.5">This driver hasn't been assigned any active dispatch schedules.</p>
+                      <p className="text-xs text-charcoal/30 mt-0.5">This rider hasn't been assigned any active dispatch schedules.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === "customers" && (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                    <div className="relative flex-1 group">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal/30 w-4 h-4 group-focus-within:text-primary transition-colors" />
+                      <input
+                        type="text"
+                        placeholder="Search assigned customers by name, company, email..."
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 text-xs bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-medium"
+                      />
+                    </div>
+                    {driver.zone && (
+                      <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/10 px-3 py-2 rounded-xl uppercase tracking-wider self-start sm:self-auto">
+                        Zone: {zones.find(z => z.id === driver.zone)?.name || "Assigned"}
+                      </span>
+                    )}
+                  </div>
+
+                  {isLoadingCustomers ? (
+                    <div className="space-y-3">
+                      {Array(3).fill(0).map((_, i) => (
+                        <div key={i} className="h-16 bg-silver/5 rounded-2xl animate-pulse border border-silver/30"></div>
+                      ))}
+                    </div>
+                  ) : filteredCustomers.length > 0 ? (
+                    <div className="border border-silver/50 rounded-2xl overflow-hidden shadow-xs bg-white">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-silver/10 text-[9px] uppercase tracking-widest text-charcoal/40 font-black border-b border-silver/30">
+                            <tr>
+                              <th className="px-6 py-4">Customer</th>
+                              <th className="px-6 py-4">Contact & Location</th>
+                              <th className="px-6 py-4">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-silver/30 text-xs font-bold text-charcoal">
+                            {filteredCustomers.map((cust) => (
+                              <tr key={cust.id} className="hover:bg-primary/5 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-gradient-to-tr from-primary to-sage text-white rounded-lg flex items-center justify-center font-black text-xs shadow-xs">
+                                      {cust.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-black text-charcoal">{cust.name}</p>
+                                      {cust.company && (
+                                        <p className="text-[9px] text-charcoal/40 font-medium">{cust.company}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col gap-0.5">
+                                    {cust.phone && <span className="text-[10px] text-charcoal/80 font-bold">{cust.phone}</span>}
+                                    {cust.address && (
+                                      <span className="text-[9px] text-charcoal/40 font-medium truncate max-w-[240px]" title={cust.address}>
+                                        {cust.address}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                    cust.is_active
+                                      ? "bg-sage/10 text-primary border-primary/10"
+                                      : "bg-red-50 text-red-500 border-red-100"
+                                  }`}>
+                                    {cust.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-16 text-center border border-dashed border-silver/50 rounded-2xl bg-silver/5">
+                      <Users className="w-10 h-10 text-charcoal/20 mx-auto mb-2" />
+                      <p className="text-sm font-black text-charcoal/40">No assigned customers found</p>
+                      <p className="text-xs text-charcoal/30 mt-0.5">
+                        {driver.zone 
+                          ? "This rider's assigned zone does not have any active customers yet."
+                          : "Please assign a zone to this rider to see their assigned customers."}
+                      </p>
                     </div>
                   )}
                 </div>

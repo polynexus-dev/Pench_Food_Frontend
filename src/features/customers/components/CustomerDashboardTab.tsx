@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users } from "lucide-react";
 import type { Customer } from "./types";
+import { tenantApi } from "../../tenant/api/tenantApi";
+import { driverApi } from "../../drivers/api/driverApi";
+import axiosInstance from "../../../api/axiosInstance";
 
 interface CustomerDashboardTabProps {
   customers: Customer[];
@@ -12,12 +15,95 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone.includes(searchQuery),
-  );
+  // Filter States
+  const [selectedZone, setSelectedZone] = useState<string>("");
+  const [selectedRider, setSelectedRider] = useState<string>("");
+  const [selectedBottleType, setSelectedBottleType] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+
+  // Dropdown Options State
+  const [zones, setZones] = useState<any[]>([]);
+  const [riders, setRiders] = useState<any[]>([]);
+  const [bottleBalances, setBottleBalances] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+
+  // Fetch filter dropdown data on mount
+  useEffect(() => {
+    const loadFilterData = async () => {
+      try {
+        const zonesData = await tenantApi.getZones();
+        setZones(zonesData);
+      } catch (err) {
+        console.warn("Failed to fetch zones for customer filters:", err);
+      }
+
+      try {
+        const ridersData = await driverApi.getDrivers();
+        setRiders(ridersData);
+      } catch (err) {
+        console.warn("Failed to fetch riders for customer filters:", err);
+      }
+
+      try {
+        const response = await axiosInstance.get("/erp/inventory/bottle-balances/");
+        setBottleBalances(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        console.warn("Failed to fetch bottle balances for customer filters:", err);
+      }
+    };
+
+    loadFilterData();
+  }, []);
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((customer) => {
+      // 1. Search text filter
+      const matchesSearch =
+        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.phone.includes(searchQuery);
+      if (!matchesSearch) return false;
+
+      // 2. Zone filter
+      if (selectedZone && customer.zone !== selectedZone) {
+        return false;
+      }
+
+      // 3. Rider filter (rider's assigned zone matches customer's zone)
+      if (selectedRider) {
+        const rider = riders.find((r) => r.id === selectedRider);
+        if (!rider || customer.zone !== rider.zone) {
+          return false;
+        }
+      }
+
+      // 4. Status filter
+      if (selectedStatus) {
+        const isActive = selectedStatus === "active";
+        if (customer.is_active !== isActive) {
+          return false;
+        }
+      }
+
+      // 5. Bottle Type filter
+      if (selectedBottleType) {
+        const custBalances = bottleBalances.filter((b) => b.customer === customer.id);
+        
+        if (selectedBottleType === "1L") {
+          const has1L = custBalances.some((b) => b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
+          if (!has1L) return false;
+        } else if (selectedBottleType === "500ml") {
+          const has500ml = custBalances.some((b) => b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
+          if (!has500ml) return false;
+        } else if (selectedBottleType === "none") {
+          const hasAny = custBalances.some((b) => b.balance > 0);
+          if (hasAny) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [customers, searchQuery, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -49,9 +135,16 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
               <ListIcon className="w-5 h-5" />
             </button>
           </div>
-          <button className="flex items-center gap-2 px-5 py-4 bg-white border border-silver/50 text-charcoal/60 rounded-2xl hover:border-primary/30 hover:text-primary transition-all shadow-sm font-bold text-sm">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-5 py-4 border rounded-2xl hover:border-primary/30 transition-all shadow-sm font-bold text-sm outline-none focus:outline-none cursor-pointer ${
+              showFilters 
+                ? "bg-primary text-white border-primary shadow-lg shadow-primary/10" 
+                : "bg-white border border-silver/50 text-charcoal/60 hover:text-primary"
+            }`}
+          >
             <Filter className="w-4 h-4" />
-            All Filters
+            Filters
           </button>
           <div className="bg-primary/5 px-5 py-4 rounded-2xl border border-primary/10 flex items-center gap-3">
             <span className="text-xs font-black text-primary uppercase tracking-widest">
@@ -63,6 +156,85 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
           </div>
         </div>
       </div>
+
+      {/* Collapsible Filter Panel */}
+      {showFilters && (
+        <div className="bg-silver/10 border border-silver/40 rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-4 duration-300">
+          {/* Zone Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Zone</label>
+            <select
+              value={selectedZone}
+              onChange={(e) => setSelectedZone(e.target.value)}
+              className="w-full bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-xs"
+            >
+              <option value="">All Zones</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Rider Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Assigned Rider</label>
+            <select
+              value={selectedRider}
+              onChange={(e) => setSelectedRider(e.target.value)}
+              className="w-full bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-xs"
+            >
+              <option value="">All Riders</option>
+              {riders.map((r) => (
+                <option key={r.id} value={r.id}>{r.full_name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Bottle Type Filter */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Bottle Type Balance</label>
+            <select
+              value={selectedBottleType}
+              onChange={(e) => setSelectedBottleType(e.target.value)}
+              className="w-full bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-xs"
+            >
+              <option value="">All Balances</option>
+              <option value="1L">Has 1L Bottle Balance</option>
+              <option value="500ml">Has 500ml Bottle Balance</option>
+              <option value="none">No Active Bottle Balance</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="space-y-1.5 flex flex-col justify-between">
+            <div>
+              <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block mb-1.5">Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-xs"
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+            </div>
+            {(selectedZone || selectedRider || selectedBottleType || selectedStatus) && (
+              <button
+                onClick={() => {
+                  setSelectedZone("");
+                  setSelectedRider("");
+                  setSelectedBottleType("");
+                  setSelectedStatus("");
+                }}
+                className="text-[10px] font-black text-red-500 uppercase tracking-wider text-right hover:underline self-end mt-2 outline-none focus:outline-none cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* View Content */}
       {isLoading ? (

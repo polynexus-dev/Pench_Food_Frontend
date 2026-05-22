@@ -84,7 +84,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
         zone: ''
       });
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.[0]?.message || 'Failed to register driver. Please try again.');
+      setError(err.response?.data?.message || err.response?.data?.[0]?.message || 'Failed to register rider. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +100,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               <UserPlus className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold leading-none">Register New Driver</h2>
+              <h2 className="text-xl font-bold leading-none">Register New Rider</h2>
               <p className="text-[10px] uppercase tracking-widest text-white/70 mt-1 font-bold">Fleet Expansion for {currentTenant?.toUpperCase()}</p>
             </div>
           </div>
@@ -129,7 +129,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               value={formData.username}
               onChange={handleInputChange}
               required
-              placeholder="driver_name"
+              placeholder="rider_name"
               inputClassName="font-mono"
             />
 
@@ -178,7 +178,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               value={formData.email}
               onChange={handleInputChange}
               required
-              placeholder="driver@example.com"
+              placeholder="rider@example.com"
             />
 
             <CustomInput
@@ -263,7 +263,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
                   Registering...
                 </>
               ) : (
-                'Create Driver Account'
+                'Create Rider Account'
               )}
             </button>
           </div>

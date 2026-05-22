@@ -215,7 +215,7 @@ const Sidebar = () => {
             <SidebarItem icon={CreditCard} label="Finance & Billing" to="/finance" />
             <SidebarItem icon={Briefcase} label="HR & Payroll" to="/hr" />
             <SidebarItem icon={Users} label="Customers" to="/customers" />
-            <SidebarItem icon={User} label="Drivers" to="/drivers" />
+            <SidebarItem icon={User} label="Riders" to="/drivers" />
             <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
             <SidebarItem icon={Settings} label="System Settings" to="/settings" />
           </>

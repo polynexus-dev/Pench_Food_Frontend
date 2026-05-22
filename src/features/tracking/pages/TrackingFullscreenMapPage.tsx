@@ -255,20 +255,20 @@ const TrackingFullscreenMapPage: React.FC = () => {
             <Navigation className="w-16 h-16 text-primary animate-bounce mb-4 opacity-60" />
             <p className="text-lg font-black text-charcoal">Awaiting Active GPS Broadcast Stream</p>
             <p className="text-sm text-charcoal/60 max-w-md mt-2 font-medium">
-              Awaiting drivers to connect and broadcast location. Please check the connection status in the dashboard.
+              Awaiting riders to connect and broadcast location. Please check the connection status in the dashboard.
             </p>
           </div>
         )}
 
 
 
-        {/* Active Drivers Info Bottom Left */}
+        {/* Active Riders Info Bottom Left */}
         <div className="absolute bottom-6 left-6 pointer-events-none z-20">
           {driversList.length > 0 && (
             <div className="bg-white/95 backdrop-blur-xl p-4 rounded-3xl shadow-2xl border border-silver/60 w-80 max-h-[60vh] overflow-y-auto pointer-events-auto animate-in slide-in-from-bottom-4 duration-300 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-silver/40 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-silver/60">
               <div className="flex items-center justify-between mb-4 px-1">
                 <h3 className="text-sm font-black text-charcoal uppercase tracking-wider">
-                  Active Drivers
+                  Active Riders
                 </h3>
                 <span className="text-xs font-black bg-primary/10 text-primary px-2 py-1 rounded-lg">
                   {driversList.length} Online

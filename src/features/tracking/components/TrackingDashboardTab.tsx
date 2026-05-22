@@ -473,7 +473,7 @@ const TrackingDashboardTab: React.FC = () => {
                 <User className="w-4 h-4 text-primary" /> Active Feeds
               </h3>
               <p className="text-[11px] text-charcoal/40 font-medium">
-                Drivers sending WS payload ticks
+                Riders sending WS payload ticks
               </p>
             </div>
             <span className="px-2.5 py-1 bg-primary/10 text-primary font-black rounded-lg text-xs leading-none">
@@ -486,7 +486,7 @@ const TrackingDashboardTab: React.FC = () => {
               <div className="h-full flex flex-col items-center justify-center text-center p-6">
                 <MapPin className="w-8 h-8 text-charcoal/20 mb-2" />
                 <p className="text-xs font-bold text-charcoal/40">
-                  No Driver Tracking Entries
+                  No Rider Tracking Entries
                 </p>
                 <p className="text-[10px] text-charcoal/30 mt-1">
                   Updates parse automatically upon broadcast reception.

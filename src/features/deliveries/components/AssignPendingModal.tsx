@@ -99,7 +99,7 @@ const AssignPendingModal: React.FC<AssignPendingModalProps> = ({ isOpen, onClose
                 <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-charcoal/70 font-semibold leading-relaxed">
                   This will retrieve all <strong>pending</strong> and <strong>confirmed</strong> orders for the selected date. 
-                  It groups them by customer zones and assigns them to the primary driver of each zone.
+                  It groups them by customer zones and assigns them to the primary rider of each zone.
                 </p>
               </div>
 
@@ -182,7 +182,7 @@ const AssignPendingModal: React.FC<AssignPendingModalProps> = ({ isOpen, onClose
                         <div>
                           <span className="text-xs font-black text-charcoal block">{route.name}</span>
                           <span className="text-[10px] text-charcoal/50 font-bold block mt-0.5">
-                            Driver: {route.driver_name || 'Unassigned'}
+                            Rider: {route.driver_name || 'Unassigned'}
                           </span>
                         </div>
                         <span className="text-[10px] font-black bg-primary/10 text-primary px-2.5 py-1 rounded-lg">

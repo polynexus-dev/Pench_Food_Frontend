@@ -75,7 +75,7 @@ const DriverPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-3xl font-black text-charcoal tracking-tight flex items-center gap-2">
-                Driver Directory
+                Rider Directory
               </h1>
               <p className="text-charcoal/50 font-medium text-xs mt-0.5">
                 Manage your delivery team, vehicle capacities, and account statuses.
@@ -104,7 +104,7 @@ const DriverPage: React.FC = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/30 w-5 h-5 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
-            placeholder="Search drivers or vehicles..."
+            placeholder="Search riders or vehicles..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-4 bg-white border border-silver/50 rounded-2xl shadow-sm focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-medium"
@@ -132,7 +132,7 @@ const DriverPage: React.FC = () => {
             className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 whitespace-nowrap outline-none focus:outline-none"
           >
             <Plus className="w-5 h-5" />
-            Register Driver
+            Register Rider
           </button>
         </div>
       </div>
@@ -209,7 +209,7 @@ const DriverPage: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-silver/10 text-[10px] uppercase tracking-[0.2em] text-charcoal/40 font-black border-b border-silver/30">
                 <tr>
-                  <th className="px-8 py-5">Driver Name</th>
+                  <th className="px-8 py-5">Rider Name</th>
                   <th className="px-6 py-5">Vehicle Details</th>
                   <th className="px-6 py-5">Capacity</th>
                   <th className="px-6 py-5">Availability</th>
@@ -278,7 +278,7 @@ const DriverPage: React.FC = () => {
           <div className="w-20 h-20 bg-silver/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Truck className="w-10 h-10 text-charcoal/20" />
           </div>
-          <h3 className="text-xl font-bold text-charcoal">No drivers found</h3>
+          <h3 className="text-xl font-bold text-charcoal">No riders found</h3>
           <p className="text-charcoal/40">Try searching for a different name or plate number.</p>
         </div>
       )}

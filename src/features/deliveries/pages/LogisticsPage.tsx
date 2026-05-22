@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Truck, RefreshCw, PieChart, Navigation, Sparkles } from "lucide-react";
+import { Truck, RefreshCw, PieChart, Navigation, Sparkles, ClipboardList } from "lucide-react";
 import { deliveryApi } from "../api/deliveryApi";
 import type { Driver, Route as RouteType } from "../components/types";
 import LogisticsDashboardTab from "../components/LogisticsDashboardTab";
 import RouteTab from "../components/RouteTab";
+import DispatchSummaryTab from "../components/DispatchSummaryTab";
 import AssignPendingModal from "../components/AssignPendingModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 
 const LogisticsPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "routes">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "routes" | "dispatch">("dashboard");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAssignPendingOpen, setIsAssignPendingOpen] = useState<boolean>(false);
@@ -134,12 +135,32 @@ const LogisticsPage: React.FC = () => {
             <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab("dispatch")}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "dispatch"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <ClipboardList
+            className={`w-4 h-4 ${activeTab === "dispatch" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Daily Dispatch Sheet
+          {activeTab === "dispatch" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
       </div>
 
       {/* 3. Tab Content */}
       {activeTab === "dashboard" && <LogisticsDashboardTab stats={stats} />}
       {activeTab === "routes" && (
         <RouteTab routes={routes} isLoading={isLoading} />
+      )}
+      {activeTab === "dispatch" && (
+        <DispatchSummaryTab routes={routes} isLoading={isLoading} />
       )}
 
       <AssignPendingModal

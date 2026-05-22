@@ -31,7 +31,7 @@ const TrackingPage: React.FC = () => {
                 )}
               </h1>
               <p className="text-charcoal/50 font-medium mt-1">
-                Real-time WebSocket driver monitoring & historical GPS route logs tracking.
+                Real-time WebSocket rider monitoring & historical GPS route logs tracking.
               </p>
             </div>
           </div>

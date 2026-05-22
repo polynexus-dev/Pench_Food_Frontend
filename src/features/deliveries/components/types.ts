@@ -40,4 +40,6 @@ export interface Route {
   route_geometry: any;
   stops: Stop[];
   status: "active" | "completed" | "pending";
+  dispatch_bottles_1L?: number;
+  dispatch_bottles_500ml?: number;
 }

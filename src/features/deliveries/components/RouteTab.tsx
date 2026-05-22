@@ -228,6 +228,36 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
                 <div className="w-1 h-1 bg-current opacity-20 rounded-full"></div>
                 <span className="text-[10px] font-bold opacity-60">{route.stops.length} Stops</span>
               </div>
+              
+              {/* Bottle dispatch requirements */}
+              {((route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0) || 
+                (route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0)) && (
+                <div className={`mt-3 pt-3 border-t flex flex-wrap items-center gap-2 ${
+                  selectedRouteId === route.id ? 'border-white/10' : 'border-silver/40'
+                }`}>
+                  <span className={`text-[9px] font-black uppercase tracking-wider opacity-60 mr-1`}>
+                    To Carry:
+                  </span>
+                  {route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0 ? (
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-xl border transition-all ${
+                      selectedRouteId === route.id 
+                        ? 'bg-white/15 border-white/10 text-white' 
+                        : 'bg-emerald-50 border-emerald-100/50 text-emerald-700 shadow-3xs'
+                    }`}>
+                      1L Bottle: {route.dispatch_bottles_1L}
+                    </span>
+                  ) : null}
+                  {route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0 ? (
+                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-xl border transition-all ${
+                      selectedRouteId === route.id 
+                        ? 'bg-white/15 border-white/10 text-white' 
+                        : 'bg-blue-50 border-blue-100/50 text-blue-700 shadow-3xs'
+                    }`}>
+                      500ml Bottle: {route.dispatch_bottles_500ml}
+                    </span>
+                  ) : null}
+                </div>
+              )}
             </div>
           ))}
 

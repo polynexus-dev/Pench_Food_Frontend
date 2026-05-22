@@ -47,7 +47,7 @@ const LogisticsDashboardTab: React.FC<LogisticsDashboardTabProps> = ({ stats }) 
            <div className="flex items-center justify-between mb-8">
               <div>
                  <h3 className="text-xl font-black text-charcoal">Fleet Utilization</h3>
-                 <p className="text-xs font-medium text-charcoal/40">Real-time capacity and driver engagement</p>
+                 <p className="text-xs font-medium text-charcoal/40">Real-time capacity and rider engagement</p>
               </div>
               <Users className="w-6 h-6 text-primary/20" />
            </div>
@@ -77,11 +77,11 @@ const LogisticsDashboardTab: React.FC<LogisticsDashboardTabProps> = ({ stats }) 
               <div className="grid grid-cols-2 gap-12 mt-10 w-full max-w-sm">
                  <div className="text-center">
                     <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest mb-1">Engaged</p>
-                    <p className="text-xl font-black text-charcoal">{stats.activeTrips} Drivers</p>
+                    <p className="text-xl font-black text-charcoal">{stats.activeTrips} Riders</p>
                  </div>
                  <div className="text-center">
                     <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest mb-1">Standby</p>
-                    <p className="text-xl font-black text-charcoal">{stats.availableDrivers} Drivers</p>
+                    <p className="text-xl font-black text-charcoal">{stats.availableDrivers} Riders</p>
                  </div>
               </div>
            </div>

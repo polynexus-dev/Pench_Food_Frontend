@@ -29,6 +29,14 @@ const Dashboard = () => {
   const [cities, setCities] = useState<City[]>([]);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
 
+  // Dynamic Dashboard Stats State
+  const [customerCount, setCustomerCount] = useState(0);
+  const [riderCount, setRiderCount] = useState(0);
+  const [zoneCount, setZoneCount] = useState(0);
+  const [activeDeliveriesCount, setActiveDeliveriesCount] = useState(0);
+  const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
   useEffect(() => {
     const fetchCities = async () => {
       setIsLoadingCities(true);
@@ -51,18 +59,61 @@ const Dashboard = () => {
 
     fetchCities();
   }, [tenant, setTenant]);
-  const stats = [
-    { title: 'Milk Volume', value: '4,250L', change: '+12%', icon: Droplets, color: 'text-primary' },
-    { title: 'Daily Revenue', value: '₹1,45,200', change: '+5.4%', icon: TrendingUp, color: 'text-sage' },
-    { title: 'Active Deliveries', value: '48', change: '8 pending', icon: Truck, color: 'text-accent' },
-    { title: 'Inventory Status', value: 'Normal', change: '12 items low', icon: Package, color: 'text-charcoal' },
-  ];
 
-  const recentDeliveries = [
-    { id: '#DEL-9842', customer: 'Fresh Bakes Bakery', item: 'Full Cream Milk', amount: '200L', status: 'Delivered', time: '10:30 AM' },
-    { id: '#DEL-9843', customer: 'City Supermarket', item: 'Pasteurized Milk', amount: '500L', status: 'In Transit', time: '11:15 AM' },
-    { id: '#DEL-9844', customer: 'Health Zone Gym', item: 'Skimmed Milk', amount: '50L', status: 'Pending', time: '12:00 PM' },
-    { id: '#DEL-9845', customer: 'Morning Cafeteria', item: 'Paneer (Bulk)', amount: '15kg', status: 'Delivered', time: '09:45 AM' },
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!tenant) return;
+      setIsLoadingStats(true);
+      try {
+        // 1. Fetch Customers
+        const custRes = await axiosInstance.get('/erp/customers/');
+        const activeCusts = Array.isArray(custRes.data) ? custRes.data : [];
+        setCustomerCount(activeCusts.length);
+
+        // 2. Fetch Riders (Drivers)
+        const driverRes = await axiosInstance.get('/erp/drivers/');
+        const activeRiders = Array.isArray(driverRes.data) ? driverRes.data : [];
+        setRiderCount(activeRiders.length);
+
+        // 3. Fetch Zones
+        const zoneRes = await axiosInstance.get('/erp/zones/');
+        const activeZones = Array.isArray(zoneRes.data) ? zoneRes.data : [];
+        setZoneCount(activeZones.length);
+
+        // 4. Fetch Routes
+        const routeRes = await axiosInstance.get('/erp/routes/');
+        const activeRoutes = Array.isArray(routeRes.data) ? routeRes.data : [];
+        setActiveDeliveriesCount(activeRoutes.length);
+
+        // 5. Populate some real recent routes/deliveries
+        const mappedDeliveries = activeRoutes.slice(0, 4).map((route: any) => ({
+          id: `#RTE-${route.id.slice(0, 4).toUpperCase()}`,
+          customer: route.driver_name || 'Unassigned Rider',
+          item: route.zone_name || 'General Zone',
+          amount: `${route.assigned_customers_count || 0} Customers`,
+          status: route.is_active ? 'In Transit' : 'Delivered',
+          time: new Date(route.created_at || Date.now()).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        }));
+        setRecentDeliveries(mappedDeliveries);
+
+      } catch (error) {
+        console.error('Failed to load dashboard operational statistics:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [tenant]);
+
+  const stats = [
+    { title: 'Active Partners', value: isLoadingStats ? '...' : `${customerCount}`, change: 'Registered', icon: Users, color: 'text-primary' },
+    { title: 'Active Riders', value: isLoadingStats ? '...' : `${riderCount}`, change: 'On Duty', icon: Truck, color: 'text-sage' },
+    { title: 'Operated Zones', value: isLoadingStats ? '...' : `${zoneCount}`, change: 'Geographies', icon: MapPin, color: 'text-accent' },
+    { title: 'Active Routes', value: isLoadingStats ? '...' : `${activeDeliveriesCount}`, change: 'Dispatched', icon: ClipboardList, color: 'text-charcoal' },
   ];
 
   return (
@@ -184,19 +235,19 @@ const Dashboard = () => {
             {/* Recent Deliveries Table */}
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-silver overflow-hidden">
               <div className="p-6 border-b border-silver flex justify-between items-center">
-                <h3 className="font-bold text-charcoal">Recent Deliveries</h3>
-                <button className="text-primary text-sm font-bold flex items-center gap-1 hover:underline">
-                  View All <ChevronRight className="w-4 h-4" />
-                </button>
+                <h3 className="font-bold text-charcoal">Active Dispatch Routes</h3>
+                <span className="text-[10px] uppercase font-black tracking-widest text-primary bg-primary/5 px-3 py-1.5 rounded-lg">
+                  Real-time status
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-silver/10 text-[11px] uppercase tracking-wider text-charcoal/50 font-bold">
+                  <thead className="bg-silver/10 text-[11px] uppercase tracking-wider text-charcoal/50 font-bold border-b border-silver">
                     <tr>
-                      <th className="px-6 py-4">ID</th>
-                      <th className="px-6 py-4">Customer</th>
-                      <th className="px-6 py-4">Item</th>
-                      <th className="px-6 py-4">Volume</th>
+                      <th className="px-6 py-4">Route ID</th>
+                      <th className="px-6 py-4">Assigned Rider</th>
+                      <th className="px-6 py-4">Coverage Zone</th>
+                      <th className="px-6 py-4">Load / Scale</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>
                   </thead>
@@ -208,8 +259,8 @@ const Dashboard = () => {
                           <p className="text-sm font-bold text-charcoal">{delivery.customer}</p>
                           <p className="text-[10px] text-charcoal/50">{delivery.time}</p>
                         </td>
-                        <td className="px-6 py-4 text-sm text-charcoal/80">{delivery.item}</td>
-                        <td className="px-6 py-4 text-sm font-bold">{delivery.amount}</td>
+                        <td className="px-6 py-4 text-sm text-charcoal/80 font-bold">{delivery.item}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-charcoal/60">{delivery.amount}</td>
                         <td className="px-6 py-4">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
                             delivery.status === 'Delivered' ? 'bg-sage/20 text-primary' : 
@@ -221,6 +272,13 @@ const Dashboard = () => {
                         </td>
                       </tr>
                     ))}
+                    {recentDeliveries.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="text-center py-12 text-sm text-charcoal/40 font-bold">
+                          No active routes dispatched for today yet.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

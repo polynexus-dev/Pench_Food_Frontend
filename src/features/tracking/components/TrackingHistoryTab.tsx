@@ -266,16 +266,16 @@ const TrackingHistoryTab: React.FC = () => {
       {/* Filtering Selector Control Bar */}
       <div className="bg-white p-5 rounded-[24px] border border-silver/50 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-          {/* Driver Selector */}
+          {/* Rider Selector */}
           <div className="w-full md:w-64">
             <CustomSelect
-              label="Driver"
+              label="Rider"
               icon={User}
               value={selectedDriverId}
               onChange={setSelectedDriverId}
               options={driverOptions}
               placeholder={
-                isDriversLoading ? "Loading drivers..." : "Select driver"
+                isDriversLoading ? "Loading riders..." : "Select rider"
               }
               buttonClassName="text-xs font-bold py-2"
             />
@@ -694,7 +694,7 @@ const TrackingHistoryTab: React.FC = () => {
             No Historical Logs Found
           </h4>
           <p className="text-xs text-charcoal/50 max-w-sm font-medium leading-relaxed">
-            There are no recorded route traces for the selected driver on this
+            There are no recorded route traces for the selected rider on this
             date. Choose another partner or specify a different timestamp.
           </p>
         </div>
