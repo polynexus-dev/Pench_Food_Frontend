@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
-    allowedHosts: ["pench.polynexus.in"],
+    allowedHosts: ["pench.polynexus.in", "pench.dev.polynexus.in"],
   },
 });
 //test///
