@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { companyApi } from "../../api/companyApi";
 import type { City } from "../../api/companyApi";
-import { Bell, Search, LogOut, MapPin, ChevronDown } from "lucide-react";
+import { Bell, Search, LogOut, MapPin, ChevronDown, Settings } from "lucide-react";
 
 const Navbar = () => {
   const { logout, user, tenant, setTenant, companyId } = useAuthStore();
@@ -10,6 +11,8 @@ const Navbar = () => {
   const [isLoadingCities, setIsLoadingCities] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const showSettings = !!user;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -142,6 +145,17 @@ const Navbar = () => {
           <Bell className="w-5 h-5 group-hover:animate-swing" />
           <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-white ring-2 ring-red-500/20"></span>
         </button>
+
+        {/* Settings */}
+        {showSettings && (
+          <Link
+            to="/profile/settings"
+            className="p-3 text-charcoal/40 hover:text-primary hover:bg-primary/5 rounded-2xl relative transition-all group"
+            title="Account Settings"
+          >
+            <Settings className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
+          </Link>
+        )}
 
         {/* Profile / Logout */}
         <div className="flex items-center gap-4 pl-6 border-l border-silver/50">
