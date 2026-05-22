@@ -79,36 +79,36 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
     try {
       if (editingCompanyId) {
         // Edit flow
-        try {
-          const updated = await companyApi.updateCompany(
-            editingCompanyId,
-            compName.trim(),
-            compCode.trim(),
-            compActive,
-            compCities
-          );
-          setCompanies((prev) =>
-            prev.map((c) => (c.id === editingCompanyId ? updated : c))
-          );
-        } catch (apiErr) {
-          console.warn("API update failed, falling back to local update", apiErr);
-          const fallbackUpdated: Company = {
-            id: editingCompanyId,
-            name: compName.trim(),
-            code: compCode.trim(),
-            is_active: compActive,
-            cities: compCities,
-          };
-          setCompanies((prev) =>
-            prev.map((c) => (c.id === editingCompanyId ? fallbackUpdated : c))
-          );
-        }
+        // try {
+        //   const updated = await companyApi.updateCompany(
+        //     editingCompanyId,
+        //     compName.trim(),
+        //     compCode.trim(),
+        //     compActive,
+        //     compCities
+        //   );
+        //   setCompanies((prev) =>
+        //     prev.map((c) => (c.id === editingCompanyId ? updated : c))
+        //   );
+        // } catch (apiErr) {
+        //   console.warn("API update failed, falling back to local update", apiErr);
+        //   const fallbackUpdated: Company = {
+        //     id: editingCompanyId,
+        //     name: compName.trim(),
+        //     code: compCode.trim(),
+        //     is_active: compActive,
+        //     cities: compCities,
+        //   };
+        //   setCompanies((prev) =>
+        //     prev.map((c) => (c.id === editingCompanyId ? fallbackUpdated : c))
+        //   );
+        // }
       } else {
         // Create flow
         try {
           const newCompany = await companyApi.createCompany(
             compName.trim(),
-            compCode.trim()
+            compCode.trim(),
           );
           const completeCompany: Company = {
             ...newCompany,
@@ -117,7 +117,10 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
           };
           setCompanies((prev) => [...prev, completeCompany]);
         } catch (apiErr) {
-          console.warn("API create failed, falling back to local create", apiErr);
+          console.warn(
+            "API create failed, falling back to local create",
+            apiErr,
+          );
           const fallbackCompany: Company = {
             id: `local_${Date.now()}`,
             name: compName.trim(),
@@ -145,27 +148,27 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
     }
   };
 
-  // Delete company
-  const handleDeleteCompany = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this company?")) {
-      return;
-    }
+  // // Delete company
+  // const handleDeleteCompany = async (id: string) => {
+  //   if (!window.confirm("Are you sure you want to delete this company?")) {
+  //     return;
+  //   }
 
-    setError(null);
-    try {
-      try {
-        await companyApi.deleteCompany(id);
-      } catch (apiErr) {
-        console.warn("API delete failed, falling back to local delete", apiErr);
-      }
-      setCompanies((prev) => prev.filter((c) => c.id !== id));
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err: any) {
-      console.error("Failed to delete company:", err);
-      setError("An unexpected error occurred while deleting the company.");
-    }
-  };
+  //   setError(null);
+  //   try {
+  //     try {
+  //       await companyApi.deleteCompany(id);
+  //     } catch (apiErr) {
+  //       console.warn("API delete failed, falling back to local delete", apiErr);
+  //     }
+  //     setCompanies((prev) => prev.filter((c) => c.id !== id));
+  //     setSaveSuccess(true);
+  //     setTimeout(() => setSaveSuccess(false), 3000);
+  //   } catch (err: any) {
+  //     console.error("Failed to delete company:", err);
+  //     setError("An unexpected error occurred while deleting the company.");
+  //   }
+  // };
 
   // Add City under company
   const handleAddCity = (e: React.FormEvent) => {
@@ -193,13 +196,18 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
     <div className="space-y-6">
       {isEditingCompany ? (
         /* Create / Edit Company Form */
-        <form onSubmit={handleSaveCompany} className="space-y-6 animate-in fade-in-50 duration-200">
+        <form
+          onSubmit={handleSaveCompany}
+          className="space-y-6 animate-in fade-in-50 duration-200"
+        >
           <div className="p-8 bg-white border border-silver/50 rounded-3xl shadow-xs space-y-6">
             <div className="flex items-center justify-between pb-3 border-b border-silver/30">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-primary" />
                 <h3 className="text-sm font-black text-charcoal uppercase tracking-wider">
-                  {editingCompanyId ? "Edit Company Details" : "Register New Company"}
+                  {editingCompanyId
+                    ? "Edit Company Details"
+                    : "Register New Company"}
                 </h3>
               </div>
               <button
@@ -251,7 +259,8 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
                       Company Status
                     </span>
                     <span className="text-[10px] text-charcoal/40 font-semibold leading-relaxed block">
-                      Active companies can own and run sub-tenant cities, manage riders, and route bookings.
+                      Active companies can own and run sub-tenant cities, manage
+                      riders, and route bookings.
                     </span>
                   </div>
                   <button
@@ -369,7 +378,8 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
             <span className="text-xs font-black text-charcoal/50">
               {saveSuccess ? (
                 <span className="flex items-center gap-1.5 text-primary">
-                  <CheckCircle2 className="w-4 h-4" /> Company Saved Successfully!
+                  <CheckCircle2 className="w-4 h-4" /> Company Saved
+                  Successfully!
                 </span>
               ) : (
                 "Save modifications to return to the active registry."
@@ -454,7 +464,7 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
                 const filtered = companies.filter(
                   (c) =>
                     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    c.code.toLowerCase().includes(searchQuery.toLowerCase())
+                    c.code.toLowerCase().includes(searchQuery.toLowerCase()),
                 );
 
                 if (filtered.length === 0) {
@@ -509,7 +519,9 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
                             >
                               <span
                                 className={`w-1.5 h-1.5 rounded-full ${
-                                  company.is_active ? "bg-green-600 animate-pulse" : "bg-charcoal/40"
+                                  company.is_active
+                                    ? "bg-green-600 animate-pulse"
+                                    : "bg-charcoal/40"
                                 }`}
                               />
                               {company.is_active ? "Active" : "Inactive"}
@@ -539,33 +551,6 @@ export const CompaniesTab: React.FC<CompaniesTabProps> = ({ setError }) => {
                               </span>
                             )}
                           </div>
-                        </div>
-
-                        {/* Card Footer Actions */}
-                        <div className="flex items-center justify-end gap-2 pt-5 mt-5 border-t border-silver/20 opacity-90 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEditingCompany(true);
-                              setEditingCompanyId(company.id);
-                              setCompName(company.name);
-                              setCompCode(company.code);
-                              setCompActive(company.is_active);
-                              setCompCities(company.cities || []);
-                            }}
-                            className="p-2 bg-silver/10 hover:bg-silver/25 border border-silver/30 text-charcoal hover:text-primary rounded-xl transition-all cursor-pointer"
-                            title="Edit Company"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCompany(company.id)}
-                            className="p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-500 rounded-xl transition-all cursor-pointer"
-                            title="Delete Company"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     ))}

@@ -217,7 +217,6 @@ const Sidebar = () => {
             <SidebarItem icon={Users} label="Customers" to="/customers" />
             <SidebarItem icon={User} label="Riders" to="/drivers" />
             <SidebarItem icon={ClipboardList} label="Reports" to="/reports" />
-            <SidebarItem icon={Settings} label="System Settings" to="/settings" />
           </>
         )}
       </nav>

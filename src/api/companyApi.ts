@@ -35,22 +35,22 @@ export const companyApi = {
     const response = await axiosInstance.post<Company>("/erp/tenants/companies/", { name, code });
     return response.data;
   },
-  updateCompany: async (
-    id: string,
-    name: string,
-    code: string,
-    is_active: boolean,
-    cities: City[]
-  ): Promise<Company> => {
-    const response = await axiosInstance.put<Company>(`/erp/tenants/companies/${id}/`, {
-      name,
-      code,
-      is_active,
-      cities,
-    });
-    return response.data;
-  },
-  deleteCompany: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/erp/tenants/companies/${id}/`);
-  },
+  // updateCompany: async (
+  //   id: string,
+  //   name: string,
+  //   code: string,
+  //   is_active: boolean,
+  //   cities: City[]
+  // ): Promise<Company> => {
+  //   const response = await axiosInstance.put<Company>(`/erp/tenants/companies/${id}/`, {
+  //     name,
+  //     code,
+  //     is_active,
+  //     cities,
+  //   });
+  //   return response.data;
+  // },
+  // deleteCompany: async (id: string): Promise<void> => {
+  //   await axiosInstance.delete(`/erp/tenants/companies/${id}/`);
+  // },
 };

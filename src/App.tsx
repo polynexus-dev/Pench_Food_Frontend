@@ -11,7 +11,6 @@ import InventoryPage from "./features/inventory/pages/InventoryPage";
 import OrderPage from "./features/orders/pages/OrderPage";
 import FinancePage from "./features/finance/pages/FinancePage";
 import HRPage from "./features/hr/pages/HRPage";
-import SystemSettingsPage from "./features/administration/pages/SystemSettingsPage";
 import UserSettingsPage from "./features/administration/pages/UserSettingsPage";
 import LoginPage from "./features/auth/LoginPage";
 import ProtectedRoute from "./components/common/ProtectedRoute";
@@ -93,7 +92,6 @@ function App() {
                   )
                 }
               />
-              <Route path="/settings" element={user?.is_customer ? <Navigate to="/" replace /> : <SystemSettingsPage />} />
             </Route>
           </Route>
 

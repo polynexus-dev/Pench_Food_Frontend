@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Building2, MapPin, RefreshCcw, List as ListIcon } from "lucide-react";
-import { tenantApi } from "../api/tenantApi";
 import type { City } from "../components/types";
 import TenantListTab from "../components/TenantListTab";
 import ZoneTab from "../components/ZoneTab";
 import CreateTenantModal from "../components/CreateTenantModal";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { companyApi } from "../../../api/companyApi";
 
 const TenantPage: React.FC = () => {
+  const { companyId } = useAuthStore();
   const [activeTab, setActiveTab] = useState<"list" | "zones">("list");
   const [cities, setCities] = useState<City[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -16,10 +18,16 @@ const TenantPage: React.FC = () => {
   const fetchCities = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const data = await tenantApi.getCities();
-      setCities(data);
+      if (!companyId) {
+        setCities([]);
+        return;
+      }
+      const companies = await companyApi.getCompanies();
+      const activeCompany = companies.find(c => c.id === companyId);
+      setCities((activeCompany ? activeCompany.cities : []) as unknown as City[]);
     } catch (error) {
       console.error("Failed to fetch tenant data:", error);
+      setCities([]);
     } finally {
       setIsLoading(false);
     }
@@ -27,13 +35,13 @@ const TenantPage: React.FC = () => {
 
   useEffect(() => {
     fetchCities();
-  }, []);
+  }, [companyId]);
 
   const filteredCities = useMemo(() => {
     return cities.filter(city =>
       city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       city.schema_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      city.code.toLowerCase().includes(searchQuery.toLowerCase())
+      (city.code || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [cities, searchQuery]);
 
