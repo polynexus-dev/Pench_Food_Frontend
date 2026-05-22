@@ -1,4 +1,5 @@
 import OverviewPage from "./features/dashboard/pages/OverviewPage";
+import ReportsPage from "./features/dashboard/pages/ReportsPage";
 import TenantPage from "./features/tenant/pages/TenantPage";
 import CustomerPage from "./features/customers/pages/CustomerPage";
 import LogisticsPage from "./features/deliveries/pages/LogisticsPage";
@@ -84,12 +85,7 @@ function App() {
                   user?.is_customer ? (
                     <Navigate to="/" replace />
                   ) : (
-                    <div className="p-8">
-                      <h1 className="text-2xl font-bold">Business Reports</h1>
-                      <p className="text-charcoal/60 mt-2">
-                        Coming soon: Data-driven insights for your dairy business.
-                      </p>
-                    </div>
+                    <ReportsPage />
                   )
                 }
               />

@@ -338,13 +338,14 @@ const OrderPage: React.FC = () => {
                   return (
                     <div
                       key={day}
-                      className={`p-3 rounded-2xl flex flex-col justify-between items-start min-h-[75px] transition-all hover:scale-[1.02] ${bg}`}
+                      className={`p-1.5 sm:p-3 rounded-xl sm:rounded-2xl flex flex-col justify-between items-start min-h-[48px] sm:min-h-[75px] transition-all hover:scale-[1.02] ${bg}`}
                     >
-                      <span className="text-xs font-black">{day}</span>
-                      <div className="mt-1">
+                      <span className="text-[10px] sm:text-xs font-black">{day}</span>
+                      <div className="mt-1 hidden sm:block">
                         <span className="text-[8px] uppercase tracking-wider block opacity-70 leading-none">{label}</span>
                         <span className="text-[10px] font-bold block leading-normal mt-0.5">{count}</span>
                       </div>
+                      <div className="sm:hidden w-1.5 h-1.5 rounded-full mt-1 bg-current self-center" />
                     </div>
                   );
                 })}
