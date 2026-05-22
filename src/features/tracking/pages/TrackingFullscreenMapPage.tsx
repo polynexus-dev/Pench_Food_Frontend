@@ -1,12 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useLiveTracking } from "../context/TrackingContext";
-import { 
-  ArrowLeft, 
-  RefreshCcw, 
-  Clock, 
-  Navigation,
-} from "lucide-react";
+import { ArrowLeft, RefreshCcw, Clock, Navigation } from "lucide-react";
 
 const TrackingFullscreenMapPage: React.FC = () => {
   const {
@@ -27,7 +22,8 @@ const TrackingFullscreenMapPage: React.FC = () => {
 
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
-  const [mapContainerNode, setMapContainerNode] = React.useState<HTMLDivElement | null>(null);
+  const [mapContainerNode, setMapContainerNode] =
+    React.useState<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!mapContainerNode) return;
@@ -41,7 +37,9 @@ const TrackingFullscreenMapPage: React.FC = () => {
       }
     };
 
-    mapContainerNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+    mapContainerNode.addEventListener("wheel", handleNativeWheel, {
+      passive: false,
+    });
     return () => {
       mapContainerNode.removeEventListener("wheel", handleNativeWheel);
     };
@@ -56,26 +54,29 @@ const TrackingFullscreenMapPage: React.FC = () => {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    
+
     setIsManualPan(true);
 
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
-    
+
     setDragStart({ x: e.clientX, y: e.clientY });
 
     const getTileCount = (z: number) => Math.pow(2, z);
     const currentTx = ((mapCenter.lng + 180) / 360) * getTileCount(zoom);
     const latRad = (mapCenter.lat * Math.PI) / 180;
-    const currentTy = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * getTileCount(zoom);
+    const currentTy =
+      ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
+      getTileCount(zoom);
 
     // Delta pixels mapped to delta tile coordinates
-    const newTx = currentTx - (deltaX / 256);
-    const newTy = currentTy - (deltaY / 256);
+    const newTx = currentTx - deltaX / 256;
+    const newTy = currentTy - deltaY / 256;
 
     const newLng = (newTx / getTileCount(zoom)) * 360 - 180;
     const M = Math.PI * (1 - (2 * newTy) / getTileCount(zoom));
-    const newLat = (Math.atan(0.5 * (Math.exp(M) - Math.exp(-M))) * 180) / Math.PI;
+    const newLat =
+      (Math.atan(0.5 * (Math.exp(M) - Math.exp(-M))) * 180) / Math.PI;
 
     setMapCenter({ lat: newLat, lng: newLng });
   };
@@ -88,8 +89,8 @@ const TrackingFullscreenMapPage: React.FC = () => {
     <div className="absolute inset-0 bg-[#EAE8E3] overflow-hidden flex flex-col z-50">
       {/* Top Floating Header */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
-        <Link 
-          to="/tracking" 
+        <Link
+          to="/tracking"
           className="flex items-center gap-2 px-4 py-2.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-silver/60 text-charcoal font-black text-xs hover:bg-silver/10 transition-colors pointer-events-auto"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -107,9 +108,9 @@ const TrackingFullscreenMapPage: React.FC = () => {
       </div>
 
       {/* Main Map Container */}
-      <div 
+      <div
         ref={setMapContainerNode}
-        className={`relative flex-1 w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`relative flex-1 w-full h-full ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -117,8 +118,12 @@ const TrackingFullscreenMapPage: React.FC = () => {
       >
         {/* 1. Map Tiles Background */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-          <div 
-            style={{ width: VIEWPORT_W, height: VIEWPORT_H, position: 'relative' }} 
+          <div
+            style={{
+              width: VIEWPORT_W,
+              height: VIEWPORT_H,
+              position: "relative",
+            }}
             className="shrink-0"
           >
             {osmTiles.map((tile) => (
@@ -212,7 +217,10 @@ const TrackingFullscreenMapPage: React.FC = () => {
                     r={isSelected ? "32" : "20"}
                     fill={isSelected ? "#F59E0B" : "#059669"}
                     className="opacity-25 animate-ping"
-                    style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                    style={{
+                      transformOrigin: "center",
+                      transformBox: "fill-box",
+                    }}
                   />
 
                   <circle
@@ -230,12 +238,21 @@ const TrackingFullscreenMapPage: React.FC = () => {
                     y={pt.y}
                     textAnchor="middle"
                     dominantBaseline="central"
-                    style={{ fontSize: isSelected ? "20px" : "15px", userSelect: "none" }}
+                    style={{
+                      fontSize: isSelected ? "20px" : "15px",
+                      userSelect: "none",
+                    }}
                   >
                     🏍️
                   </text>
 
-                  <foreignObject x={pt.x + 18} y={pt.y - 14} width="200" height="40" className="pointer-events-none">
+                  <foreignObject
+                    x={pt.x + 18}
+                    y={pt.y - 14}
+                    width="200"
+                    height="40"
+                    className="pointer-events-none"
+                  >
                     <div className="flex items-center gap-2 px-3 py-1 bg-charcoal/90 backdrop-blur-md rounded-lg text-white shadow-xl border border-white/10 w-fit">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                       <span className="text-xs font-bold tracking-tight truncate font-sans">
@@ -253,7 +270,9 @@ const TrackingFullscreenMapPage: React.FC = () => {
         {driversList.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-white/40 backdrop-blur-sm z-10">
             <Navigation className="w-16 h-16 text-primary animate-bounce mb-4 opacity-60" />
-            <p className="text-lg font-black text-charcoal">Awaiting Active GPS Broadcast Stream</p>
+            <p className="text-lg font-black text-charcoal">
+              Awaiting Active GPS Broadcast Stream
+            </p>
             <p className="text-sm text-charcoal/60 max-w-md mt-2 font-medium">
               Awaiting riders to connect and broadcast location. Please check the connection status in the dashboard.
             </p>
@@ -278,7 +297,7 @@ const TrackingFullscreenMapPage: React.FC = () => {
                 {driversList.map((driver) => {
                   const isSelected = driver.driver_id === selectedDriverId;
                   return (
-                    <div 
+                    <div
                       key={driver.driver_id}
                       onClick={() => {
                         setSelectedDriverId(driver.driver_id);
@@ -286,8 +305,8 @@ const TrackingFullscreenMapPage: React.FC = () => {
                         setIsManualPan(false);
                       }}
                       className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-                        isSelected 
-                          ? "bg-amber-50 border-amber-200 shadow-md ring-2 ring-amber-400/20" 
+                        isSelected
+                          ? "bg-amber-50 border-amber-200 shadow-md ring-2 ring-amber-400/20"
                           : "bg-white border-silver/40 hover:border-primary/30 hover:shadow-sm"
                       }`}
                     >
@@ -301,7 +320,9 @@ const TrackingFullscreenMapPage: React.FC = () => {
                           <h4 className="text-sm font-black text-charcoal tracking-tight truncate">
                             {driver.driver_name || driver.driver_id}
                           </h4>
-                          <div className="text-[10px] font-mono text-charcoal/50 mt-0.5">ID: {driver.driver_id}</div>
+                          <div className="text-[10px] font-mono text-charcoal/50 mt-0.5">
+                            ID: {driver.driver_id}
+                          </div>
                         </div>
                         {isSelected && (
                           <button
@@ -316,19 +337,27 @@ const TrackingFullscreenMapPage: React.FC = () => {
                           </button>
                         )}
                       </div>
-                      <div className={`grid grid-cols-2 gap-2 text-[10px] p-2 rounded-xl font-mono ${isSelected ? 'bg-amber-100/50' : 'bg-silver/10'}`}>
+                      <div
+                        className={`grid grid-cols-2 gap-2 text-[10px] p-2 rounded-xl font-mono ${isSelected ? "bg-amber-100/50" : "bg-silver/10"}`}
+                      >
                         <div>
-                          <span className="text-charcoal/50 block text-[8px] font-sans font-black uppercase tracking-wider mb-0.5">Lat</span>
+                          <span className="text-charcoal/50 block text-[8px] font-sans font-black uppercase tracking-wider mb-0.5">
+                            Lat
+                          </span>
                           {driver.lat.toFixed(5)}
                         </div>
                         <div>
-                          <span className="text-charcoal/50 block text-[8px] font-sans font-black uppercase tracking-wider mb-0.5">Lng</span>
+                          <span className="text-charcoal/50 block text-[8px] font-sans font-black uppercase tracking-wider mb-0.5">
+                            Lng
+                          </span>
                           {driver.lng.toFixed(5)}
                         </div>
                       </div>
                       <div className="mt-2 text-[9px] text-charcoal/50 flex items-center gap-1 font-medium">
-                        <Clock className={`w-3 h-3 shrink-0 ${isSelected ? 'text-amber-500' : 'text-primary'}`} /> Updated:{" "}
-                        {driver.last_updated.toLocaleTimeString()}
+                        <Clock
+                          className={`w-3 h-3 shrink-0 ${isSelected ? "text-amber-500" : "text-primary"}`}
+                        />{" "}
+                        Updated: {driver.last_updated.toLocaleTimeString()}
                       </div>
                     </div>
                   );

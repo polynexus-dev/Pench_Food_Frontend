@@ -464,7 +464,7 @@ const TrackingHistoryTab: React.FC = () => {
                     })()}
 
                     {/* Animated Playback Node */}
-                    {currentPlaybackPoint && (() => {
+                    {/* {currentPlaybackPoint && (() => {
                       const svgPt = getOsmSvgPixel(currentPlaybackPoint.lat, currentPlaybackPoint.lng);
                       return (
                         <g>
@@ -488,7 +488,7 @@ const TrackingHistoryTab: React.FC = () => {
                           </text>
                         </g>
                       );
-                    })()}
+                    })()} */}
                   </svg>
                 </div>
 

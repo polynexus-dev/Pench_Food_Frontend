@@ -10,4 +10,3 @@ export default defineConfig({
     allowedHosts: ["pench.polynexus.in", "pench.dev.polynexus.in"],
   },
 });
-//test///

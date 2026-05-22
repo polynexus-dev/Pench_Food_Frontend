@@ -15,6 +15,8 @@ interface User {
   tenant_schema: string | null;
   groups: string[];
   role: string;
+  is_superuser?: boolean;
+  is_staff?: boolean;
 }
 
 interface AuthState {
