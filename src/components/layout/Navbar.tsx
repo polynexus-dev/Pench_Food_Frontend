@@ -47,15 +47,13 @@ const Navbar = () => {
         }
 
         if (activeCompany) {
-          const activeCities = activeCompany.cities
-            ? activeCompany.cities.filter((c: City) => c.is_active)
-            : [];
-          setCities(activeCities);
+          const companyCities = activeCompany.cities || [];
+          setCities(companyCities);
 
           // Ensure tenant matches one of this company's cities
-          const citySchemas = activeCities.map((c: City) => c.schema_name);
-          if (activeCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
-            setTenant(activeCities[0].schema_name);
+          const citySchemas = companyCities.map((c: City) => c.schema_name);
+          if (companyCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
+            setTenant(companyCities[0].schema_name);
           }
         } else {
           setCities([]);
@@ -68,7 +66,8 @@ const Navbar = () => {
     };
 
     fetchCompanyCities();
-  }, [companyId, tenant, setTenant]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-10 shrink-0 sticky top-0 z-20 shadow-sm">

@@ -48,11 +48,11 @@ const Sidebar = () => {
         // Set default tenant/city if not set or if it's not valid for the active company
         const currentCompany = activeCompanies.find(c => c.id === currentCompanyId);
         if (currentCompany && currentCompany.cities.length > 0) {
-          const activeCities = currentCompany.cities.filter(city => city.is_active);
-          if (activeCities.length > 0) {
-            const citySchemaNames = activeCities.map(city => city.schema_name);
+          const companyCities = currentCompany.cities;
+          if (companyCities.length > 0) {
+            const citySchemaNames = companyCities.map(city => city.schema_name);
             if (!tenant || !citySchemaNames.includes(tenant)) {
-              setTenant(activeCities[0].schema_name);
+              setTenant(companyCities[0].schema_name);
             }
           }
         }
@@ -64,7 +64,8 @@ const Sidebar = () => {
     };
 
     fetchCompanies();
-  }, [companyId, tenant, setCompanyId, setTenant]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, setCompanyId, setTenant]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -150,8 +151,8 @@ const Sidebar = () => {
                       key={company.id}
                       onClick={() => {
                         setCompanyId(company.id);
-                        const activeCities = company.cities ? company.cities.filter(c => c.is_active) : [];
-                        const firstCity = activeCities[0];
+                        const companyCities = company.cities || [];
+                        const firstCity = companyCities[0];
                         if (firstCity) {
                           setTenant(firstCity.schema_name);
                         } else {
