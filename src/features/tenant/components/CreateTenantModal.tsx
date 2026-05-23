@@ -1,20 +1,35 @@
-import React, { useState } from 'react';
-import { X, Building2, Globe, MapPin, Loader2, Clock, FileUp } from 'lucide-react';
-import axiosInstance from '../../../api/axiosInstance';
-import { CustomInput } from '../../../components/common/CustomInput';
+import React, { useState } from "react";
+import {
+  X,
+  Building2,
+  Globe,
+  MapPin,
+  Loader2,
+  Clock,
+  FileUp,
+} from "lucide-react";
+import axiosInstance from "../../../api/axiosInstance";
+import { CustomInput } from "../../../components/common/CustomInput";
+import { useAuthStore } from "../../../store/useAuthStore";
+
 interface CreateTenantModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, onSuccess }) => {
+const CreateTenantModal: React.FC<CreateTenantModalProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const { companyId } = useAuthStore();
   const [formData, setFormData] = useState({
-    name: '',
-    schema_name: '',
-    state: '',
-    code: '',
-    timezone: 'Asia/Kolkata'
+    name: "",
+    schema_name: "",
+    state: "",
+    code: "",
+    timezone: "Asia/Kolkata",
   });
   const [boundaryFile, setBoundaryFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,19 +39,19 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     // Auto-generate schema name and code if user is typing city name
-    if (name === 'name') {
-      const sanitized = value.toLowerCase().replace(/\s+/g, '');
+    if (name === "name") {
+      const sanitized = value.toLowerCase().replace(/\s+/g, "");
       const shortCode = value.substring(0, 3).toUpperCase();
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         name: value,
         schema_name: sanitized,
-        code: value.length >= 3 ? shortCode : prev.code
+        code: value.length >= 3 ? shortCode : prev.code,
       }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
@@ -53,26 +68,38 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
     try {
       const data = new FormData();
-      data.append('name', formData.name);
-      data.append('schema_name', formData.schema_name);
-      data.append('state', formData.state);
-      data.append('code', formData.code);
-      data.append('timezone', formData.timezone);
+      if (companyId) {
+        data.append("company", companyId);
+      }
+      data.append("name", formData.name);
+      data.append("schema_name", formData.schema_name);
+      data.append("state", formData.state);
+      data.append("code", formData.code);
+      data.append("timezone", formData.timezone);
       if (boundaryFile) {
-        data.append('boundary_file', boundaryFile);
+        data.append("boundary_file", boundaryFile);
       }
 
-      await axiosInstance.post('/erp/tenants/cities/', data, {
+      await axiosInstance.post("/erp/tenants/cities/", data, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          "Content-Type": "multipart/form-data",
+        },
       });
       onSuccess();
       onClose();
-      setFormData({ name: '', schema_name: '', state: '', code: '', timezone: 'Asia/Kolkata' });
+      setFormData({
+        name: "",
+        schema_name: "",
+        state: "",
+        code: "",
+        timezone: "Asia/Kolkata",
+      });
       setBoundaryFile(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create tenant. Please try again.');
+      setError(
+        err.response?.data?.message ||
+          "Failed to create tenant. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -88,11 +115,15 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
               <Building2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold leading-none">Register New City</h2>
-              <p className="text-[10px] uppercase tracking-widest text-white/70 mt-1 font-bold">Multi-Tenant Instance</p>
+              <h2 className="text-xl font-bold leading-none">
+                Register New City
+              </h2>
+              <p className="text-[10px] uppercase tracking-widest text-white/70 mt-1 font-bold">
+                Multi-Tenant Instance
+              </p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 hover:bg-white/10 rounded-xl transition-colors"
           >
@@ -177,10 +208,12 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
               />
 
               <div className="space-y-2 w-full">
-                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">Boundary File (Optional)</label>
+                <label className="text-xs font-black text-charcoal/40 uppercase tracking-wider ml-1">
+                  Boundary File (Optional)
+                </label>
                 <div className="relative group">
                   <FileUp className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/20 group-focus-within:text-primary transition-colors z-10" />
-                  <input 
+                  <input
                     type="file"
                     name="boundary_file"
                     onChange={handleFileChange}
@@ -193,14 +226,14 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
           </div>
 
           <div className="pt-4 flex gap-3">
-            <button 
+            <button
               type="button"
               onClick={onClose}
               className="flex-1 py-4 bg-silver/20 text-charcoal font-bold rounded-2xl hover:bg-silver/30 transition-all"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="submit"
               disabled={isSubmitting}
               className="flex-[2] py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
@@ -211,7 +244,7 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                   Provisioning...
                 </>
               ) : (
-                'Create Instance'
+                "Create Instance"
               )}
             </button>
           </div>

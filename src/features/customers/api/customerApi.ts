@@ -223,6 +223,31 @@ export const customerApi = {
       transactionData
     );
     return response.data;
+  },
+
+  /**
+   * Bulk download customer QR codes
+   */
+  bulkDownloadQr: async (customerIds?: string[]): Promise<void> => {
+    const params: Record<string, string> = {};
+    if (customerIds && customerIds.length > 0) {
+      params.customer_ids = customerIds.join(",");
+      params.ids = customerIds.join(",");
+    }
+    const response = await axiosInstance.get("/erp/customers/bulk-download-qr/", {
+      params,
+      responseType: "blob",
+    });
+    
+    // Create download link for the blob
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    // Set download file name. If there are selected customers, call it selected_qrs.zip/pdf, else all_qrs.zip/pdf
+    link.setAttribute("download", customerIds && customerIds.length > 0 ? "selected_customer_qrs.zip" : "all_customer_qrs.zip");
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
   }
 };
 
