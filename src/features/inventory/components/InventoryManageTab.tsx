@@ -1,6 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { Product } from "./types";
 import { inventoryApi } from "../api/inventoryApi";
+import axiosInstance from "../../../api/axiosInstance";
+
+interface BottleType {
+  id: string;
+  name: string;
+  deposit_amount: string;
+  volume_ml: number;
+  is_active: boolean;
+}
 import {
   Search,
   Grid,
@@ -41,6 +50,26 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
   setViewMode,
   onRefreshCatalog,
 }) => {
+  // Bottle Types state
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
+  const [isLoadingBottleTypes, setIsLoadingBottleTypes] = useState<boolean>(false);
+
+  // Fetch Bottle Types on Mount
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        setIsLoadingBottleTypes(true);
+        const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
+        setBottleTypes(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error("Failed to load bottle types:", error);
+      } finally {
+        setIsLoadingBottleTypes(false);
+      }
+    };
+    fetchTypes();
+  }, []);
+
   // Modal State Controls
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -53,6 +82,9 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
     name: "",
     sku: "",
     unit_price: "",
+    is_active: true,
+    bottle_type: "",
+    is_returnable: false,
   });
   const [isEditSubmitting, setIsEditSubmitting] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -71,14 +103,22 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
       name: product.name,
       sku: product.sku,
       unit_price: parseFloat(product.unit_price).toFixed(2),
+      is_active: product.is_active,
+      bottle_type: product.bottle_type || "",
+      is_returnable: product.is_returnable || false,
     });
     setEditError(null);
     setEditSuccessMessage(null);
   };
 
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditFormData((prev) => ({ ...prev, [name]: value }));
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setEditFormData((prev) => ({ ...prev, [name]: checked }));
+    } else {
+      setEditFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -86,6 +126,10 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
     if (!editingProduct) return;
     if (!editFormData.name || !editFormData.sku || !editFormData.unit_price) {
       setEditError("Please complete all required fields (Variant Label, SKU Index, Base Price).");
+      return;
+    }
+    if (editFormData.is_returnable && !editFormData.bottle_type) {
+      setEditError("Please select a container type for returnable items.");
       return;
     }
 
@@ -97,6 +141,9 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
       name: editFormData.name.trim(),
       sku: editFormData.sku.trim().toUpperCase(),
       unit_price: parseFloat(editFormData.unit_price).toFixed(2),
+      is_active: editFormData.is_active,
+      is_returnable: editFormData.is_returnable,
+      bottle_type: editFormData.is_returnable ? editFormData.bottle_type || null : null,
     };
 
     try {
@@ -161,8 +208,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
     sku: "",
     unit_price: "",
     is_active: true,
-    bottle_type: "Glass Bottle",
-    is_returnable: true,
+    bottle_type: "",
+    is_returnable: false,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -181,6 +228,10 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
       setSubmitError("Please complete all required fields (Variant Label, SKU Index, Base Price).");
       return;
     }
+    if (formData.is_returnable && !formData.bottle_type) {
+      setSubmitError("Please select a container type for returnable items.");
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -193,6 +244,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
         sku: formData.sku.trim().toUpperCase(),
         unit_price: parseFloat(formData.unit_price).toFixed(2),
         is_active: formData.is_active,
+        is_returnable: formData.is_returnable,
+        bottle_type: formData.is_returnable ? formData.bottle_type || null : null,
       },
     ];
 
@@ -212,8 +265,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
           sku: "",
           unit_price: "",
           is_active: true,
-          bottle_type: "Glass Bottle",
-          is_returnable: true,
+          bottle_type: "",
+          is_returnable: false,
         });
         setSuccessMessage(null);
       }, 1200);
@@ -229,8 +282,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
           sku: "",
           unit_price: "",
           is_active: true,
-          bottle_type: "Glass Bottle",
-          is_returnable: true,
+          bottle_type: "",
+          is_returnable: false,
         });
         setSuccessMessage(null);
       }, 1200);
@@ -451,6 +504,48 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
                   />
                   <div className="w-9 h-5 bg-silver rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-silver/40 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
+              </div>
+
+              {/* Returnable Bottle Configuration */}
+              <div className="pt-2 border-t border-silver/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-black text-charcoal">Returnable Container</label>
+                    <span className="text-[10px] text-charcoal/40 font-medium block">Track deposit crate or glass bottle</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_returnable"
+                      checked={formData.is_returnable}
+                      onChange={handleInputChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-silver rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-silver/40 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+
+                {formData.is_returnable && (
+                  <div className="animate-in slide-in-from-top-2 duration-200">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
+                      Select Bottle Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="bottle_type"
+                      required={formData.is_returnable}
+                      value={formData.bottle_type}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    >
+                      <option value="">-- Choose Container Type --</option>
+                      {bottleTypes.map((bt) => (
+                        <option key={bt.id} value={bt.id}>
+                          {bt.name} (Deposit: ₹{parseFloat(bt.deposit_amount).toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-silver/40 flex items-center justify-end gap-2">
@@ -774,6 +869,65 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
                     className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   />
                 </div>
+              </div>
+
+              <div className="pt-2 border-t border-silver/40 flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-black text-charcoal">Active Pipeline State</label>
+                  <span className="text-[10px] text-charcoal/40 font-medium block">Enable immediate checkout readiness</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={editFormData.is_active}
+                    onChange={handleEditInputChange}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-silver rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-silver/40 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              {/* Returnable Bottle Configuration */}
+              <div className="pt-2 border-t border-silver/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-black text-charcoal">Returnable Container</label>
+                    <span className="text-[10px] text-charcoal/40 font-medium block">Track deposit crate or glass bottle</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_returnable"
+                      checked={editFormData.is_returnable}
+                      onChange={handleEditInputChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-silver rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-silver/40 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+
+                {editFormData.is_returnable && (
+                  <div className="animate-in slide-in-from-top-2 duration-200">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
+                      Select Bottle Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="bottle_type"
+                      required={editFormData.is_returnable}
+                      value={editFormData.bottle_type}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    >
+                      <option value="">-- Choose Container Type --</option>
+                      {bottleTypes.map((bt) => (
+                        <option key={bt.id} value={bt.id}>
+                          {bt.name} (Deposit: ₹{parseFloat(bt.deposit_amount).toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-silver/40 flex items-center justify-end gap-2">
