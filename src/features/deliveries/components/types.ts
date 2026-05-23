@@ -24,10 +24,36 @@ export interface Stop {
   sequence_number: number;
   order: string;
   customer_name: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customer_company?: string;
+  customer_zone_name?: string;
   address: string;
   latitude: number;
   longitude: number;
   order_status?: string;
+  order_notes?: string;
+  order_total?: number;
+  delivered_at?: string;
+  pod_image?: string | null;
+  product_list?: {
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit: string;
+    unit_price: number;
+  }[];
+  subscription_details?: {
+    id: string;
+    frequency: string;
+    is_paused: boolean;
+    special_instructions?: string;
+    items: {
+      product_name: string;
+      quantity: number;
+      unit: string;
+    }[];
+  } | null;
 }
 
 export interface Route {
@@ -40,7 +66,9 @@ export interface Route {
   is_locked?: boolean;
   route_geometry: any;
   stops: Stop[];
-  status: "active" | "completed" | "pending";
+  status: "pending" | "started" | "in_progress" | "completed" | "stopped";
   dispatch_bottles_1L?: number;
   dispatch_bottles_500ml?: number;
+  started_at?: string | null;
+  completed_at?: string | null;
 }

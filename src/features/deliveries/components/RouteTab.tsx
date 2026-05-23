@@ -1,6 +1,29 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Navigation, CheckCircle2, ZoomIn, ZoomOut, Search, User, Lock } from "lucide-react";
-import type { Route } from "./types";
+import {
+  Navigation,
+  CheckCircle2,
+  ZoomIn,
+  ZoomOut,
+  Search,
+  User,
+  Lock,
+  Mail,
+  Phone,
+  Building2,
+  MapPin,
+  FileText,
+  AlertTriangle,
+  Clock,
+  Sparkles,
+  ShoppingBag,
+  Layers,
+  ChevronRight,
+  TrendingUp,
+  Activity,
+  Image as ImageIcon,
+  X
+} from "lucide-react";
+import type { Route, Stop } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
 
 interface RouteTabProps {
@@ -11,11 +34,23 @@ interface RouteTabProps {
 
 const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
 
   const selectedRoute = useMemo(() => {
     return routes.find((r) => r.id === selectedRouteId) || null;
   }, [routes, selectedRouteId]);
+
+  const selectedStop = useMemo(() => {
+    if (!selectedRoute) return null;
+    return selectedRoute.stops.find((s) => s.id === selectedStopId) || null;
+  }, [selectedRoute, selectedStopId]);
+
+  // Reset selected stop when switching routes
+  useEffect(() => {
+    setSelectedStopId(null);
+  }, [selectedRouteId]);
 
   // Map State
   const [zoom, setZoom] = useState<number>(13);
@@ -27,9 +62,11 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Sync map center with selected route
+  // Sync map center with selected stop or selected route
   useEffect(() => {
-    if (selectedRoute && selectedRoute.stops.length > 0 && !isManualPan) {
+    if (selectedStop) {
+      setMapCenter({ lat: selectedStop.latitude, lng: selectedStop.longitude });
+    } else if (selectedRoute && selectedRoute.stops.length > 0 && !isManualPan) {
       // Calculate center of stops
       const lats = selectedRoute.stops.map(s => s.latitude);
       const lngs = selectedRoute.stops.map(s => s.longitude);
@@ -48,7 +85,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
         });
       }
     }
-  }, [selectedRouteId, selectedRoute, isManualPan, routes]);
+  }, [selectedRouteId, selectedRoute, selectedStop, isManualPan, routes]);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapContainerNode, setMapContainerNode] = useState<HTMLDivElement | null>(null);
@@ -77,8 +114,8 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
+          width: entry.contentRect.width || 800,
+          height: entry.contentRect.height || 600,
         });
       }
     });
@@ -174,117 +211,289 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
     r.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-280px)] animate-in fade-in duration-500">
-      {/* 1. Sidebar: Routes List */}
-      <div className="w-full lg:w-[380px] flex flex-col gap-4">
-        {/* Search Header */}
-        <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
-            <input
-              type="text"
-              placeholder="Search routes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all"
-            />
-          </div>
-        </div>
+  // Helper for delivery status badge colors
+  const getStatusBadgeStyle = (status?: string) => {
+    switch (status) {
+      case "delivered":
+        return "bg-emerald-50 border-emerald-500/20 text-emerald-700";
+      case "pending":
+      case "confirmed":
+        return "bg-amber-50 border-amber-500/20 text-amber-700 animate-pulse";
+      case "dispatched":
+      case "in_transit":
+        return "bg-blue-50 border-blue-500/20 text-blue-700";
+      case "cancelled":
+        return "bg-rose-50 border-rose-500/20 text-rose-700";
+      default:
+        return "bg-silver/10 border-silver/30 text-charcoal/50";
+    }
+  };
 
-        {/* Scrollable List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-          {isLoading ? (
-            [1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-white rounded-3xl border border-silver/50 animate-pulse"></div>
-            ))
-          ) : filteredRoutes.map(route => (
-            <div 
-              key={route.id} 
-              onClick={() => {
-                setSelectedRouteId(route.id);
-                setIsManualPan(false);
-              }}
-              className={`p-5 rounded-3xl border transition-all cursor-pointer group ${
-                selectedRouteId === route.id 
-                  ? 'bg-primary border-primary shadow-xl shadow-primary/20 text-white' 
-                  : 'bg-white border-silver/50 shadow-sm hover:border-primary/30'
-              }`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-2 rounded-xl ${selectedRouteId === route.id ? 'bg-white/20' : 'bg-primary/5'}`}>
-                  <Navigation className={`w-5 h-5 ${selectedRouteId === route.id ? 'text-white' : 'text-primary'}`} />
-                </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
-                  selectedRouteId === route.id ? 'bg-white/20 text-white' : 'bg-silver/10 text-charcoal/40'
-                }`}>
-                  {route.is_completed ? 'Completed' : 'Active'}
+  // Helper for route trip status
+  const getTripStatusLabel = (route: Route) => {
+    if (route.is_completed || route.status === "completed") {
+      return { text: "Trip Ended", style: "bg-emerald-100 border-emerald-300 text-emerald-800" };
+    }
+    switch (route.status) {
+      case "in_progress":
+      case "started":
+        return { text: "Trip In Progress", style: "bg-amber-100 border-amber-300 text-amber-800 animate-pulse" };
+      case "stopped":
+        return { text: "Trip Stopped", style: "bg-rose-100 border-rose-300 text-rose-800" };
+      default:
+        return { text: "Not Started", style: "bg-silver/20 border-silver/30 text-charcoal/50" };
+    }
+  };
+
+  // Calculate cargo item quantities for a selected stop
+  const stopTotalCargoCount = (stop: Stop) => {
+    if (!stop.product_list) return 0;
+    return stop.product_list.reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-280px)] animate-in fade-in duration-500 text-left">
+      
+      {/* 1. Sidebar: Routes List OR Sequential Stops */}
+      <div className="w-full lg:w-[380px] flex flex-col gap-4 shrink-0">
+        
+        {/* Render Stops sidebar when a Route is selected */}
+        {selectedRoute ? (
+          <div className="bg-white p-5 rounded-3xl border border-silver/50 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Stops Header */}
+            <div className="flex items-center justify-between mb-4 border-b border-silver/30 pb-3">
+              <div>
+                <h3 className="text-base font-black text-charcoal tracking-tight">
+                  Stops Sequence
+                </h3>
+                <p className="text-[10px] text-charcoal/40 font-bold uppercase mt-0.5">
+                  Route: {selectedRoute.name}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRouteId(null)}
+                className="text-[10px] font-black text-primary hover:underline uppercase tracking-wide cursor-pointer"
+              >
+                Back to Routes
+              </button>
+            </div>
+
+            {/* Trip status banner */}
+            <div className={`p-4 border rounded-2xl mb-4 flex flex-col gap-1.5 ${getTripStatusLabel(selectedRoute).style}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5" />
+                  {getTripStatusLabel(selectedRoute).text}
+                </span>
+                <span className="text-[9px] opacity-75 font-semibold">
+                  {selectedRoute.stops.length} Stops
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-black truncate flex-1">{route.name}</h4>
-                {route.is_locked && (
-                  <Lock className={`w-3.5 h-3.5 ${selectedRouteId === route.id ? 'text-white' : 'text-primary'}`} />
+              
+              {/* Trip Time Audit Details */}
+              <div className="text-[10px] font-semibold opacity-85 space-y-0.5 mt-1 border-t border-current/15 pt-2">
+                {selectedRoute.started_at ? (
+                  <div>Started: {new Date(selectedRoute.started_at).toLocaleTimeString()}</div>
+                ) : (
+                  <div>Rider has not tapped Start Trip yet.</div>
+                )}
+                {selectedRoute.completed_at && (
+                  <div>Ended: {new Date(selectedRoute.completed_at).toLocaleTimeString()}</div>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-2">
-                <div className="flex items-center gap-1.5 opacity-60">
-                   <User className="w-3 h-3" />
-                   <span className="text-[10px] font-bold">{route.driver_name}</span>
-                </div>
-                <div className="w-1 h-1 bg-current opacity-20 rounded-full"></div>
-                <span className="text-[10px] font-bold opacity-60">{route.stops.length} Stops</span>
+
+              {/* Admin Trip Actions */}
+              <div className="mt-3 pt-2 border-t border-current/15 flex gap-2">
+                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress") ? (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await deliveryApi.startTrip(selectedRoute.id);
+                        onRefresh?.();
+                      } catch (err) {
+                        alert("Failed to start trip: " + (err as any).message);
+                      }
+                    }}
+                    className="flex-1 bg-white hover:bg-silver/10 text-charcoal py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border border-current/25 shadow-2xs cursor-pointer text-center"
+                  >
+                    Start Trip
+                  </button>
+                ) : (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await deliveryApi.completeTrip(selectedRoute.id);
+                        onRefresh?.();
+                      } catch (err) {
+                        alert("Failed to complete trip: " + (err as any).message);
+                      }
+                    }}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-2xs cursor-pointer text-center border border-rose-700"
+                  >
+                    End Trip
+                  </button>
+                )}
               </div>
-              
-              {/* Bottle dispatch requirements */}
-              {((route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0) || 
-                (route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0)) && (
-                <div className={`mt-3 pt-3 border-t flex flex-wrap items-center gap-2 ${
-                  selectedRouteId === route.id ? 'border-white/10' : 'border-silver/40'
-                }`}>
-                  <span className={`text-[9px] font-black uppercase tracking-wider opacity-60 mr-1`}>
-                    To Carry:
-                  </span>
-                  {route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0 ? (
-                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-xl border transition-all ${
-                      selectedRouteId === route.id 
-                        ? 'bg-white/15 border-white/10 text-white' 
-                        : 'bg-emerald-50 border-emerald-100/50 text-emerald-700 shadow-3xs'
+            </div>
+
+            {/* Scrollable list of stops */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+              {selectedRoute.stops.map((stop) => {
+                const isSelected = selectedStopId === stop.id;
+                const isDelivered = stop.order_status === "delivered";
+                
+                return (
+                  <div
+                    key={stop.id}
+                    onClick={() => {
+                      setSelectedStopId(stop.id);
+                      setIsManualPan(false);
+                    }}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center gap-3 ${
+                      isSelected
+                        ? "bg-primary border-primary text-white shadow-md shadow-primary/10"
+                        : "bg-silver/5 border-silver/45 hover:bg-silver/10"
+                    }`}
+                  >
+                    {/* Index circle */}
+                    <div className={`w-6.5 h-6.5 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                      isSelected
+                        ? "bg-white/20 text-white"
+                        : isDelivered
+                        ? "bg-emerald-500/10 text-emerald-600"
+                        : "bg-silver/40 text-charcoal/50"
                     }`}>
-                      1L Bottle: {route.dispatch_bottles_1L}
-                    </span>
-                  ) : null}
-                  {route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0 ? (
-                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-xl border transition-all ${
-                      selectedRouteId === route.id 
-                        ? 'bg-white/15 border-white/10 text-white' 
-                        : 'bg-blue-50 border-blue-100/50 text-blue-700 shadow-3xs'
+                      {stop.sequence_number}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-bold truncate">
+                          {stop.customer_name}
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border shrink-0 ${
+                          isSelected 
+                            ? "bg-white/20 border-white/10 text-white" 
+                            : getStatusBadgeStyle(stop.order_status)
+                        }`}>
+                          {stop.order_status || "Pending"}
+                        </span>
+                      </div>
+                      <p className={`text-[10px] font-semibold mt-0.5 truncate ${
+                        isSelected ? "text-white/70" : "text-charcoal/45"
+                      }`}>
+                        {stop.address}
+                      </p>
+                    </div>
+
+                    <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
+                      isSelected ? "translate-x-0.5" : "text-charcoal/30"
+                    }`} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Render standard Route List sidebar when no Route is selected */
+          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+            {/* Search Header */}
+            <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
+                <input
+                  type="text"
+                  placeholder="Search routes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal"
+                />
+              </div>
+            </div>
+
+            {/* Scrollable List */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-3">
+              {isLoading ? (
+                [1, 2, 3].map(i => (
+                  <div key={i} className="h-32 bg-white rounded-3xl border border-silver/50 animate-pulse"></div>
+                ))
+              ) : filteredRoutes.map(route => (
+                <div 
+                  key={route.id} 
+                  onClick={() => {
+                    setSelectedRouteId(route.id);
+                    setIsManualPan(false);
+                  }}
+                  className="p-5 rounded-3xl border transition-all cursor-pointer bg-white border-silver/50 shadow-sm hover:border-primary/30 group/item text-left"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-2 rounded-xl bg-primary/5 group-hover/item:bg-primary/10 transition-colors">
+                      <Navigation className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                      getTripStatusLabel(route).style
                     }`}>
-                      500ml Bottle: {route.dispatch_bottles_500ml}
+                      {getTripStatusLabel(route).text}
                     </span>
-                  ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black truncate flex-1 text-charcoal">{route.name}</h4>
+                    {route.is_locked && (
+                      <Lock className="w-3.5 h-3.5 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-1.5 opacity-60">
+                       <User className="w-3 h-3" />
+                       <span className="text-[10px] font-bold text-charcoal">{route.driver_name}</span>
+                    </div>
+                    <div className="w-1 h-1 bg-charcoal opacity-20 rounded-full"></div>
+                    <span className="text-[10px] font-bold text-charcoal/60">{route.stops.length} Stops</span>
+                  </div>
+                  
+                  {/* Bottle dispatch requirements */}
+                  {((route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0) || 
+                    (route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0)) && (
+                    <div className="mt-3 pt-3 border-t border-silver/40 flex flex-wrap items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40 mr-1">
+                        To Carry:
+                      </span>
+                      {route.dispatch_bottles_1L && route.dispatch_bottles_1L > 0 && (
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-xl border bg-emerald-50 border-emerald-100/50 text-emerald-700 shadow-3xs">
+                          1L Bottle: {route.dispatch_bottles_1L}
+                        </span>
+                      )}
+                      {route.dispatch_bottles_500ml && route.dispatch_bottles_500ml > 0 && (
+                        <span className="text-[10px] font-black px-2.5 py-0.5 rounded-xl border bg-blue-50 border-blue-100/50 text-blue-700 shadow-3xs">
+                          500ml Bottle: {route.dispatch_bottles_500ml}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {!isLoading && filteredRoutes.length === 0 && (
+                <div className="p-8 text-center bg-white rounded-3xl border border-silver/50 shadow-sm">
+                   <Navigation className="w-10 h-10 text-charcoal/10 mx-auto mb-2" />
+                   <p className="text-xs font-bold text-charcoal/30">No routes found</p>
                 </div>
               )}
             </div>
-          ))}
-
-          {!isLoading && filteredRoutes.length === 0 && (
-            <div className="p-8 text-center bg-white rounded-3xl border border-silver/50 shadow-sm">
-               <Navigation className="w-10 h-10 text-charcoal/10 mx-auto mb-2" />
-               <p className="text-xs font-bold text-charcoal/30">No routes found</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* 2. Main Area: Interactive OSM Map */}
+      {/* 2. Main Area: Interactive Map + Sliding Detailed Stop Inspector Card */}
       <div 
         ref={mapRef}
-        className="flex-1 bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden relative group/map"
+        className="flex-1 bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden relative group/map flex flex-col md:flex-row min-w-0"
       >
         <div
           ref={setMapContainerNode}
-          className={`absolute inset-0 bg-[#EAE8E3] ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+          className={`flex-1 min-w-0 relative bg-[#EAE8E3] ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -329,25 +538,38 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
               {selectedRoute?.stops.map((stop) => {
                 const pt = getOsmSvgPixel(stop.latitude, stop.longitude);
                 const isDelivered = stop.order_status === "delivered";
+                const isCurrentStop = selectedStopId === stop.id;
                 const markerColor = isDelivered ? "#10B981" : "#F59E0B";
                 
                 return (
-                  <g key={stop.id} className="transition-all duration-300">
+                  <g 
+                    key={stop.id} 
+                    className="transition-all duration-300 cursor-pointer pointer-events-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStopId(stop.id);
+                      setIsManualPan(false);
+                    }}
+                  >
                     {/* Pulsing ring for current sequence */}
-                    <circle cx={pt.x} cy={pt.y} r="12" fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
+                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "16" : "12"} fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
                     
                     {/* Stop Pin */}
-                    <circle cx={pt.x} cy={pt.y} r="8" fill="white" stroke={markerColor} strokeWidth="2" className="shadow-sm" />
+                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "10" : "8"} fill="white" stroke={markerColor} strokeWidth={isCurrentStop ? "3.5" : "2"} className="shadow-md" />
                     
                     {/* Sequence Number */}
-                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize="8" fontWeight="900" fill={markerColor}>
+                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={isCurrentStop ? "9" : "8"} fontWeight="900" fill={markerColor}>
                       {stop.sequence_number}
                     </text>
  
                     {/* Tooltip */}
-                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24">
+                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24" className="pointer-events-none">
                        <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
-                         isDelivered ? "bg-emerald-600 border-emerald-500" : "bg-charcoal border-white/10"
+                         isCurrentStop 
+                           ? "bg-primary border-primary/20 scale-105" 
+                           : isDelivered 
+                           ? "bg-emerald-600 border-emerald-500" 
+                           : "bg-charcoal border-white/10"
                        }`}>
                           {stop.customer_name} {isDelivered && "✓"}
                        </div>
@@ -360,17 +582,17 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
         </div>
 
         {/* Map Controls */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
           <div className="flex flex-col bg-white/90 backdrop-blur-md border border-silver/60 rounded-xl shadow-lg overflow-hidden">
             <button
               onClick={() => setZoom((z) => Math.min(18, z + 1))}
-              className="p-2.5 hover:bg-silver/20 transition-colors border-b border-silver/30"
+              className="p-2.5 hover:bg-silver/20 transition-colors border-b border-silver/30 cursor-pointer"
             >
               <ZoomIn className="w-4 h-4 text-charcoal" />
             </button>
             <button
               onClick={() => setZoom((z) => Math.max(10, z - 1))}
-              className="p-2.5 hover:bg-silver/20 transition-colors"
+              className="p-2.5 hover:bg-silver/20 transition-colors cursor-pointer"
             >
               <ZoomOut className="w-4 h-4 text-charcoal" />
             </button>
@@ -379,7 +601,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
           {isManualPan && (
              <button 
                 onClick={() => setIsManualPan(false)}
-                className="p-2.5 bg-primary text-white rounded-xl shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center"
+                className="p-2.5 bg-primary text-white rounded-xl shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center cursor-pointer"
                 title="Recenter to active route"
              >
                 <CheckCircle2 className="w-4 h-4" />
@@ -387,17 +609,296 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
           )}
         </div>
 
-        {/* Legend Overlay */}
-        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md border border-silver/60 p-3 rounded-2xl shadow-lg max-w-[200px]">
-           <div className="flex items-center gap-2 mb-2">
-              <div className="w-3 h-0.5 bg-primary border-t-2 border-dashed border-primary"></div>
-              <span className="text-[10px] font-black text-charcoal/60 uppercase">Delivery Path</span>
-           </div>
-           <p className="text-[9px] text-charcoal/40 font-medium leading-tight">
-              Selecting a route highlights its delivery sequence and stop points on the map.
-           </p>
-        </div>
+        {/* Sliding Stop Details Panel (Inspector) */}
+        {selectedStop && (
+          <div className="w-full md:w-[360px] bg-white border-t md:border-t-0 md:border-l border-silver/50 flex flex-col shrink-0 min-h-0 overflow-hidden relative z-20 animate-in slide-in-from-right-10 duration-300">
+            {/* Stop Header Info */}
+            <div className="p-5 border-b border-silver/30 flex justify-between items-start bg-silver/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-tr from-primary to-sage text-white rounded-2xl flex items-center justify-center font-black text-lg shadow-sm">
+                  {selectedStop.customer_name.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-charcoal leading-none">
+                    {selectedStop.customer_name}
+                  </h3>
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-charcoal/40 block mt-1">
+                    Stop #{selectedStop.sequence_number}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStopId(null)}
+                className="p-1.5 hover:bg-silver/20 rounded-xl transition-colors cursor-pointer text-charcoal/40"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {/* Scrollable details wrapper */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
+              
+              {/* Contact attributes */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest">
+                  Customer Contacts
+                </h4>
+                
+                {selectedStop.customer_phone && (
+                  <a
+                    href={`tel:${selectedStop.customer_phone}`}
+                    className="flex items-center gap-3 p-3 bg-silver/5 border border-silver/45 rounded-2xl hover:bg-silver/10 transition-colors text-xs font-bold text-charcoal"
+                  >
+                    <Phone className="w-4 h-4 text-primary/60 shrink-0" />
+                    <span>{selectedStop.customer_phone}</span>
+                  </a>
+                )}
+
+                {selectedStop.customer_email && (
+                  <a
+                    href={`mailto:${selectedStop.customer_email}`}
+                    className="flex items-center gap-3 p-3 bg-silver/5 border border-silver/45 rounded-2xl hover:bg-silver/10 transition-colors text-xs font-bold text-charcoal"
+                  >
+                    <Mail className="w-4 h-4 text-primary/60 shrink-0" />
+                    <span className="truncate">{selectedStop.customer_email}</span>
+                  </a>
+                )}
+
+                {selectedStop.customer_company && (
+                  <div className="flex items-center gap-3 p-3 bg-silver/5 border border-silver/45 rounded-2xl text-xs font-bold text-charcoal">
+                    <Building2 className="w-4 h-4 text-primary/60 shrink-0" />
+                    <span>{selectedStop.customer_company}</span>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3 p-3 bg-silver/5 border border-silver/45 rounded-2xl text-xs font-bold text-charcoal">
+                  <MapPin className="w-4 h-4 text-primary/60 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="block leading-tight">{selectedStop.address}</span>
+                    {selectedStop.customer_zone_name && (
+                      <span className="inline-block mt-1 bg-primary/10 text-primary text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
+                        Zone: {selectedStop.customer_zone_name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Progress details */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest">
+                  Delivery Details
+                </h4>
+
+                <div className="p-4 bg-silver/10 border border-silver/40 rounded-3xl space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider">
+                      Status:
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                      getStatusBadgeStyle(selectedStop.order_status)
+                    }`}>
+                      {selectedStop.order_status || "Pending"}
+                    </span>
+                  </div>
+
+                  {/* Admin Order Status Actions */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-silver/20">
+                    <button
+                      onClick={async () => {
+                        try {
+                          await deliveryApi.updateOrderStatus(selectedStop.order, "delivered");
+                          onRefresh?.();
+                        } catch (err) {
+                          alert("Failed to mark as delivered: " + (err as any).message);
+                        }
+                      }}
+                      disabled={selectedStop.order_status === "delivered"}
+                      className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-center transition-all cursor-pointer border ${
+                        selectedStop.order_status === "delivered"
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600/50 cursor-not-allowed"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-3xs border-emerald-700"
+                      }`}
+                    >
+                      Delivered
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await deliveryApi.updateOrderStatus(selectedStop.order, "undelivered");
+                          onRefresh?.();
+                        } catch (err) {
+                          alert("Failed to mark as undelivered: " + (err as any).message);
+                        }
+                      }}
+                      disabled={selectedStop.order_status === "undelivered"}
+                      className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-center transition-all cursor-pointer border ${
+                        selectedStop.order_status === "undelivered"
+                          ? "bg-rose-500/10 border-rose-500/20 text-rose-600/50 cursor-not-allowed"
+                          : "bg-rose-600 hover:bg-rose-700 text-white shadow-3xs border-rose-700"
+                      }`}
+                    >
+                      Undelivered
+                    </button>
+                  </div>
+
+                  {selectedStop.delivered_at && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider">
+                        Delivered At:
+                      </span>
+                      <span className="font-bold text-charcoal">
+                        {new Date(selectedStop.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedStop.order_notes && (
+                    <div className="space-y-1.5 border-t border-silver/35 pt-3 text-xs">
+                      <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">
+                        Driver Special Notes:
+                      </span>
+                      <p className="text-charcoal/60 font-semibold italic bg-white p-2.5 rounded-xl border border-silver/40">
+                        "{selectedStop.order_notes}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Proof of Delivery Image (POD) */}
+                  {selectedStop.pod_image && (
+                    <div className="space-y-2 border-t border-silver/35 pt-3">
+                      <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">
+                        Proof of Delivery (POD):
+                      </span>
+                      <div 
+                        onClick={() => selectedStop.pod_image && setZoomImage(selectedStop.pod_image)}
+                        className="w-full h-32 bg-charcoal/5 border border-silver/45 rounded-2xl overflow-hidden relative cursor-zoom-in group/pod"
+                      >
+                        <img 
+                          src={selectedStop.pod_image} 
+                          alt="POD Upload" 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-350"
+                        />
+                        <div className="absolute inset-0 bg-charcoal/40 flex items-center justify-center opacity-0 group-hover/pod:opacity-100 transition-opacity">
+                          <span className="text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            Zoom Image
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Items list */}
+              {selectedStop.product_list && selectedStop.product_list.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-0.5">
+                    <h4 className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest">
+                      Cargo Items ({stopTotalCargoCount(selectedStop)} Units)
+                    </h4>
+                    {selectedStop.order_total && (
+                      <span className="text-xs font-black text-primary">
+                        Total: ₹{selectedStop.order_total}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="bg-white border border-silver/45 rounded-3xl overflow-hidden shadow-2xs">
+                    {selectedStop.product_list.map((item, idx) => (
+                      <div 
+                        key={item.product_id}
+                        className={`p-3 flex items-center justify-between text-xs font-bold text-charcoal ${
+                          idx > 0 ? "border-t border-silver/30" : ""
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <span className="truncate block">{item.product_name}</span>
+                          <span className="text-[10px] font-bold text-charcoal/30">
+                            Rate: ₹{item.unit_price} / {item.unit}
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg border border-primary/10">
+                          Qty: {item.quantity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Subscription items */}
+              {selectedStop.subscription_details ? (
+                <div className="space-y-3 border-t border-silver/30 pt-5">
+                  <div className="flex items-center gap-2 px-0.5">
+                    <Layers className="w-4 h-4 text-primary" />
+                    <h4 className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest">
+                      Subscribed Packages
+                    </h4>
+                  </div>
+
+                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-3xl space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[10px] font-black text-primary/70 uppercase">Frequency:</span>
+                      <span className="font-black text-primary uppercase tracking-wider text-[10px]">
+                        {selectedStop.subscription_details.frequency}
+                      </span>
+                    </div>
+
+                    {selectedStop.subscription_details.special_instructions && (
+                      <div className="space-y-1 text-xs">
+                        <span className="text-[10px] font-black text-primary/70 uppercase block">Instructions:</span>
+                        <p className="text-charcoal/70 font-semibold italic text-[11px]">
+                          "{selectedStop.subscription_details.special_instructions}"
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 border-t border-primary/10 pt-3">
+                      <span className="text-[10px] font-black text-primary/70 uppercase block">Scheduled Repeat Items:</span>
+                      <div className="space-y-1.5">
+                        {selectedStop.subscription_details.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs font-bold text-charcoal">
+                            <span>{item.product_name}</span>
+                            <span className="text-charcoal/50 text-[10px]">Qty: {item.quantity} {item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50/70 border border-amber-200/50 text-amber-800 text-[10px] font-semibold rounded-2xl flex items-center gap-2 border-t border-silver/30 pt-4">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>One-time / Ad-hoc customer order (no recurring subscription).</span>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Proof of Delivery image zoom overlay modal */}
+      {zoomImage && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-charcoal/75 backdrop-blur-xs animate-in fade-in duration-300">
+          <div className="relative max-w-4xl max-h-[85vh] bg-white rounded-3xl overflow-hidden shadow-2xl p-2 animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setZoomImage(null)}
+              className="absolute top-4 right-4 p-2 bg-charcoal/60 hover:bg-charcoal/80 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img 
+              src={zoomImage} 
+              alt="Zoomed POD" 
+              className="w-full h-full max-h-[80vh] object-contain rounded-2xl"
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

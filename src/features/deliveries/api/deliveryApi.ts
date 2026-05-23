@@ -80,5 +80,29 @@ export const deliveryApi = {
   unlockRoute: async (routeId: string): Promise<any> => {
     const response = await axiosInstance.post(`/erp/orders/routes/${routeId}/unlock/`);
     return response.data;
+  },
+
+  /**
+   * Start a trip/route
+   */
+  startTrip: async (routeId: string): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/orders/driver/${routeId}/start-trip/`);
+    return response.data;
+  },
+
+  /**
+   * Complete a trip/route
+   */
+  completeTrip: async (routeId: string): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/orders/driver/${routeId}/complete-trip/`);
+    return response.data;
+  },
+
+  /**
+   * Update order status (e.g. delivered, undelivered, pending)
+   */
+  updateOrderStatus: async (orderId: string, status: string): Promise<any> => {
+    const response = await axiosInstance.patch(`/erp/orders/${orderId}/`, { status });
+    return response.data;
   }
 };
