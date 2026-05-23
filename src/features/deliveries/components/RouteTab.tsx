@@ -1,19 +1,37 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { Navigation, CheckCircle2, ZoomIn, ZoomOut, Search, User } from "lucide-react";
+import { Navigation, CheckCircle2, ZoomIn, ZoomOut, Search, User, Lock, Unlock } from "lucide-react";
 import type { Route } from "./types";
+import { deliveryApi } from "../api/deliveryApi";
 
 interface RouteTabProps {
   routes: Route[];
   isLoading: boolean;
+  onRefresh?: () => void;
 }
 
-const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
+const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const selectedRoute = useMemo(() => {
     return routes.find((r) => r.id === selectedRouteId) || null;
   }, [routes, selectedRouteId]);
+
+  const handleLockToggle = async (route: Route) => {
+    try {
+      if (route.is_locked) {
+        await deliveryApi.unlockRoute(route.id);
+        alert(`Successfully unlocked route: ${route.name}`);
+      } else {
+        await deliveryApi.lockRoute(route.id);
+        alert(`Successfully locked route: ${route.name}`);
+      }
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error("Failed to toggle route lock:", error);
+      alert(`Failed to adjust route lock status.`);
+    }
+  };
 
   // Map State
   const [zoom, setZoom] = useState<number>(13);
@@ -219,7 +237,12 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
                   {route.is_completed ? 'Completed' : 'Active'}
                 </span>
               </div>
-              <h4 className="text-sm font-black truncate">{route.name}</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black truncate flex-1">{route.name}</h4>
+                {route.is_locked && (
+                  <Lock className={`w-3.5 h-3.5 ${selectedRouteId === route.id ? 'text-white' : 'text-primary'}`} />
+                )}
+              </div>
               <div className="flex items-center gap-3 mt-2">
                 <div className="flex items-center gap-1.5 opacity-60">
                    <User className="w-3 h-3" />
@@ -256,6 +279,28 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading }) => {
                       500ml Bottle: {route.dispatch_bottles_500ml}
                     </span>
                   ) : null}
+                </div>
+              )}
+
+              {/* Lock / Unlock Route Action */}
+              {selectedRouteId === route.id && (
+                <div className={`mt-3 pt-3 border-t flex gap-2 ${
+                  selectedRouteId === route.id ? 'border-white/10' : 'border-silver/40'
+                }`}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLockToggle(route);
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                      selectedRouteId === route.id
+                        ? 'bg-white/20 hover:bg-white/30 text-white border border-white/10'
+                        : 'bg-silver/10 hover:bg-silver/20 text-charcoal'
+                    }`}
+                  >
+                    {route.is_locked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                    {route.is_locked ? "Unlock Route" : "Lock Route"}
+                  </button>
                 </div>
               )}
             </div>

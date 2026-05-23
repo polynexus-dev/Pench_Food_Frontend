@@ -37,6 +37,7 @@ export interface Route {
   driver_name: string;
   delivery_date: string;
   is_completed: boolean;
+  is_locked?: boolean;
   route_geometry: any;
   stops: Stop[];
   status: "active" | "completed" | "pending";

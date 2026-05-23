@@ -48,5 +48,37 @@ export const deliveryApi = {
   }> => {
     const response = await axiosInstance.post("/erp/orders/routes/assign-pending/", { date });
     return response.data;
+  },
+
+  /**
+   * Automatically generate daily routes for a specific date
+   */
+  generateDailyRoutes: async (date?: string): Promise<any> => {
+    const response = await axiosInstance.post("/erp/orders/routes/generate/", { date });
+    return response.data;
+  },
+
+  /**
+   * Force regenerate daily routes for a specific date (cancels incomplete routes first)
+   */
+  regenerateDailyRoutes: async (date?: string): Promise<any> => {
+    const response = await axiosInstance.post("/erp/orders/routes/regenerate/", { date });
+    return response.data;
+  },
+
+  /**
+   * Lock a route to disable adjustments
+   */
+  lockRoute: async (routeId: string): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/orders/routes/${routeId}/lock/`);
+    return response.data;
+  },
+
+  /**
+   * Unlock a route to enable adjustments
+   */
+  unlockRoute: async (routeId: string): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/orders/routes/${routeId}/unlock/`);
+    return response.data;
   }
 };

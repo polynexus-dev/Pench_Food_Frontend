@@ -33,6 +33,41 @@ const LogisticsPage: React.FC = () => {
     }
   };
 
+  const handleGenerateRoutes = async () => {
+    setIsLoading(true);
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
+      const res = await deliveryApi.generateDailyRoutes(dateStr);
+      alert(`Successfully generated tomorrow's routes! Created: ${res.routes_created} routes, ${res.orders_created} orders.`);
+      await fetchLogisticsData(true);
+    } catch (error) {
+      console.error("Failed to generate routes:", error);
+      alert("Failed to generate daily routes.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegenerateRoutes = async () => {
+    if (!window.confirm("Are you sure you want to force regenerate? This will delete all today's incomplete routes and recreate them!")) return;
+    setIsLoading(true);
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
+      const res = await deliveryApi.regenerateDailyRoutes(dateStr);
+      alert(`Successfully regenerated routes! Created: ${res.routes_created} routes, ${res.orders_created} orders.`);
+      await fetchLogisticsData(true);
+    } catch (error) {
+      console.error("Failed to regenerate routes:", error);
+      alert("Failed to regenerate daily routes.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchLogisticsData();
   }, [tenant]);
@@ -78,7 +113,23 @@ const LogisticsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
+          <button
+            onClick={handleGenerateRoutes}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-md shadow-emerald-600/10 disabled:opacity-50"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate Tomorrow's Routes
+          </button>
+          <button
+            onClick={handleRegenerateRoutes}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 active:scale-95 transition-all shadow-md shadow-rose-600/10 disabled:opacity-50"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Force Regenerate
+          </button>
           <button
             onClick={() => setIsAssignPendingOpen(true)}
             disabled={isLoading}
@@ -157,7 +208,7 @@ const LogisticsPage: React.FC = () => {
       {/* 3. Tab Content */}
       {activeTab === "dashboard" && <LogisticsDashboardTab stats={stats} />}
       {activeTab === "routes" && (
-        <RouteTab routes={routes} isLoading={isLoading} />
+        <RouteTab routes={routes} isLoading={isLoading} onRefresh={() => fetchLogisticsData(true)} />
       )}
       {activeTab === "dispatch" && (
         <DispatchSummaryTab routes={routes} isLoading={isLoading} />
