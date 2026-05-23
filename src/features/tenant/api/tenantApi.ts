@@ -28,7 +28,7 @@ export const tenantApi = {
    * Fetch all operational zones
    */
   getZones: async (): Promise<Zone[]> => {
-    const response = await axiosInstance.get<Zone[]>("/ems/zones");
+    const response = await axiosInstance.get<Zone[]>("/ems/zones/");
     return Array.isArray(response.data) ? response.data : [];
   },
 

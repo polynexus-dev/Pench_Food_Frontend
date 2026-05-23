@@ -33,7 +33,7 @@ export const deliveryApi = {
    * Fetch all delivery routes
    */
   getRoutes: async (): Promise<Route[]> => {
-    const response = await axiosInstance.get<Route[]>("/erp/orders/routes");
+    const response = await axiosInstance.get<Route[]>("/erp/orders/routes/");
     return Array.isArray(response.data) ? response.data : [];
   },
 

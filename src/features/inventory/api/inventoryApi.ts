@@ -25,7 +25,7 @@ export const inventoryApi = {
    * Fetch all warehouses for the active tenant
    */
   getWarehouses: async (): Promise<Warehouse[]> => {
-    const response = await axiosInstance.get<Warehouse[]>("/erp/inventory/warehouses");
+    const response = await axiosInstance.get<Warehouse[]>("/erp/inventory/warehouses/");
     return Array.isArray(response.data) ? response.data : [];
   },
 
@@ -33,7 +33,7 @@ export const inventoryApi = {
    * Create or provision a new warehouse
    */
   createWarehouse: async (payload: CreateWarehousePayload): Promise<Warehouse> => {
-    const response = await axiosInstance.post<Warehouse>("/erp/inventory/warehouses", payload);
+    const response = await axiosInstance.post<Warehouse>("/erp/inventory/warehouses/", payload);
     return response.data;
   },
 

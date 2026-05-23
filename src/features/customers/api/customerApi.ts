@@ -68,7 +68,7 @@ export const customerApi = {
    * Fetch order history for a specific customer
    */
   getOrdersByCustomerId: async (customerId: string): Promise<Order[]> => {
-    const response = await axiosInstance.get<Order[]>(`/erp/orders?customer=${customerId}`);
+    const response = await axiosInstance.get<Order[]>(`/erp/orders/?customer=${customerId}`);
     return Array.isArray(response.data) ? response.data : [];
   },
 

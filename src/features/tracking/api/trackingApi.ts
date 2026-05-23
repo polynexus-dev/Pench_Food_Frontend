@@ -43,7 +43,7 @@ export const trackingApi = {
 
   getDriverHistory: async (driverId: string, date: string): Promise<DriverRouteHistory> => {
     try {
-      const response = await axiosInstance.get<any>(`/erp/tracking/live/${driverId}/trail`, {
+      const response = await axiosInstance.get<any>(`/erp/tracking/live/${driverId}/trail/`, {
         params: { date }
       });
       
