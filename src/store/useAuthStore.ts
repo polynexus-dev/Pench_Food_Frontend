@@ -13,6 +13,8 @@ interface User {
   portal: string;
   phone: string;
   tenant_schema: string | null;
+  company_id?: string | null;
+  company_name?: string | null;
   groups: string[];
   role: string;
   is_superuser?: boolean;
@@ -42,7 +44,14 @@ export const useAuthStore = create<AuthState>()(
       companyId: null,
       isAuthenticated: false,
       setAuth: (user, access, refresh) => 
-        set({ user, accessToken: access, refreshToken: refresh, isAuthenticated: true }),
+        set({ 
+          user, 
+          accessToken: access, 
+          refreshToken: refresh, 
+          isAuthenticated: true,
+          tenant: user.tenant_schema || null,
+          companyId: user.company_id || null
+        }),
       setTenant: (tenant) => set({ tenant }),
       setCompanyId: (companyId) => set({ companyId }),
       logout: () => set({ user: null, accessToken: null, refreshToken: null, tenant: null, companyId: null, isAuthenticated: false }),

@@ -104,5 +104,13 @@ export const deliveryApi = {
   updateOrderStatus: async (orderId: string, status: string): Promise<any> => {
     const response = await axiosInstance.patch(`/erp/orders/${orderId}/`, { status });
     return response.data;
+  },
+
+  /**
+   * Fetch the active route for the logged in driver
+   */
+  getMyRoute: async (): Promise<Route> => {
+    const response = await axiosInstance.get<Route>("/erp/orders/driver/my-route/");
+    return response.data;
   }
 };
