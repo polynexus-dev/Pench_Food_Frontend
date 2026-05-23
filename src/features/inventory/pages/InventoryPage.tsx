@@ -311,6 +311,7 @@ const InventoryPage: React.FC = () => {
         <InventoryBottleTrackingTab
           summary={bottleSummary}
           isLoading={isBottleLoading}
+          onRefresh={() => fetchBottleSummary(true)}
         />
       )}
     </div>

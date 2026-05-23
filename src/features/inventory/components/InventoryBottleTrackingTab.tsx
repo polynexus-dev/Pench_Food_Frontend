@@ -10,19 +10,64 @@ import {
   ChevronUp,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  X
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse } from "./types";
+import axiosInstance from "../../../api/axiosInstance";
 
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
   isLoading: boolean;
+  onRefresh?: () => void;
 }
 
 const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   summary,
-  isLoading
+  isLoading,
+  onRefresh
 }) => {
+  // Container creation state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [volumeMl, setVolumeMl] = useState("1000");
+  const [depositAmount, setDepositAmount] = useState("50.00");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const handleCreateBottleType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !volumeMl || !depositAmount) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await axiosInstance.post("/erp/inventory/bottle-types/", {
+        name,
+        volume_ml: parseInt(volumeMl),
+        deposit_amount: parseFloat(depositAmount).toFixed(2),
+        is_active: true
+      });
+      setSuccess("Container type created successfully!");
+      if (onRefresh) onRefresh();
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setName("");
+        setVolumeMl("1000");
+        setDepositAmount("50.00");
+        setSuccess(null);
+      }, 1200);
+    } catch (err: any) {
+      console.error("Failed to create container type:", err);
+      setError("Failed to create container type. Please verify configurations.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const [driverSearch, setDriverSearch] = useState<string>("");
   const [expandedDrivers, setExpandedDrivers] = useState<Record<string, boolean>>({});
@@ -78,6 +123,24 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Premium Header and Add Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-silver/30 pb-5">
+        <div>
+          <h2 className="text-lg font-black text-charcoal">
+            Returnable Asset Analytics & Types
+          </h2>
+          <p className="text-xs text-charcoal/40 mt-1">
+            Monitor outstanding delivery assets, track breakages, and manage regional glass container configurations.
+          </p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs hover:bg-primary/95 active:scale-95 transition-all cursor-pointer shrink-0"
+        >
+          <Boxes className="w-4 h-4 stroke-[3]" /> Add Container Type
+        </button>
+      </div>
+
       {/* 1. Real-Time Aggregate Counters Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Outstanding With Customers */}
@@ -355,6 +418,111 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Create Container Type Overlay Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/60 shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-primary to-primary/90 text-white p-5 flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-base tracking-tight">Add Container Type</h3>
+                <p className="text-[10px] text-white/70 font-medium mt-0.5">Create a new glass bottle variant for asset tracking</p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Notifications */}
+            {success && (
+              <div className="mx-5 mt-5 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold animate-in fade-in duration-200">
+                {success}
+              </div>
+            )}
+            {error && (
+              <div className="mx-5 mt-5 p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold animate-in fade-in duration-200">
+                {error}
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleCreateBottleType} className="p-5 space-y-4">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
+                  Container Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 1 Liter Glass Bottle"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
+                    Volume (ml) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 1000"
+                    value={volumeMl}
+                    onChange={(e) => setVolumeMl(e.target.value)}
+                    className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
+                    Refundable Deposit (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 50.00"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-silver/40 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-silver/20 rounded-xl text-xs font-bold text-charcoal/70 hover:bg-silver/40 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-black shadow-sm hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>Create Container Type</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
