@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Globe, MapPin, MoreVertical, Plus } from "lucide-react";
+import { Search, Globe, MapPin, Edit3, Plus } from "lucide-react";
 import type { City } from "./types";
 
 interface TenantListTabProps {
@@ -8,6 +8,7 @@ interface TenantListTabProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onAddClick: () => void;
+  onEditClick: (city: City) => void;
 }
 
 const TenantListTab: React.FC<TenantListTabProps> = ({
@@ -16,6 +17,7 @@ const TenantListTab: React.FC<TenantListTabProps> = ({
   searchQuery,
   setSearchQuery,
   onAddClick,
+  onEditClick,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
@@ -110,8 +112,12 @@ const TenantListTab: React.FC<TenantListTabProps> = ({
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-right">
-                        <button className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/20 rounded-lg transition-all">
-                          <MoreVertical className="w-4 h-4" />
+                        <button
+                          onClick={() => onEditClick(city)}
+                          className="p-2 text-charcoal/40 hover:text-primary hover:bg-primary/5 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center"
+                          title="Edit City Details & Boundary"
+                        >
+                          <Edit3 className="w-4.5 h-4.5" />
                         </button>
                       </td>
                     </tr>

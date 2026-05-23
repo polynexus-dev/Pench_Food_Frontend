@@ -32,6 +32,14 @@ export const customerApi = {
   },
 
   /**
+   * Create multiple customers in a single batch request
+   */
+  bulkCreateCustomers: async (customersData: Partial<Customer>[]): Promise<Customer[]> => {
+    const response = await axiosInstance.post<Customer[]>("/erp/customers/", customersData);
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
    * Update an existing customer
    */
   updateCustomer: async (id: string, customerData: Partial<Customer>): Promise<Customer> => {
@@ -245,6 +253,32 @@ export const customerApi = {
     link.href = url;
     // Set download file name. If there are selected customers, call it selected_qrs.zip/pdf, else all_qrs.zip/pdf
     link.setAttribute("download", customerIds && customerIds.length > 0 ? "selected_customer_qrs.zip" : "all_customer_qrs.zip");
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+  },
+
+  /**
+   * Fetch QR sticker label image as a Blob URL for display
+   */
+  viewQrImage: async (id: string): Promise<string> => {
+    const response = await axiosInstance.get(`/erp/customers/${id}/view-qr/`, {
+      responseType: "blob"
+    });
+    return URL.createObjectURL(response.data);
+  },
+
+  /**
+   * Download individual customer QR sticker PDF
+   */
+  downloadIndividualQrPdf: async (id: string, name: string): Promise<void> => {
+    const response = await axiosInstance.get(`/erp/customers/${id}/download-qr/`, {
+      responseType: "blob"
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `qr_sticker_${name.replace(/\s+/g, "_")}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);

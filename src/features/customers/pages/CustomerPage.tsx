@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
-import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode } from "lucide-react";
+import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
 import CustomerDetailTab from "../components/CustomerDetailTab";
 import CustomerProfileTab from "../components/CustomerProfileTab";
 import CustomerQrTab from "../components/CustomerQrTab";
+import CreateCustomerModal from "../components/CreateCustomerModal";
+import { BulkCreateCustomersModal } from "../components/BulkCreateCustomersModal";
 import type { Customer } from "../components/types";
 
 const CustomerPage: React.FC = () => {
@@ -20,6 +22,8 @@ const CustomerPage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAutoAssigning, setIsAutoAssigning] = useState<boolean>(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -138,7 +142,18 @@ const CustomerPage: React.FC = () => {
             <Download className="w-3.5 h-3.5" />
             Export CSV
           </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+          <button 
+            onClick={() => setIsBulkModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-accent text-charcoal text-xs font-bold rounded-xl hover:bg-accent/95 shadow-md transition-all active:scale-95 cursor-pointer"
+            title="Bulk Import Customers"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Bulk Import
+          </button>
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all cursor-pointer"
+          >
             <UserPlus className="w-4 h-4" />
             Add Customer
           </button>
@@ -307,6 +322,18 @@ const CustomerPage: React.FC = () => {
           </button>
         </div>
       )}
+      {/* Create Customer Modal */}
+      <CreateCustomerModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => fetchCustomers(true)}
+      />
+      {/* Bulk Import Customers Modal */}
+      <BulkCreateCustomersModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={() => fetchCustomers(true)}
+      />
     </div>
   );
 };

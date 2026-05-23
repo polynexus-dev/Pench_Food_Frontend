@@ -29,6 +29,11 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  QrCode,
+  X,
+  Loader2,
+  FileText,
+  Eye,
 } from "lucide-react";
 import type { Customer, Order, Subscription, CustomerProductPrice, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "./types";
 import { customerApi } from "../api/customerApi";
@@ -53,6 +58,53 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+
+  // Avatar QR Code Flip Modal State
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
+  const [isDownloadingPdfProfile, setIsDownloadingPdfProfile] = useState(false);
+
+  const handleAvatarClick = async () => {
+    setIsAvatarModalOpen(true);
+    setIsFlipped(false);
+    setIsLoadingQr(true);
+    setQrImageUrl(null);
+    try {
+      const url = await customerApi.viewQrImage(customer.id);
+      setQrImageUrl(url);
+      // Trigger automatic flip after a slight delay to let the modal expand
+      setTimeout(() => {
+        setIsFlipped(true);
+      }, 550);
+    } catch (error) {
+      console.error("Failed to fetch customer QR for avatar popup:", error);
+    } finally {
+      setIsLoadingQr(false);
+    }
+  };
+
+  const handleDownloadPdfProfile = async () => {
+    setIsDownloadingPdfProfile(true);
+    try {
+      await customerApi.downloadIndividualQrPdf(customer.id, customer.name);
+    } catch (error) {
+      console.error("Failed to download QR PDF:", error);
+    } finally {
+      setIsDownloadingPdfProfile(false);
+    }
+  };
+
+  const handleDownloadPngProfile = () => {
+    if (!qrImageUrl) return;
+    const link = document.createElement("a");
+    link.href = qrImageUrl;
+    link.setAttribute("download", `qr_sticker_${customer.name.replace(/\s+/g, "_")}.png`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+  };
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 1)); // starts in May 2026
 
   // Available zones for manual assignment
@@ -735,8 +787,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-start md:items-end gap-5">
               {/* Huge Avatar with premium gradient border */}
-              <div className="w-24 h-24 bg-gradient-to-tr from-primary to-sage text-white rounded-3xl flex items-center justify-center font-black text-4xl shadow-xl shadow-primary/15 border-4 border-white relative z-10">
+              <div 
+                onClick={handleAvatarClick}
+                className="w-24 h-24 bg-gradient-to-tr from-primary to-sage text-white rounded-3xl flex items-center justify-center font-black text-4xl shadow-xl shadow-primary/15 border-4 border-white relative z-10 cursor-pointer hover:scale-105 active:scale-95 transition-all select-none hover:shadow-primary/25 duration-300 group/avatar"
+                title="Click to view QR Sticker"
+              >
                 {customer.name.charAt(0)}
+                {/* Small corner QR Badge */}
+                <div className="absolute -bottom-1 -right-1 p-1.5 bg-white border border-silver/50 rounded-xl text-primary shadow-md group-hover/avatar:scale-110 transition-transform duration-300">
+                  <QrCode className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2.5">
@@ -2632,6 +2692,173 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Avatar QR Flip Modal */}
+      {isAvatarModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <style>{`
+            .flip-card-container {
+              perspective: 1000px;
+            }
+            .flip-card-inner {
+              transform-style: preserve-3d;
+              transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .flip-card-inner.flipped {
+              transform: rotateY(180deg);
+            }
+            .flip-card-front, .flip-card-back {
+              backface-visibility: hidden;
+              -webkit-backface-visibility: hidden;
+            }
+            .flip-card-back {
+              transform: rotateY(180deg);
+            }
+          `}</style>
+
+          <div className="w-full max-w-sm flex flex-col items-center">
+            {/* Close Button above card */}
+            <div className="w-full flex justify-end mb-3">
+              <button
+                onClick={() => {
+                  if (qrImageUrl) {
+                    URL.revokeObjectURL(qrImageUrl);
+                  }
+                  setIsAvatarModalOpen(false);
+                  setIsFlipped(false);
+                  setQrImageUrl(null);
+                }}
+                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer border border-white/10 shadow-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 3D Flip Card Container */}
+            <div className="w-full aspect-[3/4] flip-card-container">
+              <div className={`w-full h-full relative flip-card-inner ${isFlipped ? "flipped" : ""}`}>
+                
+                {/* FRONT SIDE: Profile Card */}
+                <div 
+                  onClick={() => setIsFlipped(true)}
+                  className="absolute inset-0 w-full h-full bg-white rounded-3xl shadow-2xl border border-silver/50 flex flex-col items-center justify-between p-8 flip-card-front cursor-pointer hover:border-primary/20 transition-colors select-none"
+                  title="Click to flip to QR Code"
+                >
+                  <div className="w-full flex flex-col items-center text-center mt-6">
+                    {/* Large Profile Initial Circle */}
+                    <div className="w-28 h-28 bg-gradient-to-tr from-primary to-sage text-white rounded-full flex items-center justify-center font-black text-5xl shadow-xl shadow-primary/20 border-4 border-silver/10 mb-6">
+                      {customer.name.charAt(0)}
+                    </div>
+                    <h3 className="text-xl font-black text-charcoal">{customer.name}</h3>
+                    <p className="text-xs font-bold text-charcoal/40 uppercase tracking-widest mt-1">
+                      {customer.company || "Private Partner"}
+                    </p>
+                    <p className="text-xs text-charcoal/50 font-semibold mt-2 px-4 py-1.5 bg-silver/10 rounded-full border border-silver/30">
+                      {customer.email}
+                    </p>
+                  </div>
+
+                  {/* Manual Flip Indicator button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent duplicate flip since card body triggers it
+                      setIsFlipped(true);
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 text-primary hover:bg-primary/15 transition-all text-xs font-bold rounded-xl active:scale-95 cursor-pointer mt-4"
+                  >
+                    <QrCode className="w-4.5 h-4.5" />
+                    Flip to QR Code
+                  </button>
+                </div>
+
+                {/* BACK SIDE: QR Sticker */}
+                <div 
+                  onClick={() => setIsFlipped(false)}
+                  className="absolute inset-0 w-full h-full bg-white rounded-3xl shadow-2xl border border-silver/50 flex flex-col items-center justify-between p-6 flip-card-back cursor-pointer hover:border-primary/20 transition-colors select-none"
+                  title="Click to flip to Profile"
+                >
+                  {/* Header of QR side */}
+                  <div className="w-full flex justify-between items-center border-b border-silver/30 pb-3">
+                    <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider">
+                      Customer QR Sticker
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent duplicate flip
+                        setIsFlipped(false);
+                      }}
+                      className="text-[10px] font-black text-primary hover:underline"
+                    >
+                      View Profile
+                    </button>
+                  </div>
+
+                  {/* Image area */}
+                  <div className="flex-1 w-full flex items-center justify-center py-4">
+                    <div 
+                      onClick={(e) => {
+                        // Prevent flipping when clicking directly inside the QR label image wrapper to avoid misclicks
+                        e.stopPropagation();
+                      }}
+                      className="w-[220px] aspect-[600/850] bg-white border border-silver/50 rounded-2xl shadow-md flex items-center justify-center overflow-hidden relative cursor-default"
+                    >
+                      {isLoadingQr ? (
+                        <div className="flex flex-col items-center gap-2 text-charcoal/40">
+                          <Loader2 className="w-7 h-7 animate-spin text-primary" />
+                          <span className="text-[9px] font-bold uppercase tracking-widest">Loading...</span>
+                        </div>
+                      ) : qrImageUrl ? (
+                        <img
+                          src={qrImageUrl}
+                          alt="QR Sticker"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 text-rose-500/80 text-center px-4">
+                          <AlertTriangle className="w-7 h-7" />
+                          <span className="text-[10px] font-bold">Failed to load sticker preview.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions at bottom of QR side */}
+                  <div className="w-full flex gap-3 pt-3 border-t border-silver/30">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent flip on download click
+                        handleDownloadPngProfile();
+                      }}
+                      disabled={!qrImageUrl}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-white border border-silver/60 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      PNG
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent flip on print click
+                        handleDownloadPdfProfile();
+                      }}
+                      disabled={isDownloadingPdfProfile}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all cursor-pointer shadow-md shadow-primary/10"
+                    >
+                      {isDownloadingPdfProfile ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5" />
+                      )}
+                      Print A4 PDF
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       )}

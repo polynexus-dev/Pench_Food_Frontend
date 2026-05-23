@@ -34,10 +34,20 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     setError(null);
 
     try {
-      await companyApi.createCompany(name.trim(), code.trim());
+      console.log('CreateCompanyModal: Sending create request for:', { name, code });
+      const newCompany = await companyApi.createCompany(name.trim(), code.trim());
+      console.log('CreateCompanyModal: Successfully created company:', newCompany);
       setName('');
       setCode('');
-      onSuccess();
+      
+      // Dispatch a custom event to notify other layout components (e.g. Sidebar)
+      console.log('CreateCompanyModal: Dispatching company-created event with:', newCompany);
+      window.dispatchEvent(new CustomEvent('company-created', { detail: newCompany }));
+      console.log('CreateCompanyModal: Event dispatched.');
+
+      if (onSuccess) {
+        onSuccess(newCompany);
+      }
       onClose();
     } catch (err: any) {
       console.error('Failed to create company:', err);

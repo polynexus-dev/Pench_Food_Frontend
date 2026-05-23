@@ -4,6 +4,7 @@ import type { City } from "../components/types";
 import TenantListTab from "../components/TenantListTab";
 import ZoneTab from "../components/ZoneTab";
 import CreateTenantModal from "../components/CreateTenantModal";
+import EditTenantModal from "../components/EditTenantModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { companyApi } from "../../../api/companyApi";
 
@@ -14,6 +15,8 @@ const TenantPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCity, setEditingCity] = useState<City | null>(null);
 
   const fetchCities = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -105,13 +108,17 @@ const TenantPage: React.FC = () => {
       </div>
 
       {/* 3. Tab Content */}
-      {activeTab === "list" ? (
+       {activeTab === "list" ? (
         <TenantListTab 
           cities={filteredCities} 
           isLoading={isLoading} 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onAddClick={() => setIsModalOpen(true)}
+          onEditClick={(city) => {
+            setEditingCity(city);
+            setIsEditModalOpen(true);
+          }}
         />
       ) : (
         <ZoneTab />
@@ -121,6 +128,16 @@ const TenantPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchCities}
+      />
+
+      <EditTenantModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingCity(null);
+        }}
+        onSuccess={fetchCities}
+        city={editingCity}
       />
     </div>
   );

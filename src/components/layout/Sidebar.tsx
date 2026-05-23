@@ -28,44 +28,80 @@ const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      setIsLoadingCompanies(true);
-      try {
-        const data = await companyApi.getCompanies();
-        const activeCompanies = data.filter((c) => c.is_active);
-        setCompanies(activeCompanies);
+  const fetchCompanies = async (selectCompanyId?: string) => {
+    console.log("Sidebar: fetchCompanies triggered. selectCompanyId:", selectCompanyId);
+    setIsLoadingCompanies(true);
+    try {
+      const data = await companyApi.getCompanies();
+      console.log("Sidebar: fetchCompanies API returned raw list:", data);
+      const activeCompanies = data.filter((c) => c.is_active);
+      console.log("Sidebar: fetchCompanies filtered active companies:", activeCompanies);
+      setCompanies(activeCompanies);
 
-        // Determine default company and select it if no companyId is set
-        const defaultCompany = activeCompanies[0];
-        let currentCompanyId = companyId;
-        
-        if (!companyId && defaultCompany) {
-          setCompanyId(defaultCompany.id);
-          currentCompanyId = defaultCompany.id;
-        }
+      const { companyId: storeCompanyId, tenant: storeTenant, setCompanyId, setTenant } = useAuthStore.getState();
+      console.log("Sidebar: Current store state:", { storeCompanyId, storeTenant });
 
-        // Set default tenant/city if not set or if it's not valid for the active company
-        const currentCompany = activeCompanies.find(c => c.id === currentCompanyId);
-        if (currentCompany && currentCompany.cities.length > 0) {
-          const companyCities = currentCompany.cities;
-          if (companyCities.length > 0) {
-            const citySchemaNames = companyCities.map(city => city.schema_name);
-            if (!tenant || !citySchemaNames.includes(tenant)) {
-              setTenant(companyCities[0].schema_name);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch companies:", error);
-      } finally {
-        setIsLoadingCompanies(false);
+      // Determine active/default company
+      const defaultCompany = activeCompanies[0];
+      let currentCompanyId = selectCompanyId || storeCompanyId;
+
+      if (!currentCompanyId && defaultCompany) {
+        console.log("Sidebar: No active company set. Selecting default company:", defaultCompany.id);
+        setCompanyId(defaultCompany.id);
+        currentCompanyId = defaultCompany.id;
+      } else if (selectCompanyId) {
+        console.log("Sidebar: Setting active company to new ID:", selectCompanyId);
+        setCompanyId(selectCompanyId);
       }
-    };
 
+      // Set default tenant/city if not set or if it's not valid for the active company
+      const currentCompany = activeCompanies.find((c) => c.id === currentCompanyId);
+      console.log("Sidebar: Active company object in list:", currentCompany);
+      if (currentCompany && currentCompany.cities && currentCompany.cities.length > 0) {
+        const companyCities = currentCompany.cities;
+        const citySchemaNames = companyCities.map((city) => city.schema_name);
+        if (!storeTenant || !citySchemaNames.includes(storeTenant)) {
+          console.log("Sidebar: Setting default tenant/city:", companyCities[0].schema_name);
+          setTenant(companyCities[0].schema_name);
+        }
+      } else if (selectCompanyId) {
+        // Reset active tenant/city since it's a new company with no cities yet
+        console.log("Sidebar: Resetting tenant schema to empty for new company");
+        setTenant("");
+      }
+    } catch (error) {
+      console.error("Sidebar: Failed to fetch companies:", error);
+    } finally {
+      setIsLoadingCompanies(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log("Sidebar: mounted, calling fetchCompanies()");
     fetchCompanies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, setCompanyId, setTenant]);
+  }, []);
+
+  useEffect(() => {
+    const handleCompanyCreated = (event: Event) => {
+      const customEvent = event as CustomEvent<Company>;
+      const newCompany = customEvent.detail;
+      console.log("Sidebar: Caught company-created event!", newCompany);
+      if (newCompany && newCompany.id) {
+        console.log("Sidebar: Calling fetchCompanies with the new company ID:", newCompany.id);
+        fetchCompanies(newCompany.id);
+      } else {
+        console.warn("Sidebar: company-created event detail is invalid:", newCompany);
+      }
+    };
+    console.log("Sidebar: Registering company-created event listener");
+    window.addEventListener("company-created", handleCompanyCreated);
+    return () => {
+      console.log("Sidebar: Unregistering company-created event listener");
+      window.removeEventListener("company-created", handleCompanyCreated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

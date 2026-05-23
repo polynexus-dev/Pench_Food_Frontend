@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Search, Download, QrCode, Loader2, CheckCircle2, User, MapPin } from "lucide-react";
+import { Search, Download, QrCode, Loader2, CheckCircle2, User, MapPin, Eye, X, FileText, AlertTriangle } from "lucide-react";
 import { customerApi } from "../api/customerApi";
 import type { Customer } from "./types";
 
@@ -14,6 +14,12 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isDownloadingSelected, setIsDownloadingSelected] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+
+  // Individual Actions State
+  const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const [qrStickerUrl, setQrStickerUrl] = useState<string | null>(null);
+  const [isLoadingQrImage, setIsLoadingQrImage] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<string | null>(null);
 
   // Filter customers based on search query
   const filteredCustomers = useMemo(() => {
@@ -90,6 +96,42 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
     } finally {
       setIsDownloadingSelected(false);
     }
+  };
+
+  const handleViewQr = async (customer: Customer) => {
+    setViewingCustomer(customer);
+    setQrStickerUrl(null);
+    setIsLoadingQrImage(true);
+    try {
+      const url = await customerApi.viewQrImage(customer.id);
+      setQrStickerUrl(url);
+    } catch (error) {
+      console.error("Failed to load QR sticker image:", error);
+    } finally {
+      setIsLoadingQrImage(false);
+    }
+  };
+
+  const handleDownloadPdf = async (customer: Customer) => {
+    setIsDownloadingPdf(customer.id);
+    try {
+      await customerApi.downloadIndividualQrPdf(customer.id, customer.name);
+      showSuccessToast(`QR Sticker PDF downloaded for ${customer.name}.`);
+    } catch (error) {
+      console.error("Failed to download individual QR PDF:", error);
+    } finally {
+      setIsDownloadingPdf(null);
+    }
+  };
+
+  const handleDownloadPng = () => {
+    if (!qrStickerUrl || !viewingCustomer) return;
+    const link = document.createElement("a");
+    link.href = qrStickerUrl;
+    link.setAttribute("download", `qr_sticker_${viewingCustomer.name.replace(/\s+/g, "_")}.png`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
   };
 
   return (
@@ -191,6 +233,9 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
                 <th className="py-4 px-4 text-xs font-black text-charcoal/40 uppercase tracking-wider text-center">
                   Status
                 </th>
+                <th className="py-4 px-4 text-xs font-black text-charcoal/40 uppercase tracking-wider text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
 
@@ -220,12 +265,15 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
                       <td className="py-5 px-4">
                         <div className="h-6 bg-silver/60 rounded-full w-16 mx-auto"></div>
                       </td>
+                      <td className="py-5 px-4">
+                        <div className="h-8 bg-silver/45 rounded-xl w-20 mx-auto"></div>
+                      </td>
                     </tr>
                   ))
               ) : filteredCustomers.length === 0 ? (
                 // Empty State
                 <tr>
-                  <td colSpan={6} className="py-16 text-center">
+                  <td colSpan={7} className="py-16 text-center">
                     <div className="max-w-md mx-auto flex flex-col items-center">
                       <div className="p-4 bg-silver/10 rounded-full text-charcoal/30 mb-4">
                         <QrCode className="w-10 h-10" />
@@ -319,6 +367,36 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
                           {customer.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
+
+                      <td className="py-4.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewQr(customer);
+                            }}
+                            className="p-2 bg-silver/30 text-charcoal/65 hover:bg-primary/10 hover:text-primary rounded-xl transition-all cursor-pointer active:scale-90"
+                            title="View Sticker"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadPdf(customer);
+                            }}
+                            disabled={isDownloadingPdf === customer.id}
+                            className="p-2 bg-silver/30 text-charcoal/65 hover:bg-primary/10 hover:text-primary rounded-xl transition-all cursor-pointer active:scale-90 disabled:opacity-40"
+                            title="Download PDF"
+                          >
+                            {isDownloadingPdf === customer.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Download className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -327,6 +405,86 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
           </table>
         </div>
       </div>
+
+      {/* View QR Sticker modal */}
+      {viewingCustomer && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="px-6 py-4.5 bg-gradient-to-r from-primary to-sage text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-white" />
+                <h3 className="font-bold text-sm">QR Sticker Preview</h3>
+              </div>
+              <button
+                onClick={() => {
+                  if (qrStickerUrl) {
+                    URL.revokeObjectURL(qrStickerUrl);
+                  }
+                  setViewingCustomer(null);
+                  setQrStickerUrl(null);
+                }}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors cursor-pointer text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col items-center justify-center bg-silver/5">
+              <h4 className="text-sm font-black text-charcoal mb-1">{viewingCustomer.name}</h4>
+              <p className="text-[10px] text-charcoal/40 font-bold uppercase tracking-wider mb-5">
+                ID: {viewingCustomer.qr_code_id || viewingCustomer.id.substring(0, 8)}
+              </p>
+
+              {/* Sticker Image Wrapper */}
+              <div className="w-[280px] h-[396px] bg-white border border-silver/50 rounded-2xl shadow-md flex items-center justify-center overflow-hidden relative group">
+                {isLoadingQrImage ? (
+                  <div className="flex flex-col items-center gap-2 text-charcoal/40">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Generating Preview...</span>
+                  </div>
+                ) : qrStickerUrl ? (
+                  <img
+                    src={qrStickerUrl}
+                    alt="QR Sticker"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-rose-500/80 px-4 text-center">
+                    <AlertTriangle className="w-8 h-8" />
+                    <span className="text-xs font-bold">Failed to load QR sticker image preview.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-6 py-4 bg-silver/10 border-t border-silver/40 flex items-center gap-3">
+              <button
+                onClick={handleDownloadPng}
+                disabled={!qrStickerUrl}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-silver/60 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download PNG
+              </button>
+              <button
+                onClick={() => handleDownloadPdf(viewingCustomer)}
+                disabled={isDownloadingPdf === viewingCustomer.id}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/95 active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed transition-all cursor-pointer shadow-md shadow-primary/10"
+              >
+                {isDownloadingPdf === viewingCustomer.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                Print PDF (A4)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

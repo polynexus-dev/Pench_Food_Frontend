@@ -79,7 +79,7 @@ export const TrackingProvider: React.FC = () => {
 
   // Auto update wsUrl based on driverUserId, protocol, tenant, and accessToken
   useEffect(() => {
-    const host = `${protocol}://${tenant}.${cleanHost}`;
+    const host = `${protocol}://${tenant.replace(/_/g, "-")}.${cleanHost}`;
     if (driverUserId) {
       const trackingUrl = `${host}/ws/tracking/driver/${driverUserId}/${accessToken ? `?token=${accessToken}` : ""}`;
       setWsUrl(trackingUrl);

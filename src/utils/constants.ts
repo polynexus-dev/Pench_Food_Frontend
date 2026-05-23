@@ -36,7 +36,8 @@ const { protocol, cleanUrl } = getApiUrlConfig();
 export const BASE_URL = `${protocol}${cleanUrl}`;
 
 export const getCityUrl = (tenant: string) => {
-  return `${protocol}${tenant}.${cleanUrl}`;
+  const subdomain = tenant.replace(/_/g, "-");
+  return `${protocol}${subdomain}.${cleanUrl}`;
 };
 
 // Clean host by removing trailing /api or api
@@ -47,6 +48,7 @@ export const DEFAULT_WS_PROTOCOL = protocol === "https://" ? "wss" : "ws";
 
 // Generate websocket URL dynamically for a given tenant/city
 export const getCityWsUrl = (tenant: string, wsProtocol: "ws" | "wss" = DEFAULT_WS_PROTOCOL) => {
-  return `${wsProtocol}://${tenant}.${cleanHost}/ws/tracking/`;
+  const subdomain = tenant.replace(/_/g, "-");
+  return `${wsProtocol}://${subdomain}.${cleanHost}/ws/tracking/`;
 };
 
