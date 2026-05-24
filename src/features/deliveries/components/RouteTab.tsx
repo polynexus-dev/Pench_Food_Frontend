@@ -23,20 +23,35 @@ import {
   Image as ImageIcon,
   X
 } from "lucide-react";
-import type { Route, Stop } from "./types";
+import type { Route, Stop, Driver } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
+import { useAuthStore } from "../../../store/useAuthStore";
 
 interface RouteTabProps {
   routes: Route[];
+  drivers: Driver[];
   isLoading: boolean;
   onRefresh?: () => void;
 }
 
-const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => {
+const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefresh }) => {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
+  const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  const user = useAuthStore((state) => state.user);
+  const isAuthorized = useMemo(() => {
+    if (!user) return false;
+    return (
+      user.groups.includes("Logistics_Managers") || 
+      user.groups.includes("ERP_Admins") || 
+      user.role === "SuperAdmin"
+    );
+  }, [user]);
+
+  // Selected Route & Stop Memo helpers
 
   const selectedRoute = useMemo(() => {
     return routes.find((r) => r.id === selectedRouteId) || null;
@@ -50,6 +65,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
   // Reset selected stop when switching routes
   useEffect(() => {
     setSelectedStopId(null);
+    setIsEditingDriver(false);
   }, [selectedRouteId]);
 
   // Map State
@@ -206,10 +222,82 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
 
   const handleMouseUp = () => setIsDragging(false);
 
-  const filteredRoutes = routes.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRoutes = useMemo(() => {
+    return routes.filter((r) => {
+      return (
+        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    });
+  }, [routes, searchQuery]);
+
+  const sortedRoutes = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return [...filteredRoutes].sort((a, b) => {
+      if (a.delivery_date === todayStr && b.delivery_date !== todayStr) {
+        return -1;
+      }
+      if (b.delivery_date === todayStr && a.delivery_date !== todayStr) {
+        return 1;
+      }
+
+      const aIsFuture = a.delivery_date > todayStr;
+      const bIsFuture = b.delivery_date > todayStr;
+
+      if (aIsFuture && !bIsFuture) {
+        return -1;
+      }
+      if (!aIsFuture && bIsFuture) {
+        return 1;
+      }
+
+      if (aIsFuture && bIsFuture) {
+        return a.delivery_date.localeCompare(b.delivery_date);
+      } else {
+        return b.delivery_date.localeCompare(a.delivery_date);
+      }
+    });
+  }, [filteredRoutes]);
+
+  const getFriendlyDateLabel = (dateStr: string) => {
+    const today = new Date();
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+    const todayStr = formatDate(today);
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowStr = formatDate(tomorrow);
+
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayStr = formatDate(yesterday);
+
+    if (dateStr === todayStr) return "Today";
+    if (dateStr === tomorrowStr) return "Tomorrow";
+    if (dateStr === yesterdayStr) return "Yesterday";
+    
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getFriendlyDateStyle = (dateStr: string) => {
+    const label = getFriendlyDateLabel(dateStr);
+    switch (label) {
+      case "Today":
+        return "bg-amber-50 border-amber-500/25 text-amber-800 font-black shadow-2xs";
+      case "Tomorrow":
+        return "bg-emerald-50 border-emerald-500/25 text-emerald-800 font-black shadow-2xs";
+      case "Yesterday":
+        return "bg-silver/10 border-silver/30 text-charcoal/50 font-bold";
+      default:
+        return "bg-primary/5 border-primary/20 text-primary font-bold";
+    }
+  };
 
   // Helper for delivery status badge colors
   const getStatusBadgeStyle = (status?: string) => {
@@ -276,6 +364,72 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
               >
                 Back to Routes
               </button>
+            </div>
+
+            {/* Assigned Driver Card */}
+            <div className="bg-silver/10 border border-silver/35 p-3.5 rounded-2xl mb-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-charcoal/45 tracking-wider">
+                  Assigned Driver
+                </span>
+                {isAuthorized && (
+                  <button
+                    onClick={() => setIsEditingDriver(!isEditingDriver)}
+                    className="text-[10px] font-black text-primary hover:underline uppercase tracking-wide cursor-pointer"
+                  >
+                    {isEditingDriver ? "Cancel" : "Change"}
+                  </button>
+                )}
+              </div>
+              
+              {isEditingDriver ? (
+                <div className="flex flex-col gap-2 mt-1">
+                  <select
+                    value={selectedRoute.driver || ""}
+                    onChange={async (e) => {
+                      const newDriverUserId = e.target.value ? parseInt(e.target.value) : null;
+                      if (!newDriverUserId) return;
+                      try {
+                        await deliveryApi.updateRoute(selectedRoute.id, { driver: newDriverUserId });
+                        setIsEditingDriver(false);
+                        onRefresh?.();
+                      } catch (err) {
+                        alert("Failed to update driver: " + (err as any).message);
+                      }
+                    }}
+                    className="w-full bg-white border border-silver/60 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:outline-none focus:border-primary/40 transition-colors"
+                  >
+                    <option value="" disabled>Select a driver...</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.user}>
+                        {d.full_name} ({d.vehicle_type} - {d.vehicle_plate})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
+                    <User className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-charcoal">
+                      {selectedRoute.driver_name || "Unassigned"}
+                    </div>
+                    {(() => {
+                      const drvObj = drivers.find(d => d.user === selectedRoute.driver);
+                      if (drvObj) {
+                        return (
+                          <div className="text-[10px] font-semibold text-charcoal/50 mt-0.5">
+                            {drvObj.vehicle_type} — {drvObj.vehicle_plate}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Trip status banner */}
@@ -419,7 +573,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
                 [1, 2, 3].map(i => (
                   <div key={i} className="h-32 bg-white rounded-3xl border border-silver/50 animate-pulse"></div>
                 ))
-              ) : filteredRoutes.map(route => (
+              ) : sortedRoutes.map(route => (
                 <div 
                   key={route.id} 
                   onClick={() => {
@@ -432,11 +586,21 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, isLoading, onRefresh }) => 
                     <div className="p-2 rounded-xl bg-primary/5 group-hover/item:bg-primary/10 transition-colors">
                       <Navigation className="w-5 h-5 text-primary" />
                     </div>
-                    <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                      getTripStatusLabel(route).style
-                    }`}>
-                      {getTripStatusLabel(route).text}
-                    </span>
+                    
+                    <div className="flex items-center gap-1.5">
+                      {/* Premium Date Card/Badge */}
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                        getFriendlyDateStyle(route.delivery_date)
+                      }`}>
+                        {getFriendlyDateLabel(route.delivery_date)}
+                      </span>
+
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                        getTripStatusLabel(route).style
+                      }`}>
+                        {getTripStatusLabel(route).text}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-black truncate flex-1 text-charcoal">{route.name}</h4>

@@ -83,6 +83,14 @@ export const deliveryApi = {
   },
 
   /**
+   * Update route fields (e.g. driver assignment)
+   */
+  updateRoute: async (routeId: string, data: Partial<Route>): Promise<Route> => {
+    const response = await axiosInstance.patch<Route>(`/erp/orders/routes/${routeId}/`, data);
+    return response.data;
+  },
+
+  /**
    * Start a trip/route
    */
   startTrip: async (routeId: string): Promise<any> => {
