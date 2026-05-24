@@ -27,6 +27,8 @@ export interface Employee {
   emergency_contact_phone: string;
   bank_account_number: string;
   bank_ifsc: string;
+  warehouse_id?: string | null;
+  warehouse_name?: string | null;
 }
 
 export interface EmployeeDocument {

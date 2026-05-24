@@ -71,4 +71,6 @@ export interface Route {
   dispatch_bottles_500ml?: number;
   started_at?: string | null;
   completed_at?: string | null;
+  additional_drivers?: number[];
+  additional_driver_names?: string[];
 }

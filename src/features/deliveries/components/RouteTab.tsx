@@ -21,11 +21,15 @@ import {
   TrendingUp,
   Activity,
   Image as ImageIcon,
-  X
+  Plus,
+  Minus,
+  X,
+  Boxes
 } from "lucide-react";
 import type { Route, Stop, Driver } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
 import { useAuthStore } from "../../../store/useAuthStore";
+import axiosInstance from "../../../api/axiosInstance";
 
 interface RouteTabProps {
   routes: Route[];
@@ -40,6 +44,47 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [isSubmittingDelivery, setIsSubmittingDelivery] = useState(false);
+  const [bottlesIssued, setBottlesIssued] = useState(0);
+  const [bottlesReturned, setBottlesReturned] = useState(0);
+
+  const openDeliveryForm = (stop: Stop) => {
+    let defaultQty = 0;
+    if (stop.product_list) {
+      stop.product_list.forEach((item) => {
+        defaultQty += item.quantity;
+      });
+    }
+    if (defaultQty === 0) {
+      defaultQty = 1;
+    }
+    
+    setBottlesIssued(defaultQty);
+    setBottlesReturned(defaultQty);
+    setShowDeliveryModal(true);
+  };
+
+  const handleSubmitDelivery = async () => {
+    if (!selectedStop) return;
+    setIsSubmittingDelivery(true);
+    try {
+      // 1. Submit Delivery to the submit-delivery endpoint
+      await axiosInstance.post(`/erp/orders/driver/${selectedStop.order}/submit-delivery/`, {
+        bottles_issued: bottlesIssued,
+        bottles_returned: bottlesReturned
+      });
+
+      // 2. Clean up and refresh
+      setShowDeliveryModal(false);
+      onRefresh?.();
+    } catch (err) {
+      alert("Failed to submit delivery details: " + (err as any).message);
+    } finally {
+      setIsSubmittingDelivery(false);
+    }
+  };
 
   const user = useAuthStore((state) => state.user);
   const isAuthorized = useMemo(() => {
@@ -384,6 +429,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               
               {isEditingDriver ? (
                 <div className="flex flex-col gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-charcoal/50">Primary Driver:</span>
                   <select
                     value={selectedRoute.driver || ""}
                     onChange={async (e) => {
@@ -391,7 +437,6 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       if (!newDriverUserId) return;
                       try {
                         await deliveryApi.updateRoute(selectedRoute.id, { driver: newDriverUserId });
-                        setIsEditingDriver(false);
                         onRefresh?.();
                       } catch (err) {
                         alert("Failed to update driver: " + (err as any).message);
@@ -406,28 +451,84 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       </option>
                     ))}
                   </select>
+
+                  <div className="flex flex-col gap-1.5 mt-2 border-t border-silver/30 pt-2">
+                    <span className="text-[10px] font-bold text-charcoal/50">Backup Drivers (Emergency):</span>
+                    <div className="max-h-32 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                      {drivers
+                        .filter((d) => d.user !== selectedRoute.driver)
+                        .map((d) => {
+                          const isChecked = selectedRoute.additional_drivers?.includes(d.user) || false;
+                          return (
+                            <label key={d.id} className="flex items-center gap-2 text-xs font-semibold text-charcoal cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={async (e) => {
+                                  let newAdditional = [...(selectedRoute.additional_drivers || [])];
+                                  if (e.target.checked) {
+                                    newAdditional.push(d.user);
+                                  } else {
+                                    newAdditional = newAdditional.filter((id) => id !== d.user);
+                                  }
+                                  try {
+                                    await deliveryApi.updateRoute(selectedRoute.id, { additional_drivers: newAdditional });
+                                    onRefresh?.();
+                                  } catch (err) {
+                                    alert("Failed to update backup drivers: " + (err as any).message);
+                                  }
+                                }}
+                                className="rounded text-primary focus:ring-primary/30 w-3.5 h-3.5 border-silver/60"
+                              />
+                              <span>{d.full_name}</span>
+                            </label>
+                          );
+                        })}
+                      {drivers.filter((d) => d.user !== selectedRoute.driver).length === 0 && (
+                        <span className="text-[10px] text-charcoal/40 font-medium">No backup drivers available</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
-                    <User className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-charcoal">
-                      {selectedRoute.driver_name || "Unassigned"}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
+                      <User className="w-4.5 h-4.5" />
                     </div>
-                    {(() => {
-                      const drvObj = drivers.find(d => d.user === selectedRoute.driver);
-                      if (drvObj) {
-                        return (
-                          <div className="text-[10px] font-semibold text-charcoal/50 mt-0.5">
-                            {drvObj.vehicle_type} — {drvObj.vehicle_plate}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                    <div>
+                      <div className="text-xs font-bold text-charcoal">
+                        {selectedRoute.driver_name || "Unassigned"}
+                      </div>
+                      {(() => {
+                        const drvObj = drivers.find((d) => d.user === selectedRoute.driver);
+                        if (drvObj) {
+                          return (
+                            <div className="text-[10px] font-semibold text-charcoal/50 mt-0.5">
+                              {drvObj.vehicle_type} — {drvObj.vehicle_plate}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                   </div>
+
+                  {selectedRoute.additional_driver_names && selectedRoute.additional_driver_names.length > 0 && (
+                    <div className="mt-2 border-t border-silver/30 pt-2">
+                      <span className="text-[9px] font-black uppercase text-charcoal/45 tracking-wider block mb-1">
+                        Backup Drivers
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedRoute.additional_driver_names.map((name, i) => (
+                          <span key={i} className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-800 text-[10px] font-bold rounded-lg flex items-center gap-1">
+                            <User className="w-2.5 h-2.5 text-amber-600" />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -869,14 +970,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   {/* Admin Order Status Actions */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-silver/20">
                     <button
-                      onClick={async () => {
-                        try {
-                          await deliveryApi.updateOrderStatus(selectedStop.order, "delivered");
-                          onRefresh?.();
-                        } catch (err) {
-                          alert("Failed to mark as delivered: " + (err as any).message);
-                        }
-                      }}
+                      onClick={() => openDeliveryForm(selectedStop)}
                       disabled={selectedStop.order_status === "delivered"}
                       className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-center transition-all cursor-pointer border ${
                         selectedStop.order_status === "delivered"
@@ -1059,6 +1153,111 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               alt="Zoomed POD" 
               className="w-full h-full max-h-[80vh] object-contain rounded-2xl"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Bottle Reconciliation Modal */}
+      {showDeliveryModal && selectedStop && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-charcoal/75 backdrop-blur-xs animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl p-6 relative animate-in zoom-in-95 duration-300 border border-silver/40 flex flex-col gap-5 text-left">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-silver/30 pb-3">
+              <div>
+                <h3 className="text-base font-black text-charcoal tracking-tight flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-primary" />
+                  Confirm Delivery & Bottles
+                </h3>
+                <p className="text-[10px] text-charcoal/40 font-bold uppercase mt-0.5">
+                  Stop #{selectedStop.sequence_number} — {selectedStop.customer_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="p-1.5 hover:bg-silver/20 text-charcoal/50 hover:text-charcoal rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex flex-col gap-4">
+              <p className="text-xs font-semibold text-charcoal/60">
+                Please confirm the quantity of returnable assets issued and empty bottles collected for this stop:
+              </p>
+
+              {/* Delivered (Full Bottle) */}
+              <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">Delivered (Full)</span>
+                  <span className="text-[10px] font-bold text-charcoal/40">Total bottles handed over</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setBottlesIssued(val => Math.max(0, val - 1))}
+                    className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-sm font-black text-charcoal min-w-[20px] text-center">{bottlesIssued}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBottlesIssued(val => val + 1)}
+                    className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Returned (Empty Bottle) */}
+              <div className="p-3.5 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 block">Returned (Empty)</span>
+                  <span className="text-[10px] font-bold text-charcoal/40">Empty bottles collected</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setBottlesReturned(val => Math.max(0, val - 1))}
+                    className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-sm font-black text-charcoal min-w-[20px] text-center">{bottlesReturned}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBottlesReturned(val => val + 1)}
+                    className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 border-t border-silver/30 pt-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="flex-1 py-2 px-3 border border-silver/45 hover:bg-silver/10 rounded-xl text-xs font-black uppercase tracking-wider text-charcoal transition-colors cursor-pointer text-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitDelivery}
+                disabled={isSubmittingDelivery}
+                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all border border-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
+              >
+                {isSubmittingDelivery ? "Submitting..." : "Submit Delivery"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

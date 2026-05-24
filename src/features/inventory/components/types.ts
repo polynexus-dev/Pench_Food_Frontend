@@ -1,3 +1,12 @@
+export interface RawMaterial {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  unit: string;
+  is_active: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -9,6 +18,8 @@ export interface Product {
   bottle_type: string | null;
   bottle_type_name?: string | null;
   is_returnable: boolean;
+  raw_material?: string | null;
+  raw_material_name?: string | null;
 }
 
 export interface BottleGlobalSummary {
@@ -35,6 +46,9 @@ export interface DriverBottleBreakdown {
   route_name: string;
   route_status: string;
   route_status_display: string;
+  driver_id?: string | null;
+  driver_warehouse_id?: string | null;
+  driver_warehouse_name?: string | null;
   driver_name: string;
   vehicle_plate: string;
   bottles: DriverBottleStats[];
@@ -46,6 +60,13 @@ export interface BottleTrackingSummaryResponse {
   driver_breakdown: DriverBottleBreakdown[];
 }
 
+export interface WarehouseDriver {
+  id: string;
+  name: string;
+  vehicle_plate: string;
+  phone: string;
+}
+
 export interface Warehouse {
   id: string;
   name: string;
@@ -55,11 +76,13 @@ export interface Warehouse {
     type: "Point";
     coordinates: [number, number];
   };
+  drivers?: WarehouseDriver[];
 }
 
 export interface CreateWarehousePayload {
   name: string;
   address: string;
+  is_active?: boolean;
   location: {
     type: "Point";
     coordinates: [number, number];

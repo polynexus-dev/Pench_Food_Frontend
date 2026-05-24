@@ -1,10 +1,42 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Product, Warehouse, CreateWarehousePayload } from "../components/types";
+import type { Product, RawMaterial, Warehouse, CreateWarehousePayload } from "../components/types";
 
 /**
  * Inventory API Service
  */
 export const inventoryApi = {
+  /**
+   * Fetch all raw materials
+   */
+  getRawMaterials: async (): Promise<RawMaterial[]> => {
+    const response = await axiosInstance.get<RawMaterial[]>("/erp/inventory/raw-materials/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Create a new raw material
+   */
+  createRawMaterial: async (payload: { name: string; sku: string; description?: string; unit: string }): Promise<RawMaterial> => {
+    const response = await axiosInstance.post<RawMaterial>("/erp/inventory/raw-materials/", payload);
+    return response.data;
+  },
+
+  /**
+   * Update an existing raw material
+   */
+  updateRawMaterial: async (id: string, payload: { name: string; sku: string; description?: string; unit: string }): Promise<RawMaterial> => {
+    const response = await axiosInstance.put<RawMaterial>(`/erp/inventory/raw-materials/${id}/`, payload);
+    return response.data;
+  },
+
+  /**
+   * Delete a raw material
+   */
+  deleteRawMaterial: async (id: string): Promise<any> => {
+    const response = await axiosInstance.delete(`/erp/inventory/raw-materials/${id}/`);
+    return response.data;
+  },
+
   /**
    * Fetch all products/variants in the inventory catalog
    */
@@ -52,4 +84,38 @@ export const inventoryApi = {
     const response = await axiosInstance.delete(`/erp/inventory/products/${id}/`);
     return response.data;
   },
+
+  /**
+   * Fetch inventory stock level forecast and replenishment need
+   */
+  getWarehouseForecast: async (id: string): Promise<any> => {
+    const response = await axiosInstance.get(`/erp/inventory/warehouses/${id}/forecast/`);
+    return response.data;
+  },
+
+  /**
+   * Fetch historical stock ledger movements
+   */
+  getWarehouseHistory: async (id: string): Promise<any> => {
+    const response = await axiosInstance.get(`/erp/inventory/warehouses/${id}/history/`);
+    return response.data;
+  },
+
+  /**
+   * Record manual adjustments or inbound supplier replenishments
+   */
+  adjustWarehouseStock: async (
+    id: string,
+    data: {
+      product: string;
+      quantity: number;
+      movement_type: "inbound" | "adjustment";
+      reference?: string;
+      notes?: string;
+    }
+  ): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/inventory/warehouses/${id}/adjust-stock/`, data);
+    return response.data;
+  },
 };
+

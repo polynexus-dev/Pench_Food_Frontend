@@ -36,6 +36,8 @@ const Dashboard = () => {
   const [activeDeliveriesCount, setActiveDeliveriesCount] = useState(0);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [forecastData, setForecastData] = useState<any[]>([]);
+  const [isLoadingForecast, setIsLoadingForecast] = useState(false);
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -98,6 +100,22 @@ const Dashboard = () => {
           })
         }));
         setRecentDeliveries(mappedDeliveries);
+
+        // 6. Fetch Warehouses and Forecasts
+        setIsLoadingForecast(true);
+        try {
+          const whRes = await axiosInstance.get('/erp/warehouses/');
+          const warehouses = Array.isArray(whRes.data) ? whRes.data : [];
+          if (warehouses.length > 0) {
+            const whId = warehouses[0].id;
+            const forecastRes = await axiosInstance.get(`/erp/warehouses/${whId}/forecast/`);
+            setForecastData(forecastRes.data.forecast || []);
+          }
+        } catch (fErr) {
+          console.warn("Failed to load forecast data for dashboard", fErr);
+        } finally {
+          setIsLoadingForecast(false);
+        }
 
       } catch (error) {
         console.error('Failed to load dashboard operational statistics:', error);
@@ -286,17 +304,71 @@ const Dashboard = () => {
 
             {/* Quick Actions / Stock */}
             <div className="space-y-6">
-              <div className="bg-cream p-6 rounded-2xl border border-accent/30">
-                <h3 className="font-bold text-charcoal mb-4">Stock Highlights</h3>
-                <div className="space-y-4">
-                  <StockItem label="Full Cream" level={92} color="bg-primary" />
-                  <StockItem label="Skimmed Milk" level={45} color="bg-accent" />
-                  <StockItem label="Paneer" level={78} color="bg-sage" />
-                  <StockItem label="Curd / Yogurt" level={23} color="bg-red-400" />
+              <div className="bg-white p-6 rounded-2xl border border-silver shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-charcoal flex items-center gap-2">
+                    <Package className="w-5 h-5 text-primary" /> Live Stock & Cockpit
+                  </h3>
+                  <span className="text-[9px] uppercase font-black tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                    Nagpur Hub
+                  </span>
                 </div>
-                <button className="w-full mt-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
-                  Create Restock Order
-                </button>
+                {isLoadingForecast ? (
+                  <div className="py-8 text-center text-xs text-charcoal/40 font-bold animate-pulse">
+                    Calculating forecast matrices...
+                  </div>
+                ) : forecastData.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-charcoal/40 font-medium border border-dashed border-silver rounded-xl">
+                    No active stock tracking registered.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {forecastData.map((item: any) => (
+                      <div key={item.product_id} className="p-3 bg-silver/15 rounded-xl border border-silver/40 hover:border-primary/20 transition-all">
+                        <div className="flex justify-between items-start mb-1">
+                          <div>
+                            <span className="font-black text-xs text-charcoal block">{item.product_name}</span>
+                            <span className="text-[9px] text-charcoal/40 font-mono">{item.product_sku}</span>
+                          </div>
+                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                            item.stock_health === 'critical' ? 'bg-red-50 text-red-600 border-red-200' :
+                            item.stock_health === 'warning' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                            'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          }`}>
+                            {item.stock_health === 'critical' ? 'Deficit' : item.stock_health === 'warning' ? 'Warning' : 'Healthy'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-silver/30 text-center">
+                          <div>
+                            <span className="text-[8px] font-bold text-charcoal/50 uppercase block">In Stock</span>
+                            <span className="text-xs font-black text-charcoal">{item.current_stock}</span>
+                            {item.bottle_volume_l && (
+                              <span className="text-[8px] text-charcoal/40 block">({(item.current_stock * item.bottle_volume_l).toFixed(0)}L)</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-bold text-charcoal/50 uppercase block">Tomorrow</span>
+                            <span className="text-xs font-black text-violet-600">{item.tomorrow_demand || 0}</span>
+                            {item.bottle_volume_l && (
+                              <span className="text-[8px] text-violet-500/70 block">({(item.tomorrow_demand * item.bottle_volume_l).toFixed(0)}L)</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-bold text-charcoal/50 uppercase block">Order Now</span>
+                            {item.order_recommendation > 0 ? (
+                              <span className="text-xs font-black text-rose-500 block animate-pulse">+{item.order_recommendation}</span>
+                            ) : (
+                              <span className="text-xs font-bold text-emerald-500 block">Stack OK</span>
+                            )}
+                            {item.order_recommendation > 0 && item.bottle_volume_l && (
+                              <span className="text-[8px] text-rose-400 block">(+{(item.order_recommendation * item.bottle_volume_l).toFixed(0)}L)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-charcoal text-white p-6 rounded-2xl">

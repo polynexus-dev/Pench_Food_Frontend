@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight, Mail } from 'lucide-react';
+import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight, Mail, Building2 } from 'lucide-react';
 import axiosInstance from '../../../api/axiosInstance';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { CustomInput } from '../../../components/common/CustomInput';
 import { CustomSelect } from '../../../components/common/CustomSelect';
+import { inventoryApi } from '../../inventory/api/inventoryApi';
 
 interface CreateDriverModalProps {
   isOpen: boolean;
@@ -25,10 +26,13 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
     vehicle_plate: '',
     vehicle_type: '',
     max_capacity_kg: '',
-    zone: ''
+    zone: '',
+    warehouse: ''
   });
   const [zones, setZones] = useState<any[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState(false);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +49,21 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
           setIsLoadingZones(false);
         }
       };
+
+      const fetchWarehouses = async () => {
+        try {
+          setIsLoadingWarehouses(true);
+          const data = await inventoryApi.getWarehouses();
+          setWarehouses(data);
+        } catch (error) {
+          console.error("Failed to fetch warehouses", error);
+        } finally {
+          setIsLoadingWarehouses(false);
+        }
+      };
+
       fetchZones();
+      fetchWarehouses();
     }
   }, [isOpen]);
 
@@ -81,7 +99,8 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
         vehicle_plate: '',
         vehicle_type: '',
         max_capacity_kg: '',
-        zone: ''
+        zone: '',
+        warehouse: ''
       });
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.[0]?.message || 'Failed to register rider. Please try again.');
@@ -241,6 +260,17 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               required
               min="0"
               placeholder="e.g. 500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <CustomSelect
+              label="Assigned Warehouse / Hub"
+              icon={Building2}
+              value={formData.warehouse}
+              onChange={(val) => setFormData(prev => ({ ...prev, warehouse: val }))}
+              placeholder={isLoadingWarehouses ? "Loading warehouses..." : "Select Hub"}
+              options={warehouses.map(w => ({ label: w.name, value: String(w.id) }))}
             />
           </div>
 

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Boxes,
   Truck,
+  Bike,
   UserCheck,
   AlertOctagon,
   ArrowRightLeft,
@@ -11,7 +12,8 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  X
+  X,
+  Warehouse
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse } from "./types";
 import axiosInstance from "../../../api/axiosInstance";
@@ -19,14 +21,54 @@ import axiosInstance from "../../../api/axiosInstance";
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
   isLoading: boolean;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
+  selectedWarehouseId: string;
+  onWarehouseChange: (id: string) => void;
   onRefresh?: () => void;
 }
 
 const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   summary,
   isLoading,
+  selectedDate,
+  onDateChange,
+  selectedWarehouseId,
+  onWarehouseChange,
   onRefresh
 }) => {
+  // Container creation state
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [isUpdatingDriverId, setIsUpdatingDriverId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      try {
+        const response = await axiosInstance.get("/erp/inventory/warehouses/");
+        setWarehouses(response.data);
+      } catch (err) {
+        console.error("Failed to load warehouses list for filtering:", err);
+      }
+    };
+    fetchWarehouses();
+  }, []);
+
+  const handleReassignDriverWarehouse = async (driverId: string, warehouseId: string) => {
+    if (!driverId) return;
+    setIsUpdatingDriverId(driverId);
+    try {
+      await axiosInstance.patch(`/erp/routing/drivers/${driverId}/`, {
+        warehouse: warehouseId === "none" ? null : warehouseId
+      });
+      // Trigger dynamic dashboard refresh
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error("Failed to reassign driver to warehouse:", err);
+      alert("Failed to reassign driver to warehouse. Please try again.");
+    } finally {
+      setIsUpdatingDriverId(null);
+    }
+  };
   // Container creation state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
@@ -141,6 +183,50 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         </button>
       </div>
 
+      {/* 0. Dynamic Date & Warehouse Filters Bar */}
+      <div className="bg-white/60 backdrop-blur-md p-4 rounded-2xl border border-silver/50 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20 text-primary">
+            <Warehouse className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black text-charcoal">Reconciliation Filters</h3>
+            <p className="text-[10px] text-charcoal/40 font-medium">Segment tracking stats and driver route collections by warehouse & target date</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+          {/* Warehouse Dropdown */}
+          <div className="flex flex-col gap-1 w-full sm:w-48">
+            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">Select Warehouse</span>
+            <select
+              value={selectedWarehouseId}
+              onChange={(e) => onWarehouseChange(e.target.value)}
+              className="w-full px-3 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+            >
+              <option value="all">All Warehouses</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Picker */}
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
+            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">Select Audit Date</span>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => onDateChange(e.target.value)}
+                className="w-full sm:w-auto pl-9 pr-4 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Real-Time Aggregate Counters Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Outstanding With Customers */}
@@ -161,14 +247,14 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         {/* Loaded / Dispatched Today */}
         <div className="bg-white p-5 rounded-2xl border border-silver/50 shadow-xs relative overflow-hidden group hover:border-amber-500/40 transition-colors">
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
-            <Truck className="w-24 h-24 text-amber-600" />
+            <Bike className="w-24 h-24 text-amber-600" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">Dispatched Today</span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-amber-600 tracking-tight">
               {totals.dispatched}
             </span>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md">On Truck</span>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md">Rider bags (Bike)</span>
           </div>
           <div className="mt-2 text-[10px] text-charcoal/40 font-medium">Active delivery volume today</div>
         </div>
@@ -388,6 +474,36 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                             </table>
                           </div>
                         )}
+
+                        {/* Driver Warehouse Assignment flex panel */}
+                        <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[11px]">
+                          <div>
+                            <div className="font-bold text-charcoal flex items-center gap-1.5">
+                              <Warehouse className="w-3.5 h-3.5 text-primary" /> Driver Home Warehouse Association:
+                            </div>
+                            <p className="text-charcoal/40 font-medium mt-0.5">
+                              Reassigning a driver permanently filters their dispatches to their designated warehouse.
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5 shrink-0 ml-4">
+                            <select
+                              value={route.driver_warehouse_id || "none"}
+                              disabled={isUpdatingDriverId === route.driver_id}
+                              onChange={(e) => {
+                                if (route.driver_id) {
+                                  handleReassignDriverWarehouse(route.driver_id, e.target.value);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-silver/10 hover:bg-silver/20 border border-silver/60 rounded-lg text-xs font-bold text-charcoal outline-none cursor-pointer transition-colors"
+                            >
+                              <option value="none">No Warehouse Assigned</option>
+                              {warehouses.map((w) => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
 
                         {/* Reconciliation summary text box */}
                         <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[10px]">

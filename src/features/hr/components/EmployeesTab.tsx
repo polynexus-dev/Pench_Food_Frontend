@@ -246,7 +246,15 @@ const EmployeesTab: React.FC<{
                       </div>
                       <div>
                         <div className="font-black text-charcoal">{displayName(emp)}</div>
-                        <div className="text-[10px] text-charcoal/40">{emp.employee_id} · {emp.email}</div>
+                        <div className="text-[10px] text-charcoal/40">
+                          {emp.employee_id} · {emp.email}
+                          {emp.warehouse_name && (
+                            <>
+                              {" · "}
+                              <span className="text-primary font-bold">Hub: {emp.warehouse_name}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
