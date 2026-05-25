@@ -464,31 +464,22 @@ const TrackingHistoryTab: React.FC = () => {
                     })()}
 
                     {/* Animated Playback Node */}
-                    {/* {currentPlaybackPoint && (() => {
+                    {currentPlaybackPoint && (() => {
                       const svgPt = getOsmSvgPixel(currentPlaybackPoint.lat, currentPlaybackPoint.lng);
                       return (
                         <g>
-                          <circle
-                            cx={svgPt.x}
-                            cy={svgPt.y}
-                            r="28"
-                            fill="#01522D"
-                            className="opacity-20 animate-ping"
-                            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                          />
-                          <circle cx={svgPt.x} cy={svgPt.y} r="14" fill="#01522D" stroke="#ffffff" strokeWidth="2" className="drop-shadow-md" />
                           <text
                             x={svgPt.x}
-                            y={svgPt.y}
+                            y={svgPt.y - 5}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            style={{ fontSize: "15px", userSelect: "none" }}
+                            style={{ fontSize: "24px", userSelect: "none" }}
                           >
-                            🏍️
+                            🛵
                           </text>
                         </g>
                       );
-                    })()} */}
+                    })()}
                   </svg>
                 </div>
 

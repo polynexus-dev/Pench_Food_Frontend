@@ -1080,7 +1080,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                         Delivered At:
                       </span>
                       <span className="font-bold text-charcoal">
-                        {new Date(selectedStop.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(selectedStop.delivered_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                       </span>
                     </div>
                   )}
