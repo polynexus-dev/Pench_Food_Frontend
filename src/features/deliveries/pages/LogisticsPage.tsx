@@ -7,6 +7,7 @@ import RouteTab from "../components/RouteTab";
 import DispatchSummaryTab from "../components/DispatchSummaryTab";
 import AssignPendingModal from "../components/AssignPendingModal";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { getCityWsUrl } from "../../../utils/constants";
 
 const LogisticsPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
@@ -36,6 +37,61 @@ const LogisticsPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  // Real-time WebSocket connection to listen for order delivery notifications
+  useEffect(() => {
+    const accessToken = useAuthStore.getState().accessToken;
+    if (!accessToken) return;
+    
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+    
+    const connect = () => {
+      try {
+        const wsUrl = getCityWsUrl(tenant);
+        // Append JWT Token to query string for secure authentication
+        const finalUrl = `${wsUrl}${wsUrl.includes("?") ? "&" : "?"}token=${accessToken}`;
+        
+        socket = new WebSocket(finalUrl);
+        
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "broadcast_location" && data.notification_type === "order_delivered") {
+              setNotification({
+                title: data.title || "Order Delivered! 🎉",
+                message: data.message,
+                type: "success"
+              });
+              // Silently refresh route/driver status data in real-time!
+              fetchLogisticsData(true);
+            }
+          } catch (err) {
+            console.error("Failed to parse incoming WebSocket message:", err);
+          }
+        };
+        
+        socket.onclose = () => {
+          // Reconnect automatically with backoff
+          reconnectTimeout = setTimeout(connect, 5000);
+        };
+      } catch (err) {
+        console.error("WebSocket connection failure:", err);
+      }
+    };
+    
+    connect();
+    
+    return () => {
+      if (socket) {
+        socket.onclose = null; // Prevent reconnect loop on close
+        socket.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  }, [tenant]);
 
   const fetchLogisticsData = async (silent = false) => {
     if (!silent) setIsLoading(true);

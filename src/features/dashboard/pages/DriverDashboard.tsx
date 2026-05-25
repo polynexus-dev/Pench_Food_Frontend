@@ -21,6 +21,32 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
 import type { Route as RouteType, Stop } from "../../deliveries/components/types";
 
+const getStatusBadgeStyle = (status?: string) => {
+  const normalised = status?.toLowerCase();
+  switch (normalised) {
+    case "delivered":
+      return "bg-emerald-50 border-emerald-500/20 text-emerald-700";
+    case "undelivered":
+      return "bg-rose-50 border-rose-500/20 text-rose-700";
+    case "in_transit":
+    case "dispatched":
+      return "bg-amber-50 border-amber-500/20 text-amber-700 animate-pulse";
+    case "pending":
+    case "confirmed":
+      return "bg-slate-100 border-slate-500/10 text-slate-600";
+    case "scheduled":
+      return "bg-blue-50 border-blue-500/20 text-blue-700";
+    case "vacation":
+      return "bg-orange-50 border-orange-500/20 text-orange-700";
+    case "skipped":
+      return "bg-zinc-200 border-zinc-500/30 text-zinc-800";
+    case "off_day":
+      return "bg-zinc-50 border-zinc-500/10 text-zinc-400";
+    default:
+      return "bg-slate-100 border-slate-500/10 text-slate-500";
+  }
+};
+
 const DriverDashboard = () => {
   const { user } = useAuthStore();
   const [route, setRoute] = useState<RouteType | null>(null);
@@ -272,13 +298,7 @@ const DriverDashboard = () => {
 
                       <div className="flex sm:flex-col items-end gap-2 shrink-0 self-start sm:self-auto">
                         <span
-                          className={`px-2.5 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider ${
-                            isDelivered
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : isUndelivered
-                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                              : "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse"
-                          }`}
+                          className={`px-2.5 py-0.5 text-[9px] font-black rounded-md uppercase tracking-wider border ${getStatusBadgeStyle(stop.order_status)}`}
                         >
                           {stop.order_status || "Pending"}
                         </span>
@@ -476,13 +496,7 @@ const DriverDashboard = () => {
                 <div className="text-left">
                   <span className="text-[10px] font-bold text-charcoal/40 block">Trip status</span>
                   <span
-                    className={`inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
-                      selectedStop.order_status === "delivered"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : selectedStop.order_status === "undelivered"
-                        ? "bg-rose-50 text-rose-700 border border-rose-200"
-                        : "bg-silver text-charcoal/40 border border-silver"
-                    }`}
+                    className={`inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${getStatusBadgeStyle(selectedStop.order_status)}`}
                   >
                     {selectedStop.order_status || "Pending"}
                   </span>
