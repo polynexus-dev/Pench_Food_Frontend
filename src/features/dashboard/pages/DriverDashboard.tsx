@@ -94,7 +94,7 @@ const DriverDashboard = () => {
   // Trip Start / Stop trigger
   const handleToggleTrip = async () => {
     if (!route) return;
-    const isStarted = route.status === "started" || route.status === "in_progress" || route.status === "in_transit";
+    const isStarted = route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active";
     try {
       setIsLoadingRoute(true);
       if (isStarted) {
@@ -239,12 +239,12 @@ const DriverDashboard = () => {
                 <button
                   onClick={handleToggleTrip}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-sm active:scale-95 transition-all ${
-                    route.status === "started" || route.status === "in_progress" || route.status === "in_transit"
+                    route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active"
                       ? "bg-rose-600 hover:bg-rose-700 text-white"
                       : "bg-emerald-600 hover:bg-emerald-700 text-white"
                   }`}
                 >
-                  {route.status === "started" || route.status === "in_progress" || route.status === "in_transit" ? "End active trip" : "Start Dispatch Run"}
+                  {route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active" ? "End active trip" : "Start Dispatch Run"}
                 </button>
               )}
             </div>
@@ -304,7 +304,7 @@ const DriverDashboard = () => {
                         </span>
                         
                         {/* Micro action toggles visible if trip is active */}
-                        {(route.status === "started" || route.status === "in_progress" || route.status === "in_transit") && isPending && (
+                        {(route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active") && isPending && (
                           <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleUpdateStopStatus(stop.order, "delivered")}
@@ -502,7 +502,7 @@ const DriverDashboard = () => {
                   </span>
                 </div>
 
-                {route && (route.status === "started" || route.status === "in_progress" || route.status === "in_transit") && (
+                {route && (route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active") && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleUpdateStopStatus(selectedStop.order, "delivered")}

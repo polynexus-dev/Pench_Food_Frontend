@@ -460,6 +460,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
       case "in_progress":
       case "started":
       case "in_transit":
+      case "active":
         return { text: "In Transit", style: "bg-emerald-50 border-emerald-500/25 text-emerald-800 font-black shadow-2xs" };
       case "stopped":
         return { text: "Trip Stopped", style: "bg-rose-100 border-rose-300 text-rose-800" };
@@ -631,7 +632,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
             <div className={`p-4 border rounded-2xl mb-4 flex flex-col gap-1.5 ${getTripStatusLabel(selectedRoute).style}`}>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                  {(selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress") ? (
+                  {(selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "active") ? (
                     <span className="relative flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -650,7 +651,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               <div className="text-[10px] font-semibold opacity-85 space-y-0.5 mt-1 border-t border-current/15 pt-2">
                 {selectedRoute.started_at ? (
                   <div>Started: {new Date(selectedRoute.started_at).toLocaleTimeString()}</div>
-                ) : (selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress") ? (
+                ) : (selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "active") ? (
                   <div>Trip is currently in progress.</div>
                 ) : (
                   <div>Rider has not tapped Start Trip yet.</div>
@@ -662,7 +663,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
               {/* Admin Trip Actions */}
               <div className="mt-3 pt-2 border-t border-current/15 flex gap-2">
-                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit") ? (
+                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit" || selectedRoute.status === "active") ? (
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -852,7 +853,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
                         getTripStatusLabel(route).style
                       }`}>
-                        {(route.status === "in_transit" || route.status === "started" || route.status === "in_progress") && (
+                        {(route.status === "in_transit" || route.status === "started" || route.status === "in_progress" || route.status === "active") && (
                           <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>

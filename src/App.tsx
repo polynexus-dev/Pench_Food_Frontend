@@ -49,9 +49,9 @@ function App() {
               <Route
                 path="/"
                 element={
-                  user?.is_customer ? (
+                  (user?.is_customer && !user?.is_superuser && !user?.is_staff) ? (
                     <CustomerDashboard />
-                  ) : user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
+                  ) : ((user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver") && !user?.is_superuser && !user?.is_staff) ? (
                     <DriverDashboard />
                   ) : (
                     <OverviewPage />
@@ -70,22 +70,22 @@ function App() {
               <Route path="/my-payroll" element={<DriverPayrollPage />} />
 
               {/* Admin-only Routes */}
-              <Route path="/tenants" element={user?.is_customer ? <Navigate to="/" replace /> : <TenantPage />} />
-              <Route path="/logistics" element={user?.is_customer ? <Navigate to="/" replace /> : <LogisticsPage />} />
+              <Route path="/tenants" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <TenantPage />} />
+              <Route path="/logistics" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <LogisticsPage />} />
               <Route element={<TrackingProvider />}>
-                <Route path="/tracking" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingPage />} />
-                <Route path="/tracking/map" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingFullscreenMapPage />} />
+                <Route path="/tracking" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <TrackingPage />} />
+                <Route path="/tracking/map" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <TrackingFullscreenMapPage />} />
               </Route>
-              <Route path="/inventory" element={user?.is_customer ? <Navigate to="/" replace /> : <InventoryPage />} />
-              <Route path="/orders" element={user?.is_customer ? <Navigate to="/" replace /> : <OrderPage />} />
-              <Route path="/finance" element={user?.is_customer ? <Navigate to="/" replace /> : <FinancePage />} />
-              <Route path="/hr" element={user?.is_customer ? <Navigate to="/" replace /> : <HRPage />} />
-              <Route path="/customers" element={user?.is_customer ? <Navigate to="/" replace /> : <CustomerPage />} />
-              <Route path="/drivers" element={user?.is_customer ? <Navigate to="/" replace /> : <DriverPage />} />
+              <Route path="/inventory" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <InventoryPage />} />
+              <Route path="/orders" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <OrderPage />} />
+              <Route path="/finance" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <FinancePage />} />
+              <Route path="/hr" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <HRPage />} />
+              <Route path="/customers" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <CustomerPage />} />
+              <Route path="/drivers" element={(user?.is_customer && !user?.is_superuser && !user?.is_staff) ? <Navigate to="/" replace /> : <DriverPage />} />
               <Route
                 path="/reports"
                 element={
-                  user?.is_customer ? (
+                  (user?.is_customer && !user?.is_superuser && !user?.is_staff) ? (
                     <Navigate to="/" replace />
                   ) : (
                     <ReportsPage />

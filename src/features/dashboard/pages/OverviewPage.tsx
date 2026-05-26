@@ -1,4 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../../store/useAuthStore';
+import axiosInstance from '../../../api/axiosInstance';
 import { 
   Droplets,
   TrendingUp,
@@ -7,28 +10,319 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+const isMilkProduct = (name: string): boolean => {
+  const lower = name.toLowerCase();
+  return lower.includes('milk') || lower.includes('cream');
+};
+
+const getVolumeL = (name: string): number => {
+  const lower = name.toLowerCase();
+  if (lower.includes('1l') || lower.includes('1 l') || lower.includes('1-litre')) {
+    return 1.0;
+  }
+  if (lower.includes('500ml') || lower.includes('500 ml') || lower.includes('500g') || lower.includes('500 g')) {
+    return 0.5;
+  }
+  if (lower.includes('250g') || lower.includes('250 g')) {
+    return 0.25;
+  }
+  if (lower.includes('200g') || lower.includes('200 g')) {
+    return 0.2;
+  }
+  return 1.0; // Default fallback
+};
+
+const getFriendlyDateLabel = (dateStr: string): string => {
+  const today = new Date();
+  const getLocalDateStr = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getLocalDateStr(today);
+  
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowStr = getLocalDateStr(tomorrow);
+
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = getLocalDateStr(yesterday);
+
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === tomorrowStr) return 'Tomorrow';
+  if (dateStr === yesterdayStr) return 'Yesterday';
+  
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+  } catch {
+    return dateStr;
+  }
+};
+
 const OverviewPage = () => {
   const navigate = useNavigate();
+  const tenant = useAuthStore((state) => state.tenant);
   
-  const stats = [
-    { title: 'Milk Volume', value: '4,250L', change: '+12%', icon: Droplets, color: 'text-primary', path: '/inventory' },
-    { title: 'Daily Revenue', value: '₹1,45,200', change: '+5.4%', icon: TrendingUp, color: 'text-sage', path: '/finance' },
-    { title: 'Active Deliveries', value: '48', change: '8 pending', icon: Truck, color: 'text-accent', path: '/logistics' },
-    { title: 'Inventory Status', value: 'Normal', change: '12 items low', icon: Package, color: 'text-charcoal', path: '/inventory' },
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<any[]>([]);
+  const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
+  const [stockHighlights, setStockHighlights] = useState<any[]>([]);
+  const [activeDateLabel, setActiveDateLabel] = useState<string>('');
 
-  const recentDeliveries = [
-    { id: '#DEL-9842', customer: 'Fresh Bakes Bakery', item: 'Full Cream Milk', amount: '200L', status: 'Delivered', time: '10:30 AM' },
-    { id: '#DEL-9843', customer: 'City Supermarket', item: 'Pasteurized Milk', amount: '500L', status: 'In Transit', time: '11:15 AM' },
-    { id: '#DEL-9844', customer: 'Health Zone Gym', item: 'Skimmed Milk', amount: '50L', status: 'Pending', time: '12:00 PM' },
-    { id: '#DEL-9845', customer: 'Morning Cafeteria', item: 'Paneer (Bulk)', amount: '15kg', status: 'Delivered', time: '09:45 AM' },
-  ];
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // 1. Fetch routes to find the latest active date & comparison date
+        const routesRes = await axiosInstance.get('/erp/orders/routes/');
+        const routes = Array.isArray(routesRes.data) ? routesRes.data : [];
+        
+        const uniqueDates = Array.from(new Set(routes.map((r: any) => r.delivery_date)))
+          .sort((a: any, b: any) => b.localeCompare(a));
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        const activeDate = uniqueDates[0] || todayStr;
+        const prevDate = uniqueDates[1] || null;
+        
+        const formattedLabel = getFriendlyDateLabel(activeDate);
+        setActiveDateLabel(formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`);
+
+        // 2. Fetch active and previous date orders, and inventory stock level details
+        const [ordersActiveRes, ordersPrevRes, stockRes] = await Promise.all([
+          axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: activeDate } }),
+          prevDate ? axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: prevDate } }) : Promise.resolve({ data: [] }),
+          axiosInstance.get('/erp/inventory/stock/')
+        ]);
+
+        const ordersActive = Array.isArray(ordersActiveRes.data) ? ordersActiveRes.data : [];
+        const ordersPrev = Array.isArray(ordersPrevRes.data) ? ordersPrevRes.data : [];
+        const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
+
+        // 3. Compute Stats
+        // A. Milk Volume
+        const calcMilkVolume = (ordersList: any[]) => {
+          let vol = 0;
+          ordersList.forEach(order => {
+            order.items?.forEach((item: any) => {
+              const name = item.product_name || '';
+              if (isMilkProduct(name)) {
+                vol += (item.quantity || 0) * getVolumeL(name);
+              }
+            });
+          });
+          return vol;
+        };
+
+        const milkVolActive = calcMilkVolume(ordersActive);
+        const milkVolPrev = calcMilkVolume(ordersPrev);
+        let milkChange = '+0%';
+        if (milkVolPrev > 0) {
+          const diff = ((milkVolActive - milkVolPrev) / milkVolPrev) * 100;
+          milkChange = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
+        }
+
+        // B. Daily Revenue
+        const calcRevenue = (ordersList: any[]) => {
+          return ordersList.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+        };
+        const revActive = calcRevenue(ordersActive);
+        const revPrev = calcRevenue(ordersPrev);
+        let revChange = '+0%';
+        if (revPrev > 0) {
+          const diff = ((revActive - revPrev) / revPrev) * 100;
+          revChange = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
+        }
+
+        // C. Active Deliveries
+        const routesActive = routes.filter((r: any) => r.delivery_date === activeDate);
+        const stopsActiveCount = routesActive.reduce((sum: number, r: any) => sum + (r.stops?.length || 0), 0);
+        const activeDeliveriesCount = stopsActiveCount > 0 ? stopsActiveCount : ordersActive.length;
+        
+        const pendingCount = ordersActive.filter((o: any) => 
+          ['pending', 'confirmed', 'dispatched', 'in_transit'].includes(o.status)
+        ).length;
+        const pendingLabel = `${pendingCount} pending`;
+
+        // D. Inventory Status
+        const lowItemsCount = stockList.filter((s: any) => s.quantity <= s.reorder_level).length;
+        const invStatus = lowItemsCount > 0 ? 'Warning' : 'Normal';
+        const invChange = lowItemsCount > 0 ? `${lowItemsCount} items low` : 'All healthy';
+
+        setStats([
+          { title: 'Milk Volume', value: `${milkVolActive.toLocaleString()}L`, change: milkChange, icon: Droplets, color: 'text-primary', path: '/inventory' },
+          { title: 'Daily Revenue', value: `₹${revActive.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, change: revChange, icon: TrendingUp, color: 'text-sage', path: '/finance' },
+          { title: 'Active Deliveries', value: `${activeDeliveriesCount}`, change: pendingLabel, icon: Truck, color: 'text-accent', path: '/logistics' },
+          { title: 'Inventory Status', value: invStatus, change: invChange, icon: Package, color: 'text-charcoal', path: '/inventory' },
+        ]);
+
+        // 4. Map Recent Deliveries
+        const sortedDeliveries = [...ordersActive]
+          .sort((a, b) => {
+            const timeA = a.delivered_at || a.created_at || '';
+            const timeB = b.delivered_at || b.created_at || '';
+            return timeB.localeCompare(timeA);
+          })
+          .slice(0, 5)
+          .map(order => {
+            let itemDesc = 'Various Items';
+            if (order.items && order.items.length > 0) {
+              const firstItem = order.items[0];
+              itemDesc = firstItem.product_name || 'Item';
+              if (order.items.length > 1) {
+                itemDesc += ` + ${order.items.length - 1} more`;
+              }
+            }
+            
+            let totalVolume = 0;
+            let totalQty = 0;
+            order.items?.forEach((item: any) => {
+              const name = item.product_name || '';
+              if (isMilkProduct(name)) {
+                totalVolume += (item.quantity || 0) * getVolumeL(name);
+              } else {
+                totalQty += item.quantity || 0;
+              }
+            });
+
+            const amountLabel = totalVolume > 0 ? `${totalVolume}L` : `${totalQty} pcs`;
+
+            let friendlyStatus = 'Pending';
+            if (order.status === 'delivered') friendlyStatus = 'Delivered';
+            else if (['in_transit', 'dispatched', 'shipped'].includes(order.status)) friendlyStatus = 'In Transit';
+            else if (order.status === 'undelivered') friendlyStatus = 'Failed';
+
+            let timeStr = 'Pending';
+            if (order.delivered_at) {
+              try {
+                timeStr = new Date(order.delivered_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              } catch {}
+            } else if (order.created_at) {
+              try {
+                timeStr = new Date(order.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              } catch {}
+            }
+
+            return {
+              id: `#ORD-${order.id.slice(0, 8).toUpperCase()}`,
+              customer: order.customer_name || 'Walk-in Customer',
+              item: itemDesc,
+              amount: amountLabel,
+              status: friendlyStatus,
+              time: timeStr
+            };
+          });
+
+        setRecentDeliveries(sortedDeliveries);
+
+        // 5. Map Stock Highlights
+        if (stockList.length > 0) {
+          const highlights = stockList.slice(0, 4).map((s: any) => {
+            const reorder = s.reorder_level || 10;
+            const level = Math.min(100, Math.max(0, Math.round((s.quantity / (reorder * 2)) * 100)));
+            
+            let color = 'bg-primary';
+            if (level < 30) color = 'bg-red-400';
+            else if (level < 60) color = 'bg-amber-400';
+            else color = 'bg-sage';
+
+            return {
+              label: s.raw_material_name || 'Ingredient',
+              level: level,
+              color: color
+            };
+          });
+          setStockHighlights(highlights);
+        } else {
+          // Nagpur schema product-based fallback
+          setStockHighlights([
+            { label: 'A2 Cow Milk', level: 92, color: 'bg-primary' },
+            { label: 'Standard Milk', level: 45, color: 'bg-accent' },
+            { label: 'Paneer (Bulk)', level: 78, color: 'bg-sage' },
+            { label: 'Curd / Yogurt', level: 23, color: 'bg-red-400' },
+          ]);
+        }
+
+      } catch (err) {
+        console.error("Failed to load overview data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [tenant]);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-8xl mx-auto animate-pulse">
+        <div className="mb-8">
+          <div className="h-8 bg-silver/40 rounded-lg w-64 mb-2"></div>
+          <div className="h-4 bg-silver/30 rounded-lg w-96"></div>
+        </div>
+
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white p-6 rounded-2xl border border-silver h-40 flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-12 bg-silver/30 rounded-xl"></div>
+                <div className="w-12 h-6 bg-silver/20 rounded-full"></div>
+              </div>
+              <div>
+                <div className="h-4 bg-silver/20 rounded-md w-24 mb-2"></div>
+                <div className="h-8 bg-silver/30 rounded-md w-32"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Table Skeleton */}
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-silver p-6 space-y-4">
+            <div className="flex justify-between items-center mb-6">
+              <div className="h-6 bg-silver/30 rounded-md w-40"></div>
+              <div className="h-4 bg-silver/20 rounded-md w-16"></div>
+            </div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex justify-between items-center py-3 border-b border-silver/40">
+                  <div className="w-20 h-4 bg-silver/20 rounded"></div>
+                  <div className="w-32 h-4 bg-silver/30 rounded"></div>
+                  <div className="w-24 h-4 bg-silver/20 rounded"></div>
+                  <div className="w-16 h-4 bg-silver/30 rounded"></div>
+                  <div className="w-16 h-6 bg-silver/20 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sidebar Skeleton */}
+          <div className="bg-white p-6 rounded-2xl border border-silver space-y-6">
+            <div className="h-6 bg-silver/30 rounded-md w-32 mb-4"></div>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <div className="w-20 h-4 bg-silver/20 rounded"></div>
+                  <div className="w-12 h-4 bg-silver/30 rounded"></div>
+                </div>
+                <div className="w-full bg-silver/20 rounded-full h-1.5"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-8xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-charcoal">Distributor Overview</h1>
-        <p className="text-charcoal/60">Welcome back! Here's what's happening today across your distribution network.</p>
+        <p className="text-charcoal/60">Welcome back! Here's what's happening {activeDateLabel} across your distribution network.</p>
       </div>
 
       {/* Stats Grid */}
@@ -58,7 +352,7 @@ const OverviewPage = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-silver overflow-hidden">
           <div className="p-6 border-b border-silver flex justify-between items-center">
             <h3 className="font-bold text-charcoal">Recent Deliveries</h3>
-            <button className="text-primary text-sm font-bold flex items-center gap-1 hover:underline">
+            <button onClick={() => navigate('/orders')} className="text-primary text-sm font-bold flex items-center gap-1 hover:underline">
               View All <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -74,26 +368,34 @@ const OverviewPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-silver">
-                {recentDeliveries.map((delivery, i) => (
-                  <tr key={i} className="hover:bg-milk-white/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-primary">{delivery.id}</td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-charcoal">{delivery.customer}</p>
-                      <p className="text-[10px] text-charcoal/50">{delivery.time}</p>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-charcoal/80">{delivery.item}</td>
-                    <td className="px-6 py-4 text-sm font-bold">{delivery.amount}</td>
-                    <td className="px-6 py-4">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                        delivery.status === 'Delivered' ? 'bg-sage/20 text-primary' : 
-                        delivery.status === 'In Transit' ? 'bg-accent/20 text-orange-700' : 
-                        'bg-silver text-charcoal/60'
-                      }`}>
-                        {delivery.status}
-                      </span>
+                {recentDeliveries.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-charcoal/50 font-semibold">
+                      No deliveries logged for this day
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentDeliveries.map((delivery, i) => (
+                    <tr key={i} className="hover:bg-milk-white/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-primary">{delivery.id}</td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-bold text-charcoal">{delivery.customer}</p>
+                        <p className="text-[10px] text-charcoal/50">{delivery.time}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-charcoal/80">{delivery.item}</td>
+                      <td className="px-6 py-4 text-sm font-bold">{delivery.amount}</td>
+                      <td className="px-6 py-4">
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                          delivery.status === 'Delivered' ? 'bg-sage/20 text-primary' : 
+                          delivery.status === 'In Transit' ? 'bg-accent/20 text-orange-700' : 
+                          'bg-silver text-charcoal/60'
+                        }`}>
+                          {delivery.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -104,12 +406,11 @@ const OverviewPage = () => {
           <div className="bg-cream p-6 rounded-2xl border border-accent/30">
             <h3 className="font-bold text-charcoal mb-4">Stock Highlights</h3>
             <div className="space-y-4">
-              <StockItem label="Full Cream" level={92} color="bg-primary" />
-              <StockItem label="Skimmed Milk" level={45} color="bg-accent" />
-              <StockItem label="Paneer" level={78} color="bg-sage" />
-              <StockItem label="Curd / Yogurt" level={23} color="bg-red-400" />
+              {stockHighlights.map((stock, i) => (
+                <StockItem key={i} label={stock.label} level={stock.level} color={stock.color} />
+              ))}
             </div>
-            <button className="w-full mt-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
+            <button onClick={() => navigate('/inventory')} className="w-full mt-6 py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors">
               Create Restock Order
             </button>
           </div>

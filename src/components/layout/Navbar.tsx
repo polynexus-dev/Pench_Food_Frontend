@@ -39,18 +39,20 @@ const Navbar = () => {
       setIsLoadingCities(true);
       try {
         const companies = await companyApi.getCompanies();
-        
-        // Find the active company (either the stored one or the first active one)
-        let activeCompany = companies.find((c) => c.id === companyId && c.is_active);
-        if (!activeCompany && companies.length > 0) {
-          activeCompany = companies.find((c) => c.is_active);
+        const activeCompanies = companies.filter((c) => c.is_active);
+
+        // Validate stored companyId against fetched list
+        let activeCompany = activeCompanies.find((c) => c.id === companyId);
+        if (!activeCompany && activeCompanies.length > 0) {
+          // Stored companyId is stale/missing — fall back to first active company
+          activeCompany = activeCompanies[0];
         }
 
         if (activeCompany) {
           const companyCities = activeCompany.cities || [];
           setCities(companyCities);
 
-          // Ensure tenant matches one of this company's cities
+          // Auto-select city if stored tenant is missing or not in this company's cities
           const citySchemas = companyCities.map((c: City) => c.schema_name);
           if (companyCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
             setTenant(companyCities[0].schema_name);
@@ -83,7 +85,7 @@ const Navbar = () => {
       <div className="flex items-center gap-6">
         {/* City Selector */}
         <div className="relative" ref={dropdownRef}>
-          {user?.role?.toLowerCase() === "customer" || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
+          {((user?.role?.toLowerCase() === "customer" || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver") && !user?.is_superuser && !user?.is_staff) ? (
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-silver/10 rounded-2xl border border-silver/30 select-none">
               <div className="p-1 bg-white rounded-lg shadow-sm">
                 <MapPin className="w-3.5 h-3.5 text-charcoal/50" />

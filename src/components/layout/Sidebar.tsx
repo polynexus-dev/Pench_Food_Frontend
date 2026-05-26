@@ -29,44 +29,45 @@ const Sidebar = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchCompanies = async (selectCompanyId?: string) => {
-    console.log("Sidebar: fetchCompanies triggered. selectCompanyId:", selectCompanyId);
     setIsLoadingCompanies(true);
     try {
       const data = await companyApi.getCompanies();
-      console.log("Sidebar: fetchCompanies API returned raw list:", data);
       const activeCompanies = data.filter((c) => c.is_active);
-      console.log("Sidebar: fetchCompanies filtered active companies:", activeCompanies);
       setCompanies(activeCompanies);
 
       const { companyId: storeCompanyId, tenant: storeTenant, setCompanyId, setTenant } = useAuthStore.getState();
-      console.log("Sidebar: Current store state:", { storeCompanyId, storeTenant });
 
-      // Determine active/default company
-      const defaultCompany = activeCompanies[0];
-      let currentCompanyId = selectCompanyId || storeCompanyId;
+      // Resolve which company to use:
+      // 1. Explicit selectCompanyId (e.g. from company-created event)
+      // 2. Stored companyId — only if it exists in the fetched list
+      // 3. Auto-select the first (and only) active company
+      let resolvedCompanyId = selectCompanyId || storeCompanyId;
+      const isStoredIdValid = activeCompanies.some((c) => c.id === resolvedCompanyId);
 
-      if (!currentCompanyId && defaultCompany) {
-        console.log("Sidebar: No active company set. Selecting default company:", defaultCompany.id);
-        setCompanyId(defaultCompany.id);
-        currentCompanyId = defaultCompany.id;
-      } else if (selectCompanyId) {
-        console.log("Sidebar: Setting active company to new ID:", selectCompanyId);
-        setCompanyId(selectCompanyId);
+      if (!isStoredIdValid && activeCompanies.length > 0) {
+        // Stored ID is invalid/missing — always pick the first active company
+        resolvedCompanyId = activeCompanies[0].id;
       }
 
-      // Set default tenant/city if not set or if it's not valid for the active company
-      const currentCompany = activeCompanies.find((c) => c.id === currentCompanyId);
-      console.log("Sidebar: Active company object in list:", currentCompany);
+      if (resolvedCompanyId && resolvedCompanyId !== storeCompanyId) {
+        setCompanyId(resolvedCompanyId);
+      } else if (!storeCompanyId && resolvedCompanyId) {
+        setCompanyId(resolvedCompanyId);
+      }
+
+      // Resolve which city/tenant to use for the selected company
+      const currentCompany = activeCompanies.find((c) => c.id === resolvedCompanyId);
       if (currentCompany && currentCompany.cities && currentCompany.cities.length > 0) {
         const companyCities = currentCompany.cities;
         const citySchemaNames = companyCities.map((city) => city.schema_name);
-        if (!storeTenant || !citySchemaNames.includes(storeTenant)) {
-          console.log("Sidebar: Setting default tenant/city:", companyCities[0].schema_name);
+        const isStoredTenantValid = storeTenant && citySchemaNames.includes(storeTenant);
+
+        if (!isStoredTenantValid) {
+          // Auto-select first (and typically only) city
           setTenant(companyCities[0].schema_name);
         }
       } else if (selectCompanyId) {
-        // Reset active tenant/city since it's a new company with no cities yet
-        console.log("Sidebar: Resetting tenant schema to empty for new company");
+        // New company with no cities yet
         setTenant("");
       }
     } catch (error) {
@@ -118,8 +119,8 @@ const Sidebar = () => {
   const currentCompany = companies.find(c => c.id === companyId);
   const currentCity = currentCompany?.cities.find(city => city.schema_name === tenant);
 
-  const isCustomer = user?.is_customer || user?.role?.toLowerCase() === "customer";
-  const isLockedRole = isCustomer || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver";
+  const isCustomer = (user?.is_customer || user?.role?.toLowerCase() === "customer") && !user?.is_superuser && !user?.is_staff;
+  const isLockedRole = isCustomer || ((user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver") && !user?.is_superuser && !user?.is_staff);
 
   return (
     <aside className="w-72 bg-gradient-to-b from-[#1a2e21] to-[#0a140d] text-white hidden md:flex flex-col h-full shrink-0 shadow-2xl relative z-30">

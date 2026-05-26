@@ -13,7 +13,7 @@ const DashboardLayout = () => {
   useEffect(() => {
     if (!user) return;
     const role = user.role?.toLowerCase();
-    const isSpecialRole = role === "customer" || role === "drivers" || role === "driver" || user.is_customer || user.is_driver;
+    const isSpecialRole = (role === "customer" || role === "drivers" || role === "driver" || user.is_customer || user.is_driver) && !user.is_superuser && !user.is_staff;
 
     if (!isSpecialRole) {
       const checkCompanies = async () => {
