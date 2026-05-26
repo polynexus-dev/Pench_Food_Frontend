@@ -212,7 +212,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const deliveryStats = React.useMemo(() => {
     const total = routes.length;
     const completed = routes.filter((r) => r.status === "completed" || r.is_completed).length;
-    const active = routes.filter((r) => r.status === "active" || r.status === "started" || r.status === "in_transit" || r.status === "in_progress").length;
+    const active = routes.filter((r) => r.status === "started" || r.status === "in_transit" || r.status === "in_progress").length;
     const pending = routes.filter((r) => r.status === "pending").length;
     return { total, completed, active, pending };
   }, [routes]);
@@ -623,7 +623,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
                                     route.status === "completed" || route.is_completed
                                       ? "bg-sage/10 text-primary border-primary/10"
-                                      : (route.status === "active" || route.status === "started" || route.status === "in_transit" || route.status === "in_progress")
+                                      : (route.status === "started" || route.status === "in_transit" || route.status === "in_progress")
                                       ? "bg-emerald-50 border-emerald-500/25 text-emerald-800 font-black shadow-2xs"
                                       : "bg-amber-50 text-amber-500 border-amber-100"
                                   }`}>
@@ -631,7 +631,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                                       <>
                                         <CheckCircle2 className="w-3 h-3" /> Completed
                                       </>
-                                    ) : (route.status === "active" || route.status === "started" || route.status === "in_transit" || route.status === "in_progress") ? (
+                                    ) : (route.status === "started" || route.status === "in_transit" || route.status === "in_progress") ? (
                                       <span className="flex items-center gap-1.5">
                                         <span className="relative flex h-2 w-2">
                                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

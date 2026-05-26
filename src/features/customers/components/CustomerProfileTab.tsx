@@ -158,6 +158,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   ]);
   const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
 
+  // Edit Subscription State
+  const [isEditSubModalOpen, setIsEditSubModalOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<Subscription | null>(null);
+  const [isEditSubSubmitLoading, setIsEditSubSubmitLoading] = useState(false);
+
   // Real Payments and Billing States
   const [monthlyBills, setMonthlyBills] = useState<MonthlyBill[]>([]);
   const [selectedBill, setSelectedBill] = useState<MonthlyBill | null>(null);
@@ -596,6 +601,89 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       month: "short",
       year: "numeric",
     });
+  };
+
+  // Open Edit Subscription Modal – pre-populate shared form state
+  const handleOpenEditSubModal = (sub: Subscription) => {
+    setEditingSub(sub);
+    setAddSubFrequency(sub.frequency);
+    setAddSubCustomDays(sub.custom_days || []);
+    setAddSubStartDate(sub.start_date);
+    setAddSubEndDate(sub.end_date || "");
+    setAddSubDeliveryAddress(sub.delivery_address || "");
+    setAddSubSpecialInstructions(sub.special_instructions || "");
+    setAddSubItems(
+      sub.items && sub.items.length > 0
+        ? sub.items.map((it) => ({ product: it.product, quantity: it.quantity }))
+        : [{ product: "", quantity: 1 }]
+    );
+    setIsEditSubModalOpen(true);
+  };
+
+  // Submit edited subscription update via PATCH
+  const handleEditSubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSub) return;
+
+    if (!addSubStartDate) {
+      alert("Please select a start date.");
+      return;
+    }
+    if (addSubEndDate && new Date(addSubEndDate) < new Date(addSubStartDate)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+    if (addSubFrequency === "custom" && addSubCustomDays.length === 0) {
+      alert("Please select at least one day for custom frequency.");
+      return;
+    }
+    const validItems = addSubItems.filter((item) => item.product && item.quantity > 0);
+    if (validItems.length === 0) {
+      alert("Please add at least one valid product.");
+      return;
+    }
+    const productIds = validItems.map((item) => item.product);
+    if (productIds.some((val, i) => productIds.indexOf(val) !== i)) {
+      alert("You have duplicate product selections. Please combine or select different products.");
+      return;
+    }
+
+    setIsEditSubSubmitLoading(true);
+    try {
+      await customerApi.updateSubscription(editingSub.id, {
+        frequency: addSubFrequency,
+        custom_days: addSubFrequency === "custom" ? addSubCustomDays : [],
+        start_date: addSubStartDate,
+        end_date: addSubEndDate || null,
+        delivery_address: addSubDeliveryAddress,
+        special_instructions: addSubSpecialInstructions,
+        items: validItems.map((item) => ({ product: item.product, quantity: item.quantity })),
+      });
+      await fetchCustomerSubscriptions();
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+      setIsEditSubModalOpen(false);
+      setEditingSub(null);
+    } catch (error) {
+      console.error("Failed to update subscription:", error);
+      alert("Failed to update subscription. Please verify inputs and try again.");
+    } finally {
+      setIsEditSubSubmitLoading(false);
+    }
+  };
+
+  // Delete subscription handler
+  const handleDeleteSub = async (subId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this subscription? This cannot be undone.")) return;
+    try {
+      await customerApi.deleteSubscription(subId);
+      await fetchCustomerSubscriptions();
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+    } catch (error) {
+      console.error("Failed to delete subscription:", error);
+      alert("Failed to delete subscription. Please try again.");
+    }
   };
 
   // Fetch orders
@@ -1364,8 +1452,27 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                             </span>
                           </div>
 
+                          <div className="flex items-center gap-2">
+                            {/* Edit & Delete quick actions */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditSubModal(sub)}
+                              className="flex-1 py-2 px-3 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-xl text-[10px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSub(sub.id)}
+                              className="py-2 px-3 border border-red-200 bg-red-50 hover:bg-red-100/60 text-red-600 rounded-xl text-[10px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                              title="Delete Subscription"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+
                           {sub.status === "active" && (
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2">
                               {sub.is_paused ? (
                                 <button
                                   type="button"
@@ -2736,6 +2843,245 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                   >
                     {isAddSubSubmitLoading ? "Creating..." : "Create Subscription"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Subscription Modal */}
+      {isEditSubModalOpen && editingSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-cream/20 border-b border-silver/30 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Edit Subscription
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  ID: #{editingSub.id.substring(0, 8).toUpperCase()} · {editingSub.frequency_display}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleEditSubSubmit} className="overflow-y-auto flex-1 custom-scrollbar">
+              <div className="p-6 space-y-6">
+                {/* 1. Schedule Configuration */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    1. Delivery Schedule
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Frequency
+                      </label>
+                      <select
+                        value={addSubFrequency}
+                        onChange={(e) => setAddSubFrequency(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                      >
+                        <option value="daily">Daily Delivery</option>
+                        <option value="alternate">Alternate Days</option>
+                        <option value="weekdays">Mon - Fri (Weekdays)</option>
+                        <option value="weekends">Sat - Sun (Weekends)</option>
+                        <option value="custom">Custom Days of Week</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={addSubStartDate}
+                          onChange={(e) => setAddSubStartDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          End Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={addSubEndDate}
+                          onChange={(e) => setAddSubEndDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {addSubFrequency === "custom" && (
+                    <div className="space-y-2 p-4 bg-silver/5 border border-silver/30 rounded-2xl">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Select Days of Delivery
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { val: 0, label: "Mon" }, { val: 1, label: "Tue" },
+                          { val: 2, label: "Wed" }, { val: 3, label: "Thu" },
+                          { val: 4, label: "Fri" }, { val: 5, label: "Sat" },
+                          { val: 6, label: "Sun" },
+                        ].map((day) => {
+                          const isSelected = addSubCustomDays.includes(day.val);
+                          return (
+                            <button
+                              key={day.val}
+                              type="button"
+                              onClick={() => handleToggleCustomDay(day.val)}
+                              className={`px-4 py-2 border rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                                isSelected ? "bg-primary text-white border-primary shadow-xs" : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Items */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b border-silver/20 pb-2">
+                    <h4 className="text-xs font-black text-charcoal uppercase tracking-wider">
+                      2. Subscription Items
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleAddSubItemRow}
+                      className="flex items-center gap-1 text-[10px] font-black text-primary hover:text-primary/80 uppercase tracking-wider cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Item
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {addSubItems.map((item, index) => (
+                      <div key={index} className="flex items-end gap-3 p-3 bg-silver/5 border border-silver/30 rounded-2xl hover:border-silver/60 transition-colors">
+                        <div className="flex-1 space-y-1.5">
+                          <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider">
+                            Product
+                          </label>
+                          <select
+                            required
+                            value={item.product}
+                            onChange={(e) => handleUpdateSubItemRow(index, "product", e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                          >
+                            <option value="">Select a product...</option>
+                            {productsList.map((p) => {
+                              const price = getProductPrice(p.id);
+                              const isAlreadySelected = addSubItems.some((it, idx) => it.product === p.id && idx !== index);
+                              return (
+                                <option key={p.id} value={p.id} disabled={isAlreadySelected}>
+                                  {p.name} - ₹{price.toFixed(2)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="w-24 space-y-1.5 shrink-0">
+                          <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider block">
+                            Qty
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateSubItemRow(index, "quantity", parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                          />
+                        </div>
+                        {addSubItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubItemRow(index)}
+                            className="p-2.5 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl transition-colors cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Delivery Details */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    3. Delivery Details &amp; Notes
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Address Override
+                      </label>
+                      <textarea
+                        value={addSubDeliveryAddress}
+                        onChange={(e) => setAddSubDeliveryAddress(e.target.value)}
+                        rows={2}
+                        placeholder="Default customer address is used if blank..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Special Instructions
+                      </label>
+                      <textarea
+                        value={addSubSpecialInstructions}
+                        onChange={(e) => setAddSubSpecialInstructions(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Leave at door, call before delivery..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-5 bg-silver/5 border-t border-silver/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+                <div>
+                  <p className="text-[10px] font-bold text-charcoal/40 uppercase tracking-wider">
+                    Estimated Cost per Delivery
+                  </p>
+                  <p className="text-lg font-black text-primary">
+                    ₹{addSubItems.reduce((acc, item) => acc + (item.quantity || 0) * getProductPrice(item.product), 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                    className="px-5 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isEditSubSubmitLoading}
+                    className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isEditSubSubmitLoading ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </div>
