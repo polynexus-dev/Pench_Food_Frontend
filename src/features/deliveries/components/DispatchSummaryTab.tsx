@@ -1,26 +1,49 @@
 import React, { useState, useMemo } from "react";
-import { Search, User, ClipboardList, Navigation, AlertCircle, ShoppingBag } from "lucide-react";
-import type { Route } from "./types";
+import { Search, User, ClipboardList, Navigation, AlertCircle, ShoppingBag, Calendar, ChevronDown } from "lucide-react";
+import type { Route, Driver } from "./types";
 
 interface DispatchSummaryTabProps {
   routes: Route[];
+  drivers: Driver[];
   isLoading: boolean;
 }
 
-const DispatchSummaryTab: React.FC<DispatchSummaryTabProps> = ({ routes, isLoading }) => {
+const DispatchSummaryTab: React.FC<DispatchSummaryTabProps> = ({ routes, drivers, isLoading }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  });
+  const [selectedDriver, setSelectedDriver] = useState<string>("all");
 
-  // Filter routes that have active orders or require bottles
+  // Filter routes that match date, driver, and search query
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
+      // 1. Filter by date: check route's delivery_date matches selectedDate
+      if (route.delivery_date !== selectedDate) {
+        return false;
+      }
+      
+      // 2. Filter by driver: check route's driver or additional_drivers contains selectedDriver
+      if (selectedDriver !== "all") {
+        const driverUserId = parseInt(selectedDriver);
+        const matchesPrimary = route.driver === driverUserId;
+        const matchesAdditional = route.additional_drivers?.includes(driverUserId);
+        if (!matchesPrimary && !matchesAdditional) {
+          return false;
+        }
+      }
+
+      // 3. Search query match
       const matchesSearch = 
         route.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         route.driver_name.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // We show routes that have stops (even if 0 bottles for completeness, but prioritize those with deliveries)
       return matchesSearch;
     });
-  }, [routes, searchQuery]);
+  }, [routes, selectedDate, selectedDriver, searchQuery]);
 
   // Calculate live totals for the filtered drivers/routes
   const totals = useMemo(() => {
@@ -61,19 +84,51 @@ const DispatchSummaryTab: React.FC<DispatchSummaryTabProps> = ({ routes, isLoadi
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       {/* 1. Filtering & Stats Header */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-white p-5 rounded-3xl border border-silver/50 shadow-sm">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
-          <input
-            type="text"
-            placeholder="Search by rider or route..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal"
-          />
+      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 bg-white p-5 rounded-3xl border border-silver/50 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
+            <input
+              type="text"
+              placeholder="Search by rider or route..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal"
+            />
+          </div>
+
+          {/* Date Filter */}
+          <div className="flex items-center gap-2 bg-silver/10 border border-silver/30 rounded-xl px-3 py-2">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Date:</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="bg-transparent border-none text-xs font-bold text-charcoal focus:outline-none cursor-pointer w-full"
+            />
+          </div>
+
+          {/* Driver Filter */}
+          <div className="relative flex items-center gap-2 bg-silver/10 border border-silver/30 rounded-xl px-3 py-2">
+            <User className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider shrink-0">Driver:</span>
+            <select
+              value={selectedDriver}
+              onChange={(e) => setSelectedDriver(e.target.value)}
+              className="w-full bg-transparent border-none text-xs font-bold text-charcoal focus:outline-none cursor-pointer appearance-none pr-6"
+            >
+              <option value="all">All Drivers</option>
+              {drivers.map((d) => (
+                <option key={d.id} value={d.user.toString()}>{d.full_name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 self-end lg:self-auto">
           <div className="bg-primary/5 border border-primary/10 px-4 py-2 rounded-2xl flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-primary" />
             <span className="text-xs font-black text-charcoal/80">

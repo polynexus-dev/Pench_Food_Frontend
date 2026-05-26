@@ -176,10 +176,20 @@ const InventoryWarehouseTab: React.FC = () => {
   const fetchWarehouseDetails = async (whId: string) => {
     setIsDetailLoading(true);
     try {
-      const forecastResponse = await inventoryApi.getWarehouseForecast(whId);
-      const historyResponse = await inventoryApi.getWarehouseHistory(whId);
+      const [forecastResponse, historyResponse, warehouseResponse] = await Promise.all([
+        inventoryApi.getWarehouseForecast(whId),
+        inventoryApi.getWarehouseHistory(whId),
+        inventoryApi.getWarehouseById(whId).catch(() => null)
+      ]);
+
       setForecast(forecastResponse.forecast || []);
       setHistory(historyResponse || []);
+
+      if (warehouseResponse) {
+        setWarehouses(prev => 
+          prev.map(w => w.id === whId ? warehouseResponse : w)
+        );
+      }
     } catch (err) {
       console.warn("Server fetch for forecast details skipped. Emulating Nagpur seed forecast.", err);
       // Hard fallback dataset with outstanding modern aesthetics
@@ -662,8 +672,8 @@ const InventoryWarehouseTab: React.FC = () => {
                               <Building2 className="w-4 h-4" />
                             </div>
 
-                            <span
-                              className={`text-[8px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
+                             <span
+                              className={`text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
                                 wh.is_active
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                   : "bg-silver/40 text-charcoal/50 border border-silver"
@@ -680,11 +690,11 @@ const InventoryWarehouseTab: React.FC = () => {
 
                           <div className="mt-2 flex items-start gap-1.5 text-xs text-charcoal/60 font-medium">
                             <MapPin className="w-3.5 h-3.5 text-primary/70 shrink-0 mt-0.5" />
-                            <span className="leading-snug text-[11px] line-clamp-2">{wh.address}</span>
+                            <span className="leading-snug text-xs line-clamp-2">{wh.address}</span>
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-2.5 border-t border-silver/40 flex items-center justify-between text-[9px] font-mono text-charcoal/40">
+                        <div className="mt-4 pt-2.5 border-t border-silver/40 flex items-center justify-between text-[10px] font-sans text-charcoal/50">
                           <span className="flex items-center gap-1 font-sans text-charcoal/50">
                             <User className="w-3 h-3 text-primary/70 shrink-0" />
                             {wh.drivers?.length || 0} drivers
@@ -700,7 +710,7 @@ const InventoryWarehouseTab: React.FC = () => {
               <div className="bg-white rounded-3xl border border-silver/60 shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-silver/10 text-[9px] font-black uppercase tracking-wider text-charcoal/40 border-b border-silver/40">
+                    <thead className="bg-silver/10 text-[10px] font-black uppercase tracking-wider text-charcoal/40 border-b border-silver/40">
                       <tr>
                         <th className="px-4 py-3">Hub Name</th>
                         <th className="px-4 py-3">Physical Address</th>
@@ -727,7 +737,7 @@ const InventoryWarehouseTab: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 text-right">
                               <span
-                                className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                                className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
                                   wh.is_active
                                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                     : "bg-silver/40 text-charcoal/50 border border-silver"
@@ -881,7 +891,7 @@ const InventoryWarehouseTab: React.FC = () => {
                     <div className="border border-silver/60 rounded-2xl overflow-hidden shadow-2xs">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                          <thead className="bg-silver/10 text-[8px] font-black uppercase tracking-wider text-charcoal/40 border-b border-silver/40">
+                          <thead className="bg-silver/10 text-[10px] font-black uppercase tracking-wider text-charcoal/50 border-b border-silver/40">
                             <tr>
                               <th className="px-3 py-3">Product</th>
                               <th className="px-3 py-3 text-center">Status</th>
@@ -921,13 +931,13 @@ const InventoryWarehouseTab: React.FC = () => {
                                 <tr key={item.product_id} className={`hover:bg-silver/5 transition-colors ${item.stock_health === 'critical' ? 'bg-red-50/30' : ''}`}>
                                   {/* Product Name & SKU */}
                                   <td className="px-3 py-3">
-                                    <span className="font-black block text-charcoal text-[11px]">{item.product_name}</span>
-                                    <span className="text-[9px] text-charcoal/40 font-mono">{item.product_sku} · {item.product_unit}</span>
+                                    <span className="font-black block text-charcoal text-xs">{item.product_name}</span>
+                                    <span className="text-[10px] text-charcoal/40 font-mono">{item.product_sku} · {item.product_unit}</span>
                                   </td>
 
                                   {/* Health Status */}
                                   <td className="px-3 py-3 text-center">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${healthBadge[item.stock_health] || healthBadge.healthy}`}>
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${healthBadge[item.stock_health] || healthBadge.healthy}`}>
                                       <span className={`w-1.5 h-1.5 rounded-full ${healthColors[item.stock_health] || healthColors.healthy}`}></span>
                                       {healthLabels[item.stock_health] || "OK"}
                                     </span>
@@ -935,16 +945,16 @@ const InventoryWarehouseTab: React.FC = () => {
 
                                   {/* Current Stock */}
                                   <td className="px-3 py-3 text-right font-black">
-                                    <span className={item.current_stock < item.reorder_level ? "text-amber-600 font-black block" : "text-charcoal font-black block"}>
+                                    <span className={item.current_stock < item.reorder_level ? "text-amber-600 font-black block text-xs" : "text-charcoal font-black block text-xs"}>
                                       {item.current_stock}
                                     </span>
                                     {item.bottle_volume_l && (
-                                      <span className="text-[9px] text-charcoal/40 block font-bold mt-0.5">
+                                      <span className="text-[10px] text-charcoal/40 block font-bold mt-0.5">
                                         ({(item.current_stock * item.bottle_volume_l).toFixed(1)} L)
                                       </span>
                                     )}
                                     {item.current_stock < item.reorder_level && (
-                                      <span className="text-[7px] block font-bold text-amber-500">min: {item.reorder_level}</span>
+                                      <span className="text-[9px] block font-bold text-amber-500">min: {item.reorder_level}</span>
                                     )}
                                   </td>
 
@@ -952,11 +962,11 @@ const InventoryWarehouseTab: React.FC = () => {
                                   <td className="px-3 py-3 text-center font-mono font-bold text-charcoal/50">
                                     {item.dispatched_today > 0 ? (
                                       <div className="flex flex-col items-center">
-                                        <span className="bg-silver/40 text-charcoal/70 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                        <span className="bg-silver/40 text-charcoal/70 px-1.5 py-0.5 rounded text-xs font-bold">
                                           {item.dispatched_today}
                                         </span>
                                         {item.bottle_volume_l && (
-                                          <span className="text-[8px] text-charcoal/40 font-bold mt-0.5">
+                                          <span className="text-[9px] text-charcoal/40 font-bold mt-0.5">
                                             ({(item.dispatched_today * item.bottle_volume_l).toFixed(1)} L)
                                           </span>
                                         )}
@@ -968,11 +978,11 @@ const InventoryWarehouseTab: React.FC = () => {
                                   <td className="px-3 py-3 text-center font-mono font-bold">
                                     {item.pending_today > 0 ? (
                                       <div className="flex flex-col items-center">
-                                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-black">
+                                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs font-black">
                                           {item.pending_today}
                                         </span>
                                         {item.bottle_volume_l && (
-                                          <span className="text-[8px] text-blue-500/70 font-bold mt-0.5">
+                                          <span className="text-[9px] text-blue-500/70 font-bold mt-0.5">
                                             ({(item.pending_today * item.bottle_volume_l).toFixed(1)} L)
                                           </span>
                                         )}
@@ -982,14 +992,14 @@ const InventoryWarehouseTab: React.FC = () => {
 
                                   {/* Tomorrow */}
                                   <td className="px-3 py-3 text-center">
-                                    <span className="font-black text-[11px] block">{item.tomorrow_demand || "—"}</span>
+                                    <span className="font-black text-xs block">{item.tomorrow_demand || "—"}</span>
                                     {item.tomorrow_demand > 0 && item.bottle_volume_l && (
-                                      <span className="text-[9px] text-charcoal/40 block font-bold">
+                                      <span className="text-[10px] text-charcoal/40 block font-bold">
                                         ({(item.tomorrow_demand * item.bottle_volume_l).toFixed(1)} L)
                                       </span>
                                     )}
                                     {item.demand_sources?.tomorrow && (
-                                      <span className={`block text-[7px] font-bold mt-0.5 ${item.demand_sources.tomorrow === 'subscriptions' ? 'text-violet-500' : 'text-charcoal/40'}`}>
+                                      <span className={`block text-[9px] font-bold mt-0.5 ${item.demand_sources.tomorrow === 'subscriptions' ? 'text-violet-500' : 'text-charcoal/40'}`}>
                                         {sourceLabel[item.demand_sources.tomorrow]}
                                       </span>
                                     )}
@@ -997,14 +1007,14 @@ const InventoryWarehouseTab: React.FC = () => {
 
                                   {/* Day After */}
                                   <td className="px-3 py-3 text-center">
-                                    <span className="font-bold text-[11px] text-charcoal/60 block">{item.day_after_demand || "—"}</span>
+                                    <span className="font-bold text-xs text-charcoal/60 block">{item.day_after_demand || "—"}</span>
                                     {item.day_after_demand > 0 && item.bottle_volume_l && (
-                                      <span className="text-[9px] text-charcoal/40 block font-bold">
+                                      <span className="text-[10px] text-charcoal/40 block font-bold">
                                         ({(item.day_after_demand * item.bottle_volume_l).toFixed(1)} L)
                                       </span>
                                     )}
                                     {item.demand_sources?.day_after && (
-                                      <span className={`block text-[7px] font-bold mt-0.5 ${item.demand_sources.day_after === 'subscriptions' ? 'text-violet-500' : 'text-charcoal/40'}`}>
+                                      <span className={`block text-[9px] font-bold mt-0.5 ${item.demand_sources.day_after === 'subscriptions' ? 'text-violet-500' : 'text-charcoal/40'}`}>
                                         {sourceLabel[item.demand_sources.day_after]}
                                       </span>
                                     )}
@@ -1014,9 +1024,9 @@ const InventoryWarehouseTab: React.FC = () => {
                                   <td className={`px-3 py-3 text-right font-black font-mono ${
                                     item.projected_balance < 0 ? "text-red-500" : item.projected_balance < item.reorder_level ? "text-amber-600" : "text-emerald-600"
                                   }`}>
-                                    <span className="block">{item.projected_balance}</span>
+                                    <span className="block text-xs">{item.projected_balance}</span>
                                     {item.bottle_volume_l && (
-                                      <span className="text-[9px] text-charcoal/40 block font-bold font-mono">
+                                      <span className="text-[10px] text-charcoal/40 block font-bold font-mono">
                                         ({(item.projected_balance * item.bottle_volume_l).toFixed(1)} L)
                                       </span>
                                     )}
@@ -1026,17 +1036,17 @@ const InventoryWarehouseTab: React.FC = () => {
                                   <td className="px-3 py-3 text-right">
                                     {item.order_recommendation > 0 ? (
                                       <div className="flex flex-col items-end">
-                                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 border border-rose-200 text-rose-600 animate-pulse">
+                                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-50 border border-rose-200 text-rose-600 animate-pulse">
                                           +{item.order_recommendation}
                                         </span>
                                         {item.bottle_volume_l && (
-                                          <span className="text-[8px] text-rose-500/70 font-bold mt-0.5">
+                                          <span className="text-[9px] text-rose-500/70 font-bold mt-0.5">
                                             (+{(item.order_recommendation * item.bottle_volume_l).toFixed(1)} L)
                                           </span>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-emerald-50 border border-emerald-100 text-emerald-600">
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-100 text-emerald-600">
                                         ✓ Stocked
                                       </span>
                                     )}
@@ -1082,17 +1092,17 @@ const InventoryWarehouseTab: React.FC = () => {
                                   <span className="text-xs font-black text-charcoal group-hover:text-primary transition-colors">
                                     {move.product_name}
                                   </span>
-                                  <span className="text-[9px] font-mono text-charcoal/40">
+                                  <span className="text-[10px] font-mono text-charcoal/40">
                                     {move.product_sku}
                                   </span>
                                 </div>
 
-                                <p className="text-[11px] text-charcoal/70 leading-relaxed font-medium">
+                                <p className="text-xs text-charcoal/70 leading-relaxed font-medium">
                                   {move.notes || "No additional transaction notes registered."}
                                 </p>
 
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-sans font-bold text-charcoal/40 pt-1.5">
-                                  <span className={`px-2 py-0.5 rounded-md text-[8px] uppercase tracking-wider ${
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-sans font-bold text-charcoal/40 pt-1.5">
+                                  <span className={`px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider ${
                                     isInbound 
                                       ? "bg-emerald-50 text-emerald-700" 
                                       : isOutbound 
@@ -1121,7 +1131,7 @@ const InventoryWarehouseTab: React.FC = () => {
                               </div>
 
                               {/* Quantity marker */}
-                              <div className={`text-right shrink-0 font-black font-mono text-xs px-2.5 py-1 rounded-lg ${
+                              <div className={`text-right shrink-0 font-black font-mono text-sm px-2.5 py-1 rounded-lg ${
                                 isInbound 
                                   ? "bg-emerald-50 text-emerald-700" 
                                   : isOutbound 
@@ -1157,7 +1167,7 @@ const InventoryWarehouseTab: React.FC = () => {
                     ) : (
                       <div className="border border-silver/60 rounded-2xl overflow-hidden shadow-2xs">
                         <table className="w-full text-left border-collapse">
-                          <thead className="bg-silver/10 text-[8px] font-black uppercase tracking-wider text-charcoal/40 border-b border-silver/40">
+                          <thead className="bg-silver/10 text-[10px] font-black uppercase tracking-wider text-charcoal/40 border-b border-silver/40">
                             <tr>
                               <th className="px-4 py-3">Driver Name</th>
                               <th className="px-4 py-3">Vehicle Number Plate</th>
@@ -1174,14 +1184,14 @@ const InventoryWarehouseTab: React.FC = () => {
                                   </div>
                                   <span className="font-bold">{drv.name}</span>
                                 </td>
-                                <td className="px-4 py-3.5 font-mono text-[11px] text-charcoal/80">
+                                <td className="px-4 py-3.5 font-mono text-xs text-charcoal/80">
                                   {drv.vehicle_plate || "—"}
                                 </td>
                                 <td className="px-4 py-3.5 text-charcoal/70">
                                   {drv.phone || "—"}
                                 </td>
                                 <td className="px-4 py-3.5 text-right">
-                                  <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-150 px-2.5 py-0.5 rounded-full">
+                                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-150 px-2.5 py-0.5 rounded-full">
                                     Linked
                                   </span>
                                 </td>

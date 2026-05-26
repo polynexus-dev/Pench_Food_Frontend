@@ -31,6 +31,27 @@ import { deliveryApi } from "../api/deliveryApi";
 import { useAuthStore } from "../../../store/useAuthStore";
 import axiosInstance from "../../../api/axiosInstance";
 
+interface BottleType {
+  id: string;
+  name: string;
+  deposit_amount: string;
+  volume_ml: number;
+  is_active: boolean;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  unit_price: string;
+  unit: string;
+  is_active: boolean;
+  bottle_type: string | null;
+  bottle_type_name?: string | null;
+  is_returnable: boolean;
+}
+
 interface RouteTabProps {
   routes: Route[];
   drivers: Driver[];
@@ -45,27 +66,63 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
 
+  // Helper to format dates to YYYY-MM-DD in user's local timezone
+  const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [filterDate, setFilterDate] = useState<string>(() => getLocalDateStr());
+  const [filterDriver, setFilterDriver] = useState<string>("all");
+
   // Local optimistic state for backup drivers to ensure instantaneous checkbox response
   const [localAdditionalDrivers, setLocalAdditionalDrivers] = useState<number[]>([]);
 
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [isSubmittingDelivery, setIsSubmittingDelivery] = useState(false);
-  const [bottlesIssued, setBottlesIssued] = useState(0);
-  const [bottlesReturned, setBottlesReturned] = useState(0);
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [deliveryTransactions, setDeliveryTransactions] = useState<Record<string, { issued: number; returned: number; broken: number }>>({});
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [btRes, prodRes] = await Promise.all([
+          axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/"),
+          axiosInstance.get<Product[]>("/erp/inventory/products/")
+        ]);
+        setBottleTypes(Array.isArray(btRes.data) ? btRes.data.filter(b => b.is_active) : []);
+        setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+      } catch (err) {
+        console.error("Failed to fetch initial bottle/product data", err);
+      }
+    };
+    fetchInitialData();
+  }, []);
 
   const openDeliveryForm = (stop: Stop) => {
-    let defaultQty = 0;
+    const initialTxns: Record<string, { issued: number; returned: number; broken: number }> = {};
+    
+    bottleTypes.forEach(bt => {
+      initialTxns[bt.id] = { issued: 0, returned: 0, broken: 0 };
+    });
+
     if (stop.product_list) {
       stop.product_list.forEach((item) => {
-        defaultQty += item.quantity;
+        const prod = products.find(p => p.id === item.product_id);
+        if (prod && prod.is_returnable && prod.bottle_type) {
+          const btId = prod.bottle_type;
+          if (initialTxns[btId]) {
+            initialTxns[btId].issued += item.quantity;
+            initialTxns[btId].returned += item.quantity;
+          }
+        }
       });
     }
-    if (defaultQty === 0) {
-      defaultQty = 1;
-    }
-    
-    setBottlesIssued(defaultQty);
-    setBottlesReturned(defaultQty);
+
+    setDeliveryTransactions(initialTxns);
     setShowDeliveryModal(true);
   };
 
@@ -73,13 +130,21 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     if (!selectedStop) return;
     setIsSubmittingDelivery(true);
     try {
-      // 1. Submit Delivery to the submit-delivery endpoint
+      const txnsPayload = Object.entries(deliveryTransactions)
+        .map(([btId, counts]) => ({
+          bottle_type_id: btId,
+          issued: counts.issued,
+          returned: counts.returned,
+          broken: counts.broken,
+        }))
+        .filter(t => t.issued > 0 || t.returned > 0 || t.broken > 0);
+
       await axiosInstance.post(`/erp/orders/driver/${selectedStop.order}/submit-delivery/`, {
-        bottles_issued: bottlesIssued,
-        bottles_returned: bottlesReturned
+        bottle_transactions: txnsPayload,
+        bottles_issued: txnsPayload.reduce((sum, t) => sum + t.issued, 0),
+        bottles_returned: txnsPayload.reduce((sum, t) => sum + t.returned, 0),
       });
 
-      // 2. Clean up and refresh
       setShowDeliveryModal(false);
       onRefresh?.();
     } catch (err) {
@@ -281,15 +346,19 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((r) => {
-      return (
+      const matchesSearch =
         r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        r.driver_name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesDate = !filterDate || r.delivery_date === filterDate;
+      const matchesDriver = filterDriver === "all" || String(r.driver) === filterDriver;
+      
+      return matchesSearch && matchesDate && matchesDriver;
     });
-  }, [routes, searchQuery]);
+  }, [routes, searchQuery, filterDate, filterDriver]);
 
   const sortedRoutes = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateStr();
 
     return [...filteredRoutes].sort((a, b) => {
       if (a.delivery_date === todayStr && b.delivery_date !== todayStr) {
@@ -319,16 +388,15 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
   const getFriendlyDateLabel = (dateStr: string) => {
     const today = new Date();
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-    const todayStr = formatDate(today);
+    const todayStr = getLocalDateStr(today);
     
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
-    const tomorrowStr = formatDate(tomorrow);
+    const tomorrowStr = getLocalDateStr(tomorrow);
 
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
-    const yesterdayStr = formatDate(yesterday);
+    const yesterdayStr = getLocalDateStr(yesterday);
 
     if (dateStr === todayStr) return "Today";
     if (dateStr === tomorrowStr) return "Tomorrow";
@@ -679,8 +747,8 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
         ) : (
           /* Render standard Route List sidebar when no Route is selected */
           <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
-            {/* Search Header */}
-            <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm shrink-0">
+            {/* Search & Filter Header */}
+            <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm shrink-0 flex flex-col gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
                 <input
@@ -690,6 +758,56 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Date Filter */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center px-0.5">
+                    <label className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Date</label>
+                    {filterDate && (
+                      <button
+                        onClick={() => setFilterDate("")}
+                        className="text-[9px] font-bold text-primary hover:underline cursor-pointer"
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal cursor-pointer"
+                  />
+                </div>
+
+                {/* Driver Filter */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center px-0.5">
+                    <label className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Driver</label>
+                    {filterDriver !== "all" && (
+                      <button
+                        onClick={() => setFilterDriver("all")}
+                        className="text-[9px] font-bold text-primary hover:underline cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={filterDriver}
+                    onChange={(e) => setFilterDriver(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal cursor-pointer"
+                  >
+                    <option value="all">All Drivers</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.user}>
+                        {d.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1257,60 +1375,121 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
             </div>
 
             {/* Modal Content */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
               <p className="text-xs font-semibold text-charcoal/60">
-                Please confirm the quantity of returnable assets issued and empty bottles collected for this stop:
+                Confirm quantity of issued, returned, and broken bottles for each bottle type:
               </p>
 
-              {/* Delivered (Full Bottle) */}
-              <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">Delivered (Full)</span>
-                  <span className="text-[10px] font-bold text-charcoal/40">Total bottles handed over</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setBottlesIssued(val => Math.max(0, val - 1))}
-                    className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-sm font-black text-charcoal min-w-[20px] text-center">{bottlesIssued}</span>
-                  <button
-                    type="button"
-                    onClick={() => setBottlesIssued(val => val + 1)}
-                    className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              {bottleTypes.map((bt) => {
+                const tx = deliveryTransactions[bt.id] || { issued: 0, returned: 0, broken: 0 };
+                return (
+                  <div key={bt.id} className="p-3.5 bg-silver/10 border border-silver/45 rounded-2xl flex flex-col gap-2.5 text-left">
+                    <div className="flex items-center justify-between border-b border-silver/20 pb-1.5">
+                      <span className="text-[11px] font-black text-charcoal">{bt.name}</span>
+                      <span className="text-[9px] font-bold text-charcoal/40 uppercase">{bt.volume_ml}ml</span>
+                    </div>
 
-              {/* Returned (Empty Bottle) */}
-              <div className="p-3.5 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 block">Returned (Empty)</span>
-                  <span className="text-[10px] font-bold text-charcoal/40">Empty bottles collected</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setBottlesReturned(val => Math.max(0, val - 1))}
-                    className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-sm font-black text-charcoal min-w-[20px] text-center">{bottlesReturned}</span>
-                  <button
-                    type="button"
-                    onClick={() => setBottlesReturned(val => val + 1)}
-                    className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Issued */}
+                      <div className="flex flex-col items-center p-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-emerald-700 mb-1">Issued</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], issued: Math.max(0, prev[bt.id].issued - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.issued}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], issued: prev[bt.id].issued + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Returned */}
+                      <div className="flex flex-col items-center p-2 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-blue-700 mb-1">Returned</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], returned: Math.max(0, prev[bt.id].returned - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.returned}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], returned: prev[bt.id].returned + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Broken */}
+                      <div className="flex flex-col items-center p-2 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-rose-700 mb-1">Broken</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], broken: Math.max(0, prev[bt.id].broken - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-rose-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.broken}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], broken: prev[bt.id].broken + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-rose-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Modal Actions */}

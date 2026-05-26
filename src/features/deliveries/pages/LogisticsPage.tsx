@@ -362,7 +362,7 @@ const LogisticsPage: React.FC = () => {
         <RouteTab routes={routes} drivers={drivers} isLoading={isLoading} onRefresh={() => fetchLogisticsData(true)} />
       )}
       {activeTab === "dispatch" && (
-        <DispatchSummaryTab routes={routes} isLoading={isLoading} />
+        <DispatchSummaryTab routes={routes} drivers={drivers} isLoading={isLoading} />
       )}
 
       <AssignPendingModal

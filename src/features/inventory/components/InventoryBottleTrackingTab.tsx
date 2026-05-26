@@ -13,7 +13,9 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Warehouse
+  Warehouse,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse } from "./types";
 import axiosInstance from "../../../api/axiosInstance";
@@ -69,16 +71,53 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
       setIsUpdatingDriverId(null);
     }
   };
-  // Container creation state
+  // Container creation/edit state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [volumeMl, setVolumeMl] = useState("1000");
   const [depositAmount, setDepositAmount] = useState("50.00");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
-  const handleCreateBottleType = async (e: React.FormEvent) => {
+  // Bottle type list for edit/delete (fetched separately from summary)
+  const [bottleTypes, setBottleTypes] = useState<{ id: string; name: string; volume_ml: number; deposit_amount: string; is_active: boolean }[]>([]);
+
+  useEffect(() => {
+    const fetchBottleTypes = async () => {
+      try {
+        const response = await axiosInstance.get("/erp/inventory/bottle-types/");
+        setBottleTypes(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        console.error("Failed to load bottle types:", err);
+      }
+    };
+    fetchBottleTypes();
+  }, [summary]);
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setName("");
+    setVolumeMl("1000");
+    setDepositAmount("50.00");
+    setError(null);
+    setSuccess(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (bt: { id: string; name: string; volume_ml: number; deposit_amount: string }) => {
+    setEditingId(bt.id);
+    setName(bt.name);
+    setVolumeMl(String(bt.volume_ml));
+    setDepositAmount(bt.deposit_amount);
+    setError(null);
+    setSuccess(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmitBottleType = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !volumeMl || !depositAmount) {
       setError("Please fill in all required fields.");
@@ -88,26 +127,48 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
     setError(null);
     setSuccess(null);
     try {
-      await axiosInstance.post("/erp/inventory/bottle-types/", {
+      const payload = {
         name,
         volume_ml: parseInt(volumeMl),
         deposit_amount: parseFloat(depositAmount).toFixed(2),
         is_active: true
-      });
-      setSuccess("Container type created successfully!");
+      };
+
+      if (editingId) {
+        await axiosInstance.put(`/erp/inventory/bottle-types/${editingId}/`, payload);
+        setSuccess("Container type updated successfully!");
+      } else {
+        await axiosInstance.post("/erp/inventory/bottle-types/", payload);
+        setSuccess("Container type created successfully!");
+      }
       if (onRefresh) onRefresh();
       setTimeout(() => {
         setIsModalOpen(false);
+        setEditingId(null);
         setName("");
         setVolumeMl("1000");
         setDepositAmount("50.00");
         setSuccess(null);
       }, 1200);
     } catch (err: any) {
-      console.error("Failed to create container type:", err);
-      setError("Failed to create container type. Please verify configurations.");
+      console.error("Failed to save container type:", err);
+      setError(editingId ? "Failed to update container type." : "Failed to create container type. Please verify configurations.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBottleType = async (id: string, typeName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the container type "${typeName}"? This cannot be undone.`)) return;
+    setIsDeletingId(id);
+    try {
+      await axiosInstance.delete(`/erp/inventory/bottle-types/${id}/`);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      console.error("Failed to delete container type:", err);
+      alert("Failed to delete container type. It may be in use by products.");
+    } finally {
+      setIsDeletingId(null);
     }
   };
 
@@ -176,7 +237,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={openCreateModal}
           className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs hover:bg-primary/95 active:scale-95 transition-all cursor-pointer shrink-0"
         >
           <Boxes className="w-4 h-4 stroke-[3]" /> Add Container Type
@@ -311,30 +372,54 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                   No returnable container types found.
                 </div>
               ) : (
-                summary.global_summary.map(item => (
-                  <div key={item.bottle_type_id} className="p-3 border border-silver/50 rounded-xl space-y-2 bg-silver/5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-black text-charcoal">{item.bottle_type_name}</span>
-                      <span className="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-md">
-                        {item.total_with_customers} units outstanding
-                      </span>
+                summary.global_summary.map(item => {
+                  const btData = bottleTypes.find(bt => bt.id === item.bottle_type_id);
+                  return (
+                    <div key={item.bottle_type_id} className="p-3 border border-silver/50 rounded-xl space-y-2 bg-silver/5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-charcoal">{item.bottle_type_name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-md">
+                            {item.total_with_customers} units outstanding
+                          </span>
+                          {btData && (
+                            <>
+                              <button
+                                onClick={() => openEditModal(btData)}
+                                className="p-1 rounded-lg hover:bg-primary/10 text-charcoal/40 hover:text-primary transition-colors cursor-pointer"
+                                title="Edit container type"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBottleType(btData.id, btData.name)}
+                                disabled={isDeletingId === btData.id}
+                                className="p-1 rounded-lg hover:bg-rose-500/10 text-charcoal/40 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-40"
+                                title="Delete container type"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-silver/40 text-[10px]">
+                        <div>
+                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Dispatched</span>
+                          <span className="text-charcoal font-black">{item.total_dispatched_today}</span>
+                        </div>
+                        <div>
+                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Returned</span>
+                          <span className="text-emerald-600 font-black">{item.total_returned_today}</span>
+                        </div>
+                        <div>
+                          <span className="text-rose-600/60 block font-bold uppercase tracking-wider">Broken</span>
+                          <span className="text-rose-600 font-black">{item.total_lost_broken}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-silver/40 text-[10px]">
-                      <div>
-                        <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Dispatched</span>
-                        <span className="text-charcoal font-black">{item.total_dispatched_today}</span>
-                      </div>
-                      <div>
-                        <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Returned</span>
-                        <span className="text-emerald-600 font-black">{item.total_returned_today}</span>
-                      </div>
-                      <div>
-                        <span className="text-rose-600/60 block font-bold uppercase tracking-wider">Broken</span>
-                        <span className="text-rose-600 font-black">{item.total_lost_broken}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -542,8 +627,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-primary to-primary/90 text-white p-5 flex items-center justify-between">
               <div>
-                <h3 className="font-black text-base tracking-tight">Add Container Type</h3>
-                <p className="text-[10px] text-white/70 font-medium mt-0.5">Create a new glass bottle variant for asset tracking</p>
+                <h3 className="font-black text-base tracking-tight">{editingId ? "Edit Container Type" : "Add Container Type"}</h3>
+                <p className="text-[10px] text-white/70 font-medium mt-0.5">{editingId ? "Update the container type details" : "Create a new glass bottle variant for asset tracking"}</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -566,7 +651,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             )}
 
             {/* Form */}
-            <form onSubmit={handleCreateBottleType} className="p-5 space-y-4">
+            <form onSubmit={handleSubmitBottleType} className="p-5 space-y-4">
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
                   Container Name <span className="text-red-500">*</span>
@@ -631,7 +716,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                       Creating...
                     </>
                   ) : (
-                    <>Create Container Type</>
+                    <>{editingId ? "Update Container Type" : "Create Container Type"}</>
                   )}
                 </button>
               </div>

@@ -48,6 +48,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<string>("all");
   const [selectedZone, setSelectedZone] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string>("");
 
   const toggleExpandOrder = (id: string) => {
@@ -129,6 +130,17 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
     return Array.from(drivers).sort();
   }, [orders]);
 
+  // Compute unique customers list
+  const availableCustomers = useMemo(() => {
+    const customers = new Set<string>();
+    orders.forEach((order: Order) => {
+      if (order.customer_name) {
+        customers.add(order.customer_name);
+      }
+    });
+    return Array.from(customers).sort();
+  }, [orders]);
+
   // Compute stats for essential filters
   const statusCounts = useMemo(() => {
     return {
@@ -164,12 +176,15 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
       if (selectedDriver !== "all" && order.driver_name !== selectedDriver) {
         return false;
       }
+      if (selectedCustomer !== "all" && order.customer_name !== selectedCustomer) {
+        return false;
+      }
       if (selectedDate && order.scheduled_delivery_date !== selectedDate) {
         return false;
       }
       return true;
     });
-  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedDate]);
+  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedCustomer, selectedDate]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -277,6 +292,23 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
           </div>
 
           <div className="space-y-2">
+            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Customer</label>
+            <div className="relative">
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="w-full pl-4 pr-10 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none appearance-none cursor-pointer"
+              >
+                <option value="all">All Customers</option>
+                {availableCustomers.map((cust: string) => (
+                  <option key={cust} value={cust}>{cust}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/40 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Delivery Date</label>
             <input
               type="date"
@@ -294,6 +326,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                 setSelectedProduct("all");
                 setSelectedZone("all");
                 setSelectedDriver("all");
+                setSelectedCustomer("all");
                 setSelectedDate("");
               }}
               className="px-4 py-2 border border-silver/60 text-charcoal hover:bg-silver/10 rounded-xl text-xs font-bold transition-all cursor-pointer"

@@ -1,4 +1,4 @@
-
+import { useNavigate } from 'react-router-dom';
 import { 
   Droplets,
   TrendingUp,
@@ -8,11 +8,13 @@ import {
 } from 'lucide-react';
 
 const OverviewPage = () => {
+  const navigate = useNavigate();
+  
   const stats = [
-    { title: 'Milk Volume', value: '4,250L', change: '+12%', icon: Droplets, color: 'text-primary' },
-    { title: 'Daily Revenue', value: '₹1,45,200', change: '+5.4%', icon: TrendingUp, color: 'text-sage' },
-    { title: 'Active Deliveries', value: '48', change: '8 pending', icon: Truck, color: 'text-accent' },
-    { title: 'Inventory Status', value: 'Normal', change: '12 items low', icon: Package, color: 'text-charcoal' },
+    { title: 'Milk Volume', value: '4,250L', change: '+12%', icon: Droplets, color: 'text-primary', path: '/inventory' },
+    { title: 'Daily Revenue', value: '₹1,45,200', change: '+5.4%', icon: TrendingUp, color: 'text-sage', path: '/finance' },
+    { title: 'Active Deliveries', value: '48', change: '8 pending', icon: Truck, color: 'text-accent', path: '/logistics' },
+    { title: 'Inventory Status', value: 'Normal', change: '12 items low', icon: Package, color: 'text-charcoal', path: '/inventory' },
   ];
 
   const recentDeliveries = [
@@ -32,7 +34,11 @@ const OverviewPage = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-silver hover:shadow-md transition-shadow">
+          <button 
+            key={i} 
+            onClick={() => navigate(stat.path)}
+            className="w-full text-left bg-white p-6 rounded-2xl shadow-sm border border-silver hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer focus:outline-none"
+          >
             <div className="flex justify-between items-start mb-4">
               <div className={`p-3 rounded-xl bg-silver/20 ${stat.color}`}>
                 <stat.icon className="w-6 h-6" />
@@ -43,7 +49,7 @@ const OverviewPage = () => {
             </div>
             <h3 className="text-charcoal/60 text-sm font-medium">{stat.title}</h3>
             <p className="text-2xl font-bold text-charcoal mt-1">{stat.value}</p>
-          </div>
+          </button>
         ))}
       </div>
 

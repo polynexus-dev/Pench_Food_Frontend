@@ -137,6 +137,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [pauseEnd, setPauseEnd] = useState("");
   const [isPauseSubmitLoading, setIsPauseSubmitLoading] = useState(false);
 
+  // Global Vacation / Leave Modal State
+  const [isGlobalLeaveModalOpen, setIsGlobalLeaveModalOpen] = useState(false);
+  const [globalLeaveStart, setGlobalLeaveStart] = useState("");
+  const [globalLeaveEnd, setGlobalLeaveEnd] = useState("");
+  const [isGlobalLeaveSubmitLoading, setIsGlobalLeaveSubmitLoading] = useState(false);
+
   // Create Subscription Form State
   const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
   const [addSubFrequency, setAddSubFrequency] = useState<
@@ -363,7 +369,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   }, [customer.id]);
 
   useEffect(() => {
-    if (activeSubTab === "subscriptions") {
+    if (activeSubTab === "subscriptions" || activeSubTab === "calendar") {
       fetchCustomerSubscriptions();
     }
   }, [activeSubTab, customer.id]);
@@ -411,6 +417,54 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       alert("Failed to pause subscription. Please check dates and try again.");
     } finally {
       setIsPauseSubmitLoading(false);
+    }
+  };
+
+  const handleOpenGlobalLeaveModal = () => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    setGlobalLeaveStart(todayStr);
+    setGlobalLeaveEnd("");
+    setIsGlobalLeaveModalOpen(true);
+  };
+
+  const handleGlobalLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!globalLeaveStart || !globalLeaveEnd) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    if (new Date(globalLeaveEnd) < new Date(globalLeaveStart)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    const activeSubs = subscriptions.filter((s) => s.status === "active");
+    if (activeSubs.length === 0) {
+      alert("This customer has no active subscriptions to pause.");
+      return;
+    }
+
+    setIsGlobalLeaveSubmitLoading(true);
+    try {
+      await Promise.all(
+        activeSubs.map((sub) =>
+          customerApi.pauseSubscription(sub.id, globalLeaveStart, globalLeaveEnd)
+        )
+      );
+
+      await fetchCustomerSubscriptions();
+
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setIsGlobalLeaveModalOpen(false);
+      setGlobalLeaveStart("");
+      setGlobalLeaveEnd("");
+    } catch (error) {
+      console.error("Failed to pause active subscriptions:", error);
+      alert("Failed to pause subscriptions. Please check dates and try again.");
+    } finally {
+      setIsGlobalLeaveSubmitLoading(false);
     }
   };
 
@@ -2109,7 +2163,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
             return (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="border-b border-silver/30 pb-4 flex justify-between items-center">
+                <div className="border-b border-silver/30 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h3 className="text-lg font-bold text-charcoal tracking-tight flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-primary" />
@@ -2119,24 +2173,32 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       Day-by-day drop status mapping and vacation paused timelines for {customer.name}.
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl shrink-0">
-                    <span className="text-xs font-bold text-charcoal/80 px-2">
-                      {monthNames[month]} {year}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
                     <button
-                      onClick={handlePrevMonth}
-                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                      title="Previous Month"
+                      onClick={handleOpenGlobalLeaveModal}
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer border border-amber-600"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" /> Add Vacation / Leave
                     </button>
-                    <button
-                      onClick={handleNextMonth}
-                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                      title="Next Month"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl">
+                      <span className="text-xs font-bold text-charcoal/80 px-2">
+                        {monthNames[month]} {year}
+                      </span>
+                      <button
+                        onClick={handlePrevMonth}
+                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                        title="Previous Month"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleNextMonth}
+                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                        title="Next Month"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2162,9 +2224,21 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       let bg = "bg-silver/10 text-charcoal/30";
                       let title = "Scheduled";
 
+                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const isPausedDay = subscriptions.some((sub) =>
+                        sub.is_paused &&
+                        sub.pause_start &&
+                        sub.pause_end &&
+                        sub.pause_start <= dateStr &&
+                        dateStr <= sub.pause_end
+                      );
+
                       const isMay2026 = year === 2026 && month === 4;
 
-                      if (isMay2026) {
+                      if (isPausedDay) {
+                        bg = "bg-amber-500/15 text-amber-800 font-extrabold border border-amber-500/30 hover:bg-amber-500/25";
+                        title = "Vacation / Leave Day";
+                      } else if (isMay2026) {
                         if (day < 18) {
                           bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
                           title = "Delivered";
@@ -2208,12 +2282,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       <span className="text-charcoal/60">Failed Delivery Attempts</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
+                      <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/30 block" />
+                      <span className="text-charcoal/60">Vacation / Leave Days</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
                       <span className="w-3.5 h-3.5 rounded bg-primary/5 border border-primary/20 block" />
                       <span className="text-charcoal/60">Upcoming scheduled Drops</span>
                     </div>
-                  </div>
                 </div>
               </div>
+            </div>
             );
           })()}
         </div>
@@ -2296,6 +2374,90 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   {isPauseSubmitLoading ? "Pausing..." : "Confirm Pause"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Global Vacation / Leave Modal */}
+      {isGlobalLeaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-cream/20 border-b border-silver/30 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Schedule Customer Leave / Vacation
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  Set leave date range for {customer.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGlobalLeaveModalOpen(false)}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleGlobalLeaveSubmit} className="p-6 space-y-5">
+              <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex gap-3 text-xs text-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Important Notice</p>
+                  <p className="text-[11px] font-semibold text-charcoal/60 leading-relaxed">
+                    This will pause ALL active subscriptions for {customer.name} during the selected period. No deliveries will be scheduled or charged. Active subscriptions will automatically resume after the end date.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={globalLeaveStart}
+                    onChange={(e) => setGlobalLeaveStart(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={globalLeaveEnd}
+                    onChange={(e) => setGlobalLeaveEnd(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-silver/30">
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalLeaveModalOpen(false)}
+                  className="px-4 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGlobalLeaveSubmitLoading}
+                  className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isGlobalLeaveSubmitLoading ? "Scheduling..." : "Schedule Leave"}
                 </button>
               </div>
             </form>

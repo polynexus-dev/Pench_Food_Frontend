@@ -62,6 +62,14 @@ export const inventoryApi = {
   },
 
   /**
+   * Fetch a single warehouse by ID
+   */
+  getWarehouseById: async (id: string): Promise<Warehouse> => {
+    const response = await axiosInstance.get<Warehouse>(`/erp/inventory/warehouses/${id}/`);
+    return response.data;
+  },
+
+  /**
    * Create or provision a new warehouse
    */
   createWarehouse: async (payload: CreateWarehousePayload): Promise<Warehouse> => {
