@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
 import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
 import CustomerDetailTab from "../components/CustomerDetailTab";
 import CustomerProfileTab from "../components/CustomerProfileTab";
@@ -13,6 +14,7 @@ import type { Customer } from "../components/types";
 const CustomerPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
   const user = useAuthStore((state) => state.user);
+  const addNotification = useNotificationStore((state) => state.addNotification);
   
   // Tab State
   const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile" | "customer-qr">("dashboard");
@@ -24,10 +26,22 @@ const CustomerPage: React.FC = () => {
   const [isAutoAssigning, setIsAutoAssigning] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
-  const [notification, setNotification] = useState<{
+
+  const [notification, _setNotification] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  const setNotification = (val: { message: string; type: "success" | "error" } | null) => {
+    _setNotification(val);
+    if (val) {
+      addNotification({
+        title: val.type === "success" ? "Auto-Assignment Complete 🎉" : "Operation Failed ⚠️",
+        message: val.message,
+        type: val.type
+      });
+    }
+  };
 
   // Check authorization (CRM_Managers or ERP_Admins)
   const isAuthorized = useMemo(() => {

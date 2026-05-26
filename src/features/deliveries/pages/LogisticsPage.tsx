@@ -8,9 +8,11 @@ import DispatchSummaryTab from "../components/DispatchSummaryTab";
 import AssignPendingModal from "../components/AssignPendingModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { getCityWsUrl } from "../../../utils/constants";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 
 const LogisticsPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
+  const addNotification = useNotificationStore((state) => state.addNotification);
   const [activeTab, setActiveTab] = useState<"dashboard" | "routes" | "dispatch">("dashboard");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -22,11 +24,24 @@ const LogisticsPage: React.FC = () => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   });
-  const [notification, setNotification] = useState<{
+
+  const [notification, _setNotification] = useState<{
     title: string;
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  const setNotification = (val: { title: string; message: string; type: "success" | "error" } | null) => {
+    _setNotification(val);
+    if (val) {
+      addNotification({
+        title: val.title,
+        message: val.message,
+        type: val.type
+      });
+    }
+  };
+
   const [isGenerateDropdownOpen, setIsGenerateDropdownOpen] = useState<boolean>(false);
 
   useEffect(() => {
