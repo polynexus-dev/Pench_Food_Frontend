@@ -161,7 +161,7 @@ const LogisticsPage: React.FC = () => {
   const stats = useMemo(() => {
     const totalDrivers = drivers.length;
     const availableDrivers = drivers.filter((d) => d.is_available).length;
-    const activeTrips = routes.filter((r) => r.status === "active").length;
+    const activeTrips = routes.filter((r) => r.status === "active" || r.status === "started" || r.status === "in_transit" || r.status === "in_progress").length;
     const totalCapacity = drivers.reduce(
       (sum, d) => sum + (parseInt(d.max_capacity_kg) || 0),
       0,
