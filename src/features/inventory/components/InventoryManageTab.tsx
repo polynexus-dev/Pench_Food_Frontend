@@ -52,7 +52,6 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
 }) => {
   // Bottle Types state
   const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
-  const [isLoadingBottleTypes, setIsLoadingBottleTypes] = useState<boolean>(false);
 
   // Raw Materials state
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
@@ -74,13 +73,10 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        setIsLoadingBottleTypes(true);
         const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
         setBottleTypes(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error("Failed to load bottle types:", error);
-      } finally {
-        setIsLoadingBottleTypes(false);
       }
     };
     fetchTypes();
@@ -237,7 +233,7 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
     }
   };
 
-  console.log(filteredProducts);
+
   // Form Inputs Payload mapping user specification exactly
   const [formData, setFormData] = useState({
     name: "",

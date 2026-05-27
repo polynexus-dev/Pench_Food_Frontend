@@ -11,14 +11,9 @@ import {
   Phone,
   Building2,
   MapPin,
-  FileText,
   AlertTriangle,
-  Clock,
-  Sparkles,
-  ShoppingBag,
   Layers,
   ChevronRight,
-  TrendingUp,
   Activity,
   Image as ImageIcon,
   Plus,
@@ -199,6 +194,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   const [isManualPan, setIsManualPan] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const draggedRef = useRef(false);
 
   // Sync map center with selected stop or selected route
   useEffect(() => {
@@ -319,6 +315,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     if (e.button !== 0) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+    draggedRef.current = false;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -326,6 +323,9 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     setIsManualPan(true);
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      draggedRef.current = true;
+    }
     setDragStart({ x: e.clientX, y: e.clientY });
 
     const getTileCount = (z: number) => Math.pow(2, z);
@@ -385,6 +385,25 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
       }
     });
   }, [filteredRoutes]);
+
+  // Group stops by coordinates to handle multiple customers at the exact same location
+  const groupedStops = useMemo(() => {
+    if (!selectedRoute?.stops) return [];
+    const groups: Record<string, Stop[]> = {};
+    selectedRoute.stops.forEach((stop) => {
+      // Group exact overlapping coordinates using 6 decimals (approx 10cm accuracy)
+      const key = `${stop.latitude.toFixed(6)},${stop.longitude.toFixed(6)}`;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(stop);
+    });
+    return Object.values(groups).map((stopsList) => ({
+      latitude: stopsList[0].latitude,
+      longitude: stopsList[0].longitude,
+      stops: stopsList,
+    }));
+  }, [selectedRoute?.stops]);
 
   const getFriendlyDateLabel = (dateStr: string) => {
     const today = new Date();
@@ -708,6 +727,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                     key={stop.id}
                     onClick={() => {
                       setSelectedStopId(stop.id);
+                      setMapCenter({ lat: stop.latitude, lng: stop.longitude });
                       setIsManualPan(false);
                     }}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center gap-3 ${
@@ -930,6 +950,11 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onClick={() => {
+            if (!draggedRef.current) {
+              setSelectedStopId(null);
+            }
+          }}
         >
           {/* Tile Layer */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
@@ -966,46 +991,145 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                 />
               )}
 
-              {/* Draw All Stops */}
-              {selectedRoute?.stops.map((stop) => {
-                const pt = getOsmSvgPixel(stop.latitude, stop.longitude);
-                const isDelivered = stop.order_status === "delivered";
-                const isCurrentStop = selectedStopId === stop.id;
-                const markerColor = isDelivered ? "#10B981" : "#F59E0B";
+              {/* Draw All Stops (with coordinate grouping for overlapping/multiple customers) */}
+              {groupedStops.map((group, groupIdx) => {
+                const pt = getOsmSvgPixel(group.latitude, group.longitude);
+                
+                // If there is only one stop at this location, render the standard pin
+                if (group.stops.length === 1) {
+                  const stop = group.stops[0];
+                  const isDelivered = stop.order_status === "delivered";
+                  const isCurrentStop = selectedStopId === stop.id;
+                  const markerColor = isDelivered ? "#10B981" : "#F59E0B";
+                  
+                  return (
+                    <g 
+                      key={stop.id} 
+                      className="transition-all duration-300 cursor-pointer pointer-events-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStopId(stop.id);
+                        setMapCenter({ lat: stop.latitude, lng: stop.longitude });
+                        setIsManualPan(false);
+                      }}
+                    >
+                      {/* Pulsing ring for current sequence */}
+                      <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "16" : "12"} fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
+                      
+                      {/* Stop Pin */}
+                      <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "10" : "8"} fill="white" stroke={markerColor} strokeWidth={isCurrentStop ? "3.5" : "2"} className="shadow-md" />
+                      
+                      {/* Sequence Number */}
+                      <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={isCurrentStop ? "9" : "8"} fontWeight="900" fill={markerColor}>
+                        {stop.sequence_number}
+                      </text>
+   
+                      {/* Tooltip */}
+                      <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24" className="pointer-events-none">
+                         <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
+                           isCurrentStop 
+                             ? "bg-primary border-primary/20 scale-105" 
+                             : isDelivered 
+                             ? "bg-emerald-600 border-emerald-500" 
+                             : "bg-charcoal border-white/10"
+                         }`}>
+                            {stop.customer_name} {isDelivered && "✓"}
+                         </div>
+                      </foreignObject>
+                    </g>
+                  );
+                }
+
+                // If there are multiple stops at this exact location, render a special grouped pin & tooltip
+                const hasSelectedStop = group.stops.some(s => s.id === selectedStopId);
+                const allStopsDelivered = group.stops.every(s => s.order_status === "delivered");
+                const markerColor = allStopsDelivered ? "#10B981" : "#F59E0B";
+                
+                // Represent sequence as first stop's sequence with a '+' (e.g. 16+)
+                const firstSeq = group.stops[0].sequence_number;
+                const displayText = `${firstSeq}+`;
+                
+                // Calculate height of the popup list based on the number of customers
+                const popupHeight = 32 * group.stops.length + 24;
+                const popupWidth = 170;
                 
                 return (
                   <g 
-                    key={stop.id} 
-                    className="transition-all duration-300 cursor-pointer pointer-events-auto"
+                    key={`group-${groupIdx}`}
+                    className="transition-all duration-300 pointer-events-auto cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedStopId(stop.id);
+                      // Select the first stop in the group to open the panel and expand the tooltip
+                      setSelectedStopId(group.stops[0].id);
+                      setMapCenter({ lat: group.latitude, lng: group.longitude });
                       setIsManualPan(false);
                     }}
                   >
                     {/* Pulsing ring for current sequence */}
-                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "16" : "12"} fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "18" : "14"} fill={markerColor} className={`opacity-20 ${allStopsDelivered ? "" : "animate-pulse"}`} />
                     
-                    {/* Stop Pin */}
-                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "10" : "8"} fill="white" stroke={markerColor} strokeWidth={isCurrentStop ? "3.5" : "2"} className="shadow-md" />
+                    {/* Stop Pin (Double ring for grouped locations) */}
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "12" : "10"} fill="white" stroke={markerColor} strokeWidth={hasSelectedStop ? "4" : "2.5"} className="shadow-md" />
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "7" : "6"} fill="none" stroke={markerColor} strokeWidth="1" strokeDasharray="2,2" />
                     
-                    {/* Sequence Number */}
-                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={isCurrentStop ? "9" : "8"} fontWeight="900" fill={markerColor}>
-                      {stop.sequence_number}
+                    {/* Combined sequence indicator */}
+                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={hasSelectedStop ? "8" : "7.5"} fontWeight="900" fill={markerColor}>
+                      {displayText}
                     </text>
  
-                    {/* Tooltip */}
-                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24" className="pointer-events-none">
-                       <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
-                         isCurrentStop 
-                           ? "bg-primary border-primary/20 scale-105" 
-                           : isDelivered 
-                           ? "bg-emerald-600 border-emerald-500" 
-                           : "bg-charcoal border-white/10"
-                       }`}>
-                          {stop.customer_name} {isDelivered && "✓"}
-                       </div>
-                    </foreignObject>
+                    {/* Tooltip: Multi-customer Interactive Box or Simple Suffix Indicator */}
+                    {hasSelectedStop ? (
+                      <foreignObject 
+                        x={pt.x + 14} 
+                        y={pt.y - (popupHeight / 2)} 
+                        width={popupWidth} 
+                        height={popupHeight} 
+                        className="pointer-events-auto animate-in fade-in zoom-in-95 duration-150"
+                      >
+                         <div className="bg-charcoal/95 border border-white/20 text-white rounded-xl shadow-xl p-2 flex flex-col gap-1 w-full text-left backdrop-blur-xs select-none">
+                            <div className="text-[7.5px] font-black uppercase text-accent/80 tracking-wider pb-1 border-b border-white/10 mb-1 flex items-center justify-between">
+                              <span>{group.stops.length} Customers Here</span>
+                              <Boxes className="w-2.5 h-2.5 text-accent" />
+                            </div>
+                            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                              {group.stops.map((s) => {
+                                const isThisStopSelected = selectedStopId === s.id;
+                                const isThisStopDelivered = s.order_status === "delivered";
+                                return (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedStopId(s.id);
+                                      setMapCenter({ lat: s.latitude, lng: s.longitude });
+                                      setIsManualPan(false);
+                                    }}
+                                    className={`flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg text-[9px] font-extrabold text-left w-full transition-all cursor-pointer border ${
+                                      isThisStopSelected
+                                        ? "bg-primary border-primary/20 text-white font-black"
+                                        : "bg-white/5 hover:bg-white/12 border-transparent text-white/90"
+                                    }`}
+                                  >
+                                    <span className="truncate flex-1">
+                                      #{s.sequence_number} {s.customer_name}
+                                    </span>
+                                    {isThisStopDelivered && (
+                                      <span className="text-[8px] text-emerald-400 font-bold shrink-0">✓</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                         </div>
+                      </foreignObject>
+                    ) : (
+                      <foreignObject x={pt.x + 12} y={pt.y - 12} width="200" height="24" className="pointer-events-none">
+                         <div className="text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap bg-charcoal border-white/10">
+                            {group.stops[0].customer_name} (+{group.stops.length - 1} more) {allStopsDelivered && "✓"}
+                         </div>
+                      </foreignObject>
+                    )}
                   </g>
                 );
               })}

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trackingApi } from "../api/trackingApi";
 import type {
   DriverRouteHistory,
-  PositionHistoryPoint,
   LiveDriverTracking,
 } from "../api/trackingApi";
 import { CustomSelect } from "../../../components/common/CustomSelect";
@@ -79,7 +78,6 @@ const TrackingHistoryTab: React.FC = () => {
       setIsDriversLoading(true);
       try {
         const data = await trackingApi.getLiveDrivers();
-        console.log({ data });
         setDrivers(data);
         if (data.length > 0) {
           setSelectedDriverId(data[0].id);

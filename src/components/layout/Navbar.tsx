@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
-import { companyApi } from "../../api/companyApi";
+import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
 import { Bell, Search, LogOut, MapPin, ChevronDown, Settings, Trash2 } from "lucide-react";
 import { useNotificationStore } from "../../store/useNotificationStore";
@@ -9,8 +9,7 @@ import { useNotificationStore } from "../../store/useNotificationStore";
 const Navbar = () => {
   const { logout, user, tenant, setTenant, companyId } = useAuthStore();
   const { notifications, markAllAsRead, clearNotifications } = useNotificationStore();
-  const [cities, setCities] = useState<City[]>([]);
-  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const { companies, fetchCompanies } = useCompanyStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -18,6 +17,12 @@ const Navbar = () => {
 
   const showSettings = !!user;
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Derive cities from the shared company store instead of fetching independently
+  const activeCompanies = companies.filter((c) => c.is_active);
+  const activeCompany = companies.find((c) => c.id === companyId) || activeCompanies[0];
+  const cities: City[] = activeCompany?.cities || [];
+  const isLoadingCities = companies.length === 0;
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -42,42 +47,21 @@ const Navbar = () => {
 
   const selectedCity = cities.find((c) => c.schema_name === tenant) || cities[0];
 
+  // When companyId changes, ensure companies are loaded (uses cache if fresh)
   useEffect(() => {
-    const fetchCompanyCities = async () => {
-      setIsLoadingCities(true);
-      try {
-        const companies = await companyApi.getCompanies();
-        const activeCompanies = companies.filter((c) => c.is_active);
+    fetchCompanies();
+  }, [companyId, fetchCompanies]);
 
-        // Validate stored companyId against fetched list
-        let activeCompany = activeCompanies.find((c) => c.id === companyId);
-        if (!activeCompany && activeCompanies.length > 0) {
-          // Stored companyId is stale/missing — fall back to first active company
-          activeCompany = activeCompanies[0];
-        }
-
-        if (activeCompany) {
-          const companyCities = activeCompany.cities || [];
-          setCities(companyCities);
-
-          // Auto-select city if stored tenant is missing or not in this company's cities
-          const citySchemas = companyCities.map((c: City) => c.schema_name);
-          if (companyCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
-            setTenant(companyCities[0].schema_name);
-          }
-        } else {
-          setCities([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch company cities:", error);
-      } finally {
-        setIsLoadingCities(false);
+  // Auto-select city if stored tenant is missing or not in this company's cities
+  useEffect(() => {
+    if (cities.length > 0) {
+      const citySchemas = cities.map((c: City) => c.schema_name);
+      if (!tenant || !citySchemas.includes(tenant)) {
+        setTenant(cities[0].schema_name);
       }
-    };
-
-    fetchCompanyCities();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, cities.length]);
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-10 shrink-0 sticky top-0 z-20 shadow-sm">

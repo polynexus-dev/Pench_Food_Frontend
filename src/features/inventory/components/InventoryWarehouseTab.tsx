@@ -13,13 +13,11 @@ import {
   Plus,
   X,
   Check,
-  Calendar,
   History,
   TrendingUp,
   AlertTriangle,
   ArrowDownToLine,
   Sliders,
-  ArrowUpRight,
   Clock,
   User,
 } from "lucide-react";
@@ -67,10 +65,8 @@ const InventoryWarehouseTab: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    console.log("handleInputChange fired:", { name, value, type });
     if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
-      console.log("Checkbox change detected:", name, checked);
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));

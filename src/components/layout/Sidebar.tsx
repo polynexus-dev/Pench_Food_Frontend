@@ -15,71 +15,54 @@ import {
   User,
   CreditCard,
   Briefcase,
-  Settings,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
-import { companyApi } from "../../api/companyApi";
+import { useCompanyStore } from "../../store/useCompanyStore";
 import type { Company } from "../../api/companyApi";
 
 const Sidebar = () => {
   const { tenant, setTenant, companyId, setCompanyId, user } = useAuthStore();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+  const { companies, isLoading: isLoadingCompanies, fetchCompanies } = useCompanyStore();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchCompanies = async (selectCompanyId?: string) => {
-    setIsLoadingCompanies(true);
-    try {
-      const data = await companyApi.getCompanies();
-      const activeCompanies = data.filter((c) => c.is_active);
-      setCompanies(activeCompanies);
+  const resolveCompanyAndTenant = (activeCompanies: Company[], selectCompanyId?: string) => {
+    const { companyId: storeCompanyId, tenant: storeTenant, setCompanyId, setTenant } = useAuthStore.getState();
 
-      const { companyId: storeCompanyId, tenant: storeTenant, setCompanyId, setTenant } = useAuthStore.getState();
+    // Resolve which company to use:
+    // 1. Explicit selectCompanyId (e.g. from company-created event)
+    // 2. Stored companyId — only if it exists in the fetched list
+    // 3. Auto-select the first (and only) active company
+    let resolvedCompanyId = selectCompanyId || storeCompanyId;
+    const isStoredIdValid = activeCompanies.some((c) => c.id === resolvedCompanyId);
 
-      // Resolve which company to use:
-      // 1. Explicit selectCompanyId (e.g. from company-created event)
-      // 2. Stored companyId — only if it exists in the fetched list
-      // 3. Auto-select the first (and only) active company
-      let resolvedCompanyId = selectCompanyId || storeCompanyId;
-      const isStoredIdValid = activeCompanies.some((c) => c.id === resolvedCompanyId);
+    if (!isStoredIdValid && activeCompanies.length > 0) {
+      resolvedCompanyId = activeCompanies[0].id;
+    }
 
-      if (!isStoredIdValid && activeCompanies.length > 0) {
-        // Stored ID is invalid/missing — always pick the first active company
-        resolvedCompanyId = activeCompanies[0].id;
+    if (resolvedCompanyId && resolvedCompanyId !== storeCompanyId) {
+      setCompanyId(resolvedCompanyId);
+    } else if (!storeCompanyId && resolvedCompanyId) {
+      setCompanyId(resolvedCompanyId);
+    }
+
+    // Resolve which city/tenant to use for the selected company
+    const currentCompany = activeCompanies.find((c) => c.id === resolvedCompanyId);
+    if (currentCompany && currentCompany.cities && currentCompany.cities.length > 0) {
+      const companyCities = currentCompany.cities;
+      const citySchemaNames = companyCities.map((city) => city.schema_name);
+      const isStoredTenantValid = storeTenant && citySchemaNames.includes(storeTenant);
+
+      if (!isStoredTenantValid) {
+        setTenant(companyCities[0].schema_name);
       }
-
-      if (resolvedCompanyId && resolvedCompanyId !== storeCompanyId) {
-        setCompanyId(resolvedCompanyId);
-      } else if (!storeCompanyId && resolvedCompanyId) {
-        setCompanyId(resolvedCompanyId);
-      }
-
-      // Resolve which city/tenant to use for the selected company
-      const currentCompany = activeCompanies.find((c) => c.id === resolvedCompanyId);
-      if (currentCompany && currentCompany.cities && currentCompany.cities.length > 0) {
-        const companyCities = currentCompany.cities;
-        const citySchemaNames = companyCities.map((city) => city.schema_name);
-        const isStoredTenantValid = storeTenant && citySchemaNames.includes(storeTenant);
-
-        if (!isStoredTenantValid) {
-          // Auto-select first (and typically only) city
-          setTenant(companyCities[0].schema_name);
-        }
-      } else if (selectCompanyId) {
-        // New company with no cities yet
-        setTenant("");
-      }
-    } catch (error) {
-      console.error("Sidebar: Failed to fetch companies:", error);
-    } finally {
-      setIsLoadingCompanies(false);
+    } else if (selectCompanyId) {
+      setTenant("");
     }
   };
 
   useEffect(() => {
-    console.log("Sidebar: mounted, calling fetchCompanies()");
-    fetchCompanies();
+    fetchCompanies().then((data) => resolveCompanyAndTenant(data.filter((c) => c.is_active)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -87,18 +70,12 @@ const Sidebar = () => {
     const handleCompanyCreated = (event: Event) => {
       const customEvent = event as CustomEvent<Company>;
       const newCompany = customEvent.detail;
-      console.log("Sidebar: Caught company-created event!", newCompany);
       if (newCompany && newCompany.id) {
-        console.log("Sidebar: Calling fetchCompanies with the new company ID:", newCompany.id);
-        fetchCompanies(newCompany.id);
-      } else {
-        console.warn("Sidebar: company-created event detail is invalid:", newCompany);
+        fetchCompanies(newCompany.id).then((data) => resolveCompanyAndTenant(data.filter((c) => c.is_active), newCompany.id));
       }
     };
-    console.log("Sidebar: Registering company-created event listener");
     window.addEventListener("company-created", handleCompanyCreated);
     return () => {
-      console.log("Sidebar: Unregistering company-created event listener");
       window.removeEventListener("company-created", handleCompanyCreated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,10 +155,10 @@ const Sidebar = () => {
                   <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
                   Loading...
                 </div>
-              ) : companies.length === 0 ? (
+              ) : companies.filter((c) => c.is_active).length === 0 ? (
                 <div className="px-3 py-2.5 text-xs text-white/40">No companies found</div>
               ) : (
-                companies.map((company) => {
+                companies.filter((c) => c.is_active).map((company) => {
                   const isActive = company.id === companyId;
                   return (
                     <button

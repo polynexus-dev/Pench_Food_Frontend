@@ -77,9 +77,13 @@ const OverviewPage = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch routes to find the latest active date & comparison date
-        const routesRes = await axiosInstance.get('/erp/orders/routes/');
+        // 1. Fetch routes and stock in parallel (they're independent)
+        const [routesRes, stockRes] = await Promise.all([
+          axiosInstance.get('/erp/orders/routes/'),
+          axiosInstance.get('/erp/inventory/stock/')
+        ]);
         const routes = Array.isArray(routesRes.data) ? routesRes.data : [];
+        const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
         
         const uniqueDates = Array.from(new Set(routes.map((r: any) => r.delivery_date)))
           .sort((a: any, b: any) => b.localeCompare(a));
@@ -91,16 +95,14 @@ const OverviewPage = () => {
         const formattedLabel = getFriendlyDateLabel(activeDate);
         setActiveDateLabel(formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`);
 
-        // 2. Fetch active and previous date orders, and inventory stock level details
-        const [ordersActiveRes, ordersPrevRes, stockRes] = await Promise.all([
+        // 2. Fetch active and previous date orders in parallel
+        const [ordersActiveRes, ordersPrevRes] = await Promise.all([
           axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: activeDate } }),
           prevDate ? axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: prevDate } }) : Promise.resolve({ data: [] }),
-          axiosInstance.get('/erp/inventory/stock/')
         ]);
 
         const ordersActive = Array.isArray(ordersActiveRes.data) ? ordersActiveRes.data : [];
         const ordersPrev = Array.isArray(ordersPrevRes.data) ? ordersPrevRes.data : [];
-        const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
 
         // 3. Compute Stats
         // A. Milk Volume
