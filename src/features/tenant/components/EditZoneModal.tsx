@@ -1,16 +1,19 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { X, MapPin, MousePointer2, Trash2, CheckCircle2, ZoomIn, ZoomOut, Save, Navigation2, Undo } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
+import type { Zone } from "./types";
 
-interface CreateZoneModalProps {
+interface EditZoneModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  zone: Zone | null;
 }
 
-const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSuccess }) => {
+const EditZoneModal: React.FC<EditZoneModalProps> = ({ isOpen, onClose, onSuccess, zone }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [points, setPoints] = useState<{ lat: number; lng: number }[]>([]);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
@@ -44,6 +47,37 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
     observer.observe(mapRef.current);
     return () => observer.disconnect();
   }, [isOpen]);
+
+  // Load existing zone data when modal opens or zone changes
+  useEffect(() => {
+    if (isOpen && zone) {
+      setName(zone.name);
+      setDescription(zone.description || "");
+      setIsActive(zone.is_active);
+      
+      if (zone.boundary && zone.boundary.type === "Polygon" && zone.boundary.coordinates.length > 0) {
+        const coords = zone.boundary.coordinates[0];
+        let editPoints = coords.map(c => ({ lat: c[1], lng: c[0] }));
+        // Slices off the final closing point if it duplicates the first point
+        if (
+          editPoints.length > 1 &&
+          editPoints[0].lat === editPoints[editPoints.length - 1].lat &&
+          editPoints[0].lng === editPoints[editPoints.length - 1].lng
+        ) {
+          editPoints = editPoints.slice(0, -1);
+        }
+        setPoints(editPoints);
+
+        if (editPoints.length > 0) {
+          const avgLat = editPoints.reduce((a, b) => a + b.lat, 0) / editPoints.length;
+          const avgLng = editPoints.reduce((a, b) => a + b.lng, 0) / editPoints.length;
+          setMapCenter({ lat: avgLat, lng: avgLng });
+        }
+      } else {
+        setPoints([]);
+      }
+    }
+  }, [isOpen, zone]);
 
   const VIEWPORT_W = dimensions.width;
   const VIEWPORT_H = dimensions.height;
@@ -191,6 +225,7 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
   };
 
   const handleMouseUp = () => {
+    // Keep dragged status long enough for the click event to capture and discard it
     setTimeout(() => {
       hasDraggedRef.current = false;
     }, 50);
@@ -205,16 +240,17 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
   };
 
   const handleSubmit = async () => {
-    if (!name || points.length < 3) return;
+    if (!zone || !name || points.length < 3) return;
 
     setIsSubmitting(true);
     try {
       const coordinates = [...points.map(p => [p.lng, p.lat])];
       coordinates.push([points[0].lng, points[0].lat]);
 
-      await tenantApi.createZone({
+      await tenantApi.updateZone(zone.id, {
         name,
         description,
+        is_active: isActive,
         boundary: {
           type: "Polygon",
           coordinates: [coordinates]
@@ -222,18 +258,14 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
       });
       onSuccess();
       onClose();
-      setName("");
-      setDescription("");
-      setPoints([]);
-      setIsDrawingMode(false);
     } catch (error) {
-      console.error("Failed to create zone:", error);
+      console.error("Failed to update zone:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !zone) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-sm animate-in fade-in duration-300">
@@ -243,9 +275,9 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
           <div>
             <h2 className="text-2xl font-black text-charcoal flex items-center gap-2">
               <MapPin className="text-primary w-6 h-6" />
-              Define New Operational Zone
+              Edit Operational Zone
             </h2>
-            <p className="text-xs font-medium text-charcoal/40 mt-1">Switch to drawing mode to define the boundary points.</p>
+            <p className="text-xs font-medium text-charcoal/40 mt-1">Modify boundary coordinates and settings for this zone.</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-silver/20 rounded-xl transition-all">
             <X className="w-6 h-6 text-charcoal/40" />
@@ -276,6 +308,18 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
                     rows={3}
                     className="w-full px-4 py-3 bg-silver/10 border border-silver/40 rounded-xl text-sm font-bold focus:outline-none focus:border-primary/40 transition-all resize-none"
                   />
+               </div>
+               <div className="flex items-center justify-between p-4 bg-silver/10 rounded-2xl border border-silver/30 mt-2">
+                  <div>
+                    <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest block">Active Status</label>
+                    <span className="text-[10px] text-charcoal/30 font-medium">Zone accepts new tasks</span>
+                  </div>
+                  <button
+                    onClick={() => setIsActive(!isActive)}
+                    className={`w-10 h-5 rounded-full relative transition-colors ${isActive ? 'bg-primary' : 'bg-silver/40'}`}
+                  >
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isActive ? 'left-6' : 'left-1'}`}></div>
+                  </button>
                </div>
             </div>
 
@@ -351,7 +395,7 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
                     className="flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
-                    Save Zone
+                    Save
                   </button>
                </div>
             </div>
@@ -532,4 +576,4 @@ const CreateZoneModal: React.FC<CreateZoneModalProps> = ({ isOpen, onClose, onSu
   );
 };
 
-export default CreateZoneModal;
+export default EditZoneModal;

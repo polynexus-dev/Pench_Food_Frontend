@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { User, Globe, Plus, Search, CheckCircle2, ZoomIn, ZoomOut, X } from "lucide-react";
+import { User, Globe, Plus, Search, CheckCircle2, ZoomIn, ZoomOut, X, Edit } from "lucide-react";
 import { tenantApi } from "../api/tenantApi";
 import type { Zone } from "./types";
 import CreateZoneModal from "./CreateZoneModal";
+import EditZoneModal from "./EditZoneModal";
 import { driverApi } from "../../drivers/api/driverApi";
 import type { Driver } from "../../drivers/components/types";
 
@@ -12,6 +13,7 @@ const ZoneTab: React.FC = () => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Driver Assignment State
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -391,6 +393,13 @@ const ZoneTab: React.FC = () => {
                 <h3 className="text-base font-black text-charcoal mt-1 truncate max-w-[210px]" title={selectedZone.name}>
                   {selectedZone.name}
                 </h3>
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider shadow-md shadow-amber-500/10 transition-all active:scale-95 mt-1.5 cursor-pointer"
+                >
+                  <Edit className="w-3 h-3" />
+                  Edit Zone
+                </button>
               </div>
               <button
                 onClick={() => setSelectedZoneId(null)}
@@ -453,6 +462,16 @@ const ZoneTab: React.FC = () => {
           fetchZones();
           setIsCreateModalOpen(false);
         }}
+      />
+
+      <EditZoneModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={() => {
+          fetchZones();
+          setIsEditModalOpen(false);
+        }}
+        zone={selectedZone}
       />
     </div>
   );
