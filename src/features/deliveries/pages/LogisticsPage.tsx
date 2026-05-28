@@ -7,9 +7,12 @@ import RouteTab from "../components/RouteTab";
 import DispatchSummaryTab from "../components/DispatchSummaryTab";
 import AssignPendingModal from "../components/AssignPendingModal";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { getCityWsUrl } from "../../../utils/constants";
+import { useNotificationStore } from "../../../store/useNotificationStore";
 
 const LogisticsPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
+  const addNotification = useNotificationStore((state) => state.addNotification);
   const [activeTab, setActiveTab] = useState<"dashboard" | "routes" | "dispatch">("dashboard");
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -21,11 +24,24 @@ const LogisticsPage: React.FC = () => {
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   });
-  const [notification, setNotification] = useState<{
+
+  const [notification, _setNotification] = useState<{
     title: string;
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  const setNotification = (val: { title: string; message: string; type: "success" | "error" } | null) => {
+    _setNotification(val);
+    if (val) {
+      addNotification({
+        title: val.title,
+        message: val.message,
+        type: val.type
+      });
+    }
+  };
+
   const [isGenerateDropdownOpen, setIsGenerateDropdownOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -36,6 +52,61 @@ const LogisticsPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  // Real-time WebSocket connection to listen for order delivery notifications
+  useEffect(() => {
+    const accessToken = useAuthStore.getState().accessToken;
+    if (!accessToken) return;
+    
+    let socket: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+    
+    const connect = () => {
+      try {
+        const wsUrl = getCityWsUrl(tenant);
+        // Append JWT Token to query string for secure authentication
+        const finalUrl = `${wsUrl}${wsUrl.includes("?") ? "&" : "?"}token=${accessToken}`;
+        
+        socket = new WebSocket(finalUrl);
+        
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "broadcast_location" && data.notification_type === "order_delivered") {
+              setNotification({
+                title: data.title || "Order Delivered! 🎉",
+                message: data.message,
+                type: "success"
+              });
+              // Silently refresh route/driver status data in real-time!
+              fetchLogisticsData(true);
+            }
+          } catch (err) {
+            console.error("Failed to parse incoming WebSocket message:", err);
+          }
+        };
+        
+        socket.onclose = () => {
+          // Reconnect automatically with backoff
+          reconnectTimeout = setTimeout(connect, 5000);
+        };
+      } catch (err) {
+        console.error("WebSocket connection failure:", err);
+      }
+    };
+    
+    connect();
+    
+    return () => {
+      if (socket) {
+        socket.onclose = null; // Prevent reconnect loop on close
+        socket.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  }, [tenant]);
 
   const fetchLogisticsData = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -105,7 +176,7 @@ const LogisticsPage: React.FC = () => {
   const stats = useMemo(() => {
     const totalDrivers = drivers.length;
     const availableDrivers = drivers.filter((d) => d.is_available).length;
-    const activeTrips = routes.filter((r) => r.status === "active").length;
+    const activeTrips = routes.filter((r) => r.status === "active" || r.status === "started" || r.status === "in_transit" || r.status === "in_progress").length;
     const totalCapacity = drivers.reduce(
       (sum, d) => sum + (parseInt(d.max_capacity_kg) || 0),
       0,
@@ -306,7 +377,7 @@ const LogisticsPage: React.FC = () => {
         <RouteTab routes={routes} drivers={drivers} isLoading={isLoading} onRefresh={() => fetchLogisticsData(true)} />
       )}
       {activeTab === "dispatch" && (
-        <DispatchSummaryTab routes={routes} isLoading={isLoading} />
+        <DispatchSummaryTab routes={routes} drivers={drivers} isLoading={isLoading} />
       )}
 
       <AssignPendingModal

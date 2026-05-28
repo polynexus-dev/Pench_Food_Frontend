@@ -1,0 +1,504 @@
+commit d95c41260f5fae619e87ceec5b26a42629f38d46
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Fri May 22 17:39:28 2026 +0530
+
+    feat: implement tenant management system including API integration, tenant listing, and creation workflows
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 67b6061..416a4da 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -11,7 +11,6 @@ import InventoryPage from "./features/inventory/pages/InventoryPage";
+ import OrderPage from "./features/orders/pages/OrderPage";
+ import FinancePage from "./features/finance/pages/FinancePage";
+ import HRPage from "./features/hr/pages/HRPage";
+-import SystemSettingsPage from "./features/administration/pages/SystemSettingsPage";
+ import UserSettingsPage from "./features/administration/pages/UserSettingsPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+@@ -93,7 +92,6 @@ function App() {
+                   )
+                 }
+               />
+-              <Route path="/settings" element={user?.is_customer ? <Navigate to="/" replace /> : <SystemSettingsPage />} />
+             </Route>
+           </Route>
+ 
+
+commit 77e360224cd8c72721c9e65d94de6df6ed99e733
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Fri May 22 16:47:08 2026 +0530
+
+    feat: implement company management system with user settings navigation and API integration
+
+diff --git a/src/App.tsx b/src/App.tsx
+index b98794c..67b6061 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -12,6 +12,7 @@ import OrderPage from "./features/orders/pages/OrderPage";
+ import FinancePage from "./features/finance/pages/FinancePage";
+ import HRPage from "./features/hr/pages/HRPage";
+ import SystemSettingsPage from "./features/administration/pages/SystemSettingsPage";
++import UserSettingsPage from "./features/administration/pages/UserSettingsPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -59,6 +60,9 @@ function App() {
+                 }
+               />
+               
++              {/* Shared Protected Routes */}
++              <Route path="/profile/settings" element={<UserSettingsPage />} />
++
+               {/* Customer Routes */}
+               <Route path="/my-subscriptions" element={<CustomerSubscriptionsPage />} />
+               <Route path="/my-orders" element={<CustomerOrdersPage />} />
+
+commit 863ee997a6fbe3d3c3e0cb6851e2db5168f47787
+Author: Aniket <admin@polynexus.in>
+Date:   Fri May 22 07:49:10 2026 +0530
+
+    feat: add order management page with dashboard, list view, and delivery calendar components
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 1fcb9b0..b98794c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,4 +1,5 @@
+ import OverviewPage from "./features/dashboard/pages/OverviewPage";
++import ReportsPage from "./features/dashboard/pages/ReportsPage";
+ import TenantPage from "./features/tenant/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import LogisticsPage from "./features/deliveries/pages/LogisticsPage";
+@@ -84,12 +85,7 @@ function App() {
+                   user?.is_customer ? (
+                     <Navigate to="/" replace />
+                   ) : (
+-                    <div className="p-8">
+-                      <h1 className="text-2xl font-bold">Business Reports</h1>
+-                      <p className="text-charcoal/60 mt-2">
+-                        Coming soon: Data-driven insights for your dairy business.
+-                      </p>
+-                    </div>
++                    <ReportsPage />
+                   )
+                 }
+               />
+
+commit f54d76e92f291ff36dbf1b70958fea7fe7cfa955
+Author: Aniket <admin@polynexus.in>
+Date:   Thu May 21 22:52:59 2026 +0530
+
+    feat: initialize frontend application structure with core layout, authentication, and feature modules.
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 43e733c..1fcb9b0 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -9,6 +9,8 @@ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscr
+ import InventoryPage from "./features/inventory/pages/InventoryPage";
+ import OrderPage from "./features/orders/pages/OrderPage";
+ import FinancePage from "./features/finance/pages/FinancePage";
++import HRPage from "./features/hr/pages/HRPage";
++import SystemSettingsPage from "./features/administration/pages/SystemSettingsPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -17,8 +19,16 @@ import { Navigate, Route, Routes } from "react-router-dom";
+ import { BrowserRouter as Router } from "react-router-dom";
+ import DashboardLayout from "./layouts/DashboardLayout";
+ 
++import CustomerDashboard from "./features/dashboard/pages/CustomerDashboard";
++import DriverDashboard from "./features/dashboard/pages/DriverDashboard";
++import DriverPayrollPage from "./features/dashboard/pages/DriverPayrollPage";
++import CustomerSubscriptionsPage from "./features/subscriptions/pages/CustomerSubscriptionsPage";
++import CustomerOrdersPage from "./features/orders/pages/CustomerOrdersPage";
++import CustomerBillsPage from "./features/finance/pages/CustomerBillsPage";
++import CustomerContainerLedger from "./features/customers/pages/CustomerContainerLedger";
++
+ function App() {
+-  const { isAuthenticated } = useAuthStore();
++  const { isAuthenticated, user } = useAuthStore();
+ 
+   return (
+     <Router>
+@@ -35,29 +45,55 @@ function App() {
+           {/* Protected Routes */}
+           <Route element={<ProtectedRoute />}>
+             <Route element={<DashboardLayout />}>
+-              <Route path="/" element={<OverviewPage />} />
+-              <Route path="/tenants" element={<TenantPage />} />
+-              <Route path="/logistics" element={<LogisticsPage />} />
++              <Route
++                path="/"
++                element={
++                  user?.is_customer ? (
++                    <CustomerDashboard />
++                  ) : user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
++                    <DriverDashboard />
++                  ) : (
++                    <OverviewPage />
++                  )
++                }
++              />
++              
++              {/* Customer Routes */}
++              <Route path="/my-subscriptions" element={<CustomerSubscriptionsPage />} />
++              <Route path="/my-orders" element={<CustomerOrdersPage />} />
++              <Route path="/my-bills" element={<CustomerBillsPage />} />
++              <Route path="/my-containers" element={<CustomerContainerLedger />} />
++              <Route path="/my-payroll" element={<DriverPayrollPage />} />
++
++              {/* Admin-only Routes */}
++              <Route path="/tenants" element={user?.is_customer ? <Navigate to="/" replace /> : <TenantPage />} />
++              <Route path="/logistics" element={user?.is_customer ? <Navigate to="/" replace /> : <LogisticsPage />} />
+               <Route element={<TrackingProvider />}>
+-                <Route path="/tracking" element={<TrackingPage />} />
+-                <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
++                <Route path="/tracking" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingPage />} />
++                <Route path="/tracking/map" element={user?.is_customer ? <Navigate to="/" replace /> : <TrackingFullscreenMapPage />} />
+               </Route>
+-              <Route path="/inventory" element={<InventoryPage />} />
+-              <Route path="/orders" element={<OrderPage />} />
+-              <Route path="/finance" element={<FinancePage />} />
+-              <Route path="/customers" element={<CustomerPage />} />
+-              <Route path="/drivers" element={<DriverPage />} />
++              <Route path="/inventory" element={user?.is_customer ? <Navigate to="/" replace /> : <InventoryPage />} />
++              <Route path="/orders" element={user?.is_customer ? <Navigate to="/" replace /> : <OrderPage />} />
++              <Route path="/finance" element={user?.is_customer ? <Navigate to="/" replace /> : <FinancePage />} />
++              <Route path="/hr" element={user?.is_customer ? <Navigate to="/" replace /> : <HRPage />} />
++              <Route path="/customers" element={user?.is_customer ? <Navigate to="/" replace /> : <CustomerPage />} />
++              <Route path="/drivers" element={user?.is_customer ? <Navigate to="/" replace /> : <DriverPage />} />
+               <Route
+                 path="/reports"
+                 element={
+-                  <div className="p-8">
+-                    <h1 className="text-2xl font-bold">Business Reports</h1>
+-                    <p className="text-charcoal/60 mt-2">
+-                      Coming soon: Data-driven insights for your dairy business.
+-                    </p>
+-                  </div>
++                  user?.is_customer ? (
++                    <Navigate to="/" replace />
++                  ) : (
++                    <div className="p-8">
++                      <h1 className="text-2xl font-bold">Business Reports</h1>
++                      <p className="text-charcoal/60 mt-2">
++                        Coming soon: Data-driven insights for your dairy business.
++                      </p>
++                    </div>
++                  )
+                 }
+               />
++              <Route path="/settings" element={user?.is_customer ? <Navigate to="/" replace /> : <SystemSettingsPage />} />
+             </Route>
+           </Route>
+ 
+
+commit 06f283eff2828d102d3e347a4e1255d42881395f
+Author: Aniket Kolamkar <71761243+Aniket-kolamkar@users.noreply.github.com>
+Date:   Thu May 21 16:55:45 2026 +0530
+
+    feat: implement finance dashboard with bill management and payment recording capabilities
+
+diff --git a/src/App.tsx b/src/App.tsx
+index c1f2a9d..43e733c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -8,6 +8,7 @@ import { TrackingProvider } from "./features/tracking/context/TrackingContext";
+ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
+ import InventoryPage from "./features/inventory/pages/InventoryPage";
+ import OrderPage from "./features/orders/pages/OrderPage";
++import FinancePage from "./features/finance/pages/FinancePage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -43,6 +44,7 @@ function App() {
+               </Route>
+               <Route path="/inventory" element={<InventoryPage />} />
+               <Route path="/orders" element={<OrderPage />} />
++              <Route path="/finance" element={<FinancePage />} />
+               <Route path="/customers" element={<CustomerPage />} />
+               <Route path="/drivers" element={<DriverPage />} />
+               <Route
+
+commit e4c1483b10e48c47df8e691992f10f1f7cbccf3b
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Wed May 20 17:57:38 2026 +0530
+
+    feat: implement core logistics, driver management, and authentication modules with dynamic company selection
+
+diff --git a/src/App.tsx b/src/App.tsx
+index e862d10..c1f2a9d 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,7 +1,8 @@
+ import OverviewPage from "./features/dashboard/pages/OverviewPage";
+ import TenantPage from "./features/tenant/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+-import DriverPage from "./features/deliveries/pages/DriverPage";
++import LogisticsPage from "./features/deliveries/pages/LogisticsPage";
++import DriverPage from "./features/drivers/pages/DriverPage";
+ import TrackingPage from "./features/tracking/pages/TrackingPage";
+ import { TrackingProvider } from "./features/tracking/context/TrackingContext";
+ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
+@@ -35,7 +36,7 @@ function App() {
+             <Route element={<DashboardLayout />}>
+               <Route path="/" element={<OverviewPage />} />
+               <Route path="/tenants" element={<TenantPage />} />
+-              <Route path="/deliveries" element={<DriverPage />} />
++              <Route path="/logistics" element={<LogisticsPage />} />
+               <Route element={<TrackingProvider />}>
+                 <Route path="/tracking" element={<TrackingPage />} />
+                 <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
+@@ -43,6 +44,7 @@ function App() {
+               <Route path="/inventory" element={<InventoryPage />} />
+               <Route path="/orders" element={<OrderPage />} />
+               <Route path="/customers" element={<CustomerPage />} />
++              <Route path="/drivers" element={<DriverPage />} />
+               <Route
+                 path="/reports"
+                 element={
+
+commit 42ad5e0ceb51b06bd7de5ec20f8c0e52cbf4bfe3
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Tue May 19 18:14:02 2026 +0530
+
+    feat: implement core customer, order, delivery, and tracking modules with associated management pages and custom UI components
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 5663c22..e862d10 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -2,7 +2,7 @@ import OverviewPage from "./features/dashboard/pages/OverviewPage";
+ import TenantPage from "./features/tenant/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import DriverPage from "./features/deliveries/pages/DriverPage";
+-import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
++import TrackingPage from "./features/tracking/pages/TrackingPage";
+ import { TrackingProvider } from "./features/tracking/context/TrackingContext";
+ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
+ import InventoryPage from "./features/inventory/pages/InventoryPage";
+@@ -37,7 +37,7 @@ function App() {
+               <Route path="/tenants" element={<TenantPage />} />
+               <Route path="/deliveries" element={<DriverPage />} />
+               <Route element={<TrackingProvider />}>
+-                <Route path="/tracking" element={<LiveTrackingPage />} />
++                <Route path="/tracking" element={<TrackingPage />} />
+                 <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
+               </Route>
+               <Route path="/inventory" element={<InventoryPage />} />
+
+commit 73df03e64325fbb107621d17452983da4b01a125
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Fri May 15 18:39:03 2026 +0530
+
+    feat: initialize project structure with logistics, tenant, customer, and order management dashboard features
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 6ab1d56..5663c22 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,11 +1,12 @@
+ import OverviewPage from "./features/dashboard/pages/OverviewPage";
+-import TenantPage from "./features/dashboard/pages/TenantPage";
++import TenantPage from "./features/tenant/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import DriverPage from "./features/deliveries/pages/DriverPage";
+ import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
+ import { TrackingProvider } from "./features/tracking/context/TrackingContext";
+ import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
+ import InventoryPage from "./features/inventory/pages/InventoryPage";
++import OrderPage from "./features/orders/pages/OrderPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -40,6 +41,7 @@ function App() {
+                 <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
+               </Route>
+               <Route path="/inventory" element={<InventoryPage />} />
++              <Route path="/orders" element={<OrderPage />} />
+               <Route path="/customers" element={<CustomerPage />} />
+               <Route
+                 path="/reports"
+
+commit a645f26259430f756ab6dd9a307429d8f5bb00d9
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Wed May 13 17:42:17 2026 +0530
+
+    feat: implement real-time driver tracking system with WebSocket support and simulation capabilities
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 0d3d74e..6ab1d56 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -3,6 +3,8 @@ import TenantPage from "./features/dashboard/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import DriverPage from "./features/deliveries/pages/DriverPage";
+ import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
++import { TrackingProvider } from "./features/tracking/context/TrackingContext";
++import TrackingFullscreenMapPage from "./features/tracking/pages/TrackingFullscreenMapPage";
+ import InventoryPage from "./features/inventory/pages/InventoryPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+@@ -33,7 +35,10 @@ function App() {
+               <Route path="/" element={<OverviewPage />} />
+               <Route path="/tenants" element={<TenantPage />} />
+               <Route path="/deliveries" element={<DriverPage />} />
+-              <Route path="/tracking" element={<LiveTrackingPage />} />
++              <Route element={<TrackingProvider />}>
++                <Route path="/tracking" element={<LiveTrackingPage />} />
++                <Route path="/tracking/map" element={<TrackingFullscreenMapPage />} />
++              </Route>
+               <Route path="/inventory" element={<InventoryPage />} />
+               <Route path="/customers" element={<CustomerPage />} />
+               <Route
+
+commit 469d4ae43b9e2b16b3a9f675119eb6cd784b8bbd
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Tue May 12 18:32:17 2026 +0530
+
+    feat: implement inventory management module with dashboard and optimization interface
+
+diff --git a/src/App.tsx b/src/App.tsx
+index 8a7a8bb..0d3d74e 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -3,6 +3,7 @@ import TenantPage from "./features/dashboard/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import DriverPage from "./features/deliveries/pages/DriverPage";
+ import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
++import InventoryPage from "./features/inventory/pages/InventoryPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -33,17 +34,7 @@ function App() {
+               <Route path="/tenants" element={<TenantPage />} />
+               <Route path="/deliveries" element={<DriverPage />} />
+               <Route path="/tracking" element={<LiveTrackingPage />} />
+-              <Route
+-                path="/inventory"
+-                element={
+-                  <div className="p-8">
+-                    <h1 className="text-2xl font-bold">Inventory Control</h1>
+-                    <p className="text-charcoal/60 mt-2">
+-                      Coming soon: Real-time stock tracking.
+-                    </p>
+-                  </div>
+-                }
+-              />
++              <Route path="/inventory" element={<InventoryPage />} />
+               <Route path="/customers" element={<CustomerPage />} />
+               <Route
+                 path="/reports"
+
+commit e18e1b1696fbae44cf74a9a6cf3bedd3e3179168
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Tue May 12 15:57:48 2026 +0530
+
+    feat: implement dashboard layout and driver registration module with core navigation and tracking pages
+
+diff --git a/src/App.tsx b/src/App.tsx
+index b1fe055..8a7a8bb 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -2,6 +2,7 @@ import OverviewPage from "./features/dashboard/pages/OverviewPage";
+ import TenantPage from "./features/dashboard/pages/TenantPage";
+ import CustomerPage from "./features/customers/pages/CustomerPage";
+ import DriverPage from "./features/deliveries/pages/DriverPage";
++import LiveTrackingPage from "./features/tracking/pages/LiveTrackingPage";
+ import LoginPage from "./features/auth/LoginPage";
+ import ProtectedRoute from "./components/common/ProtectedRoute";
+ import "./styles/App.css";
+@@ -31,6 +32,7 @@ function App() {
+               <Route path="/" element={<OverviewPage />} />
+               <Route path="/tenants" element={<TenantPage />} />
+               <Route path="/deliveries" element={<DriverPage />} />
++              <Route path="/tracking" element={<LiveTrackingPage />} />
+               <Route
+                 path="/inventory"
+                 element={
+
+commit b44f98e007c52c101f3bfb818660d1c1ec3b15f9
+Author: Ritesh <ritesh.acetech@nagpuranalytics.com>
+Date:   Mon May 11 18:11:21 2026 +0530
+
+    feat: initialize project scaffolding with React, TypeScript, and Zustand authentication store
+
+diff --git a/src/App.tsx b/src/App.tsx
+new file mode 100644
+index 0000000..b1fe055
+--- /dev/null
++++ b/src/App.tsx
+@@ -0,0 +1,71 @@
++import OverviewPage from "./features/dashboard/pages/OverviewPage";
++import TenantPage from "./features/dashboard/pages/TenantPage";
++import CustomerPage from "./features/customers/pages/CustomerPage";
++import DriverPage from "./features/deliveries/pages/DriverPage";
++import LoginPage from "./features/auth/LoginPage";
++import ProtectedRoute from "./components/common/ProtectedRoute";
++import "./styles/App.css";
++import { useAuthStore } from "./store/useAuthStore";
++import { Navigate, Route, Routes } from "react-router-dom";
++import { BrowserRouter as Router } from "react-router-dom";
++import DashboardLayout from "./layouts/DashboardLayout";
++
++function App() {
++  const { isAuthenticated } = useAuthStore();
++
++  return (
++    <Router>
++      <div className="font-sans">
++        <Routes>
++          {/* Public Routes */}
++          <Route
++            path="/login"
++            element={
++              isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
++            }
++          />
++
++          {/* Protected Routes */}
++          <Route element={<ProtectedRoute />}>
++            <Route element={<DashboardLayout />}>
++              <Route path="/" element={<OverviewPage />} />
++              <Route path="/tenants" element={<TenantPage />} />
++              <Route path="/deliveries" element={<DriverPage />} />
++              <Route
++                path="/inventory"
++                element={
++                  <div className="p-8">
++                    <h1 className="text-2xl font-bold">Inventory Control</h1>
++                    <p className="text-charcoal/60 mt-2">
++                      Coming soon: Real-time stock tracking.
++                    </p>
++                  </div>
++                }
++              />
++              <Route path="/customers" element={<CustomerPage />} />
++              <Route
++                path="/reports"
++                element={
++                  <div className="p-8">
++                    <h1 className="text-2xl font-bold">Business Reports</h1>
++                    <p className="text-charcoal/60 mt-2">
++                      Coming soon: Data-driven insights for your dairy business.
++                    </p>
++                  </div>
++                }
++              />
++            </Route>
++          </Route>
++
++          {/* Fallback */}
++          <Route
++            path="*"
++            element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />}
++          />
++        </Routes>
++      </div>
++    </Router>
++  );
++}
++
++export default App;

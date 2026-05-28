@@ -131,9 +131,7 @@ export const TrackingProvider: React.FC = () => {
 
       socket.onmessage = (event) => {
         try {
-          console.log("🔌 [WebSocket Raw Frame Received]:", event.data);
           const data = JSON.parse(event.data);
-          console.log("🟢 [WebSocket Parsed Payload]:", data);
           
           if (data.type === "broadcast_location" || (data.driver_id && data.lat && data.lng)) {
             // Log incoming telemetry stream
@@ -252,7 +250,7 @@ export const TrackingProvider: React.FC = () => {
           trail: [...drv.trail, [currentLng, currentLat]],
         };
 
-        console.log("🟠 [Simulated WS Payload - Initial]:", payload);
+
 
         setDrivers((prev) => ({
           ...prev,
@@ -291,7 +289,7 @@ export const TrackingProvider: React.FC = () => {
             trail: [...drv.trail],
           };
 
-          console.log("🟠 [Simulated WS Payload - Tick]:", mockData);
+
 
           // trigger local message parser
           addLog("broadcast", `[SIM] Broadcast: ${drv.name}`, mockData);

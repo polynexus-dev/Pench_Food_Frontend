@@ -185,6 +185,21 @@ export const customerApi = {
   },
 
   /**
+   * Update an existing subscription (partial patch)
+   */
+  updateSubscription: async (subscriptionId: string, data: Omit<Partial<Subscription>, 'items'> & { items?: { product: string; quantity: number }[] }): Promise<Subscription> => {
+    const response = await axiosInstance.patch<Subscription>(`/erp/subscriptions/${subscriptionId}/`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete a subscription permanently
+   */
+  deleteSubscription: async (subscriptionId: string): Promise<void> => {
+    await axiosInstance.delete(`/erp/subscriptions/${subscriptionId}/`);
+  },
+
+  /**
    * Fetch all monthly bills for a specific customer
    */
   getMonthlyBills: async (customerId: string): Promise<MonthlyBill[]> => {

@@ -137,6 +137,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [pauseEnd, setPauseEnd] = useState("");
   const [isPauseSubmitLoading, setIsPauseSubmitLoading] = useState(false);
 
+  // Global Vacation / Leave Modal State
+  const [isGlobalLeaveModalOpen, setIsGlobalLeaveModalOpen] = useState(false);
+  const [globalLeaveStart, setGlobalLeaveStart] = useState("");
+  const [globalLeaveEnd, setGlobalLeaveEnd] = useState("");
+  const [isGlobalLeaveSubmitLoading, setIsGlobalLeaveSubmitLoading] = useState(false);
+
   // Create Subscription Form State
   const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
   const [addSubFrequency, setAddSubFrequency] = useState<
@@ -151,6 +157,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     { product: "", quantity: 1 },
   ]);
   const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
+
+  // Edit Subscription State
+  const [isEditSubModalOpen, setIsEditSubModalOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<Subscription | null>(null);
+  const [isEditSubSubmitLoading, setIsEditSubSubmitLoading] = useState(false);
 
   // Real Payments and Billing States
   const [monthlyBills, setMonthlyBills] = useState<MonthlyBill[]>([]);
@@ -363,7 +374,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   }, [customer.id]);
 
   useEffect(() => {
-    if (activeSubTab === "subscriptions") {
+    if (activeSubTab === "subscriptions" || activeSubTab === "calendar") {
       fetchCustomerSubscriptions();
     }
   }, [activeSubTab, customer.id]);
@@ -411,6 +422,54 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       alert("Failed to pause subscription. Please check dates and try again.");
     } finally {
       setIsPauseSubmitLoading(false);
+    }
+  };
+
+  const handleOpenGlobalLeaveModal = () => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    setGlobalLeaveStart(todayStr);
+    setGlobalLeaveEnd("");
+    setIsGlobalLeaveModalOpen(true);
+  };
+
+  const handleGlobalLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!globalLeaveStart || !globalLeaveEnd) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    if (new Date(globalLeaveEnd) < new Date(globalLeaveStart)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    const activeSubs = subscriptions.filter((s) => s.status === "active");
+    if (activeSubs.length === 0) {
+      alert("This customer has no active subscriptions to pause.");
+      return;
+    }
+
+    setIsGlobalLeaveSubmitLoading(true);
+    try {
+      await Promise.all(
+        activeSubs.map((sub) =>
+          customerApi.pauseSubscription(sub.id, globalLeaveStart, globalLeaveEnd)
+        )
+      );
+
+      await fetchCustomerSubscriptions();
+
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+
+      setIsGlobalLeaveModalOpen(false);
+      setGlobalLeaveStart("");
+      setGlobalLeaveEnd("");
+    } catch (error) {
+      console.error("Failed to pause active subscriptions:", error);
+      alert("Failed to pause subscriptions. Please check dates and try again.");
+    } finally {
+      setIsGlobalLeaveSubmitLoading(false);
     }
   };
 
@@ -542,6 +601,89 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       month: "short",
       year: "numeric",
     });
+  };
+
+  // Open Edit Subscription Modal – pre-populate shared form state
+  const handleOpenEditSubModal = (sub: Subscription) => {
+    setEditingSub(sub);
+    setAddSubFrequency(sub.frequency);
+    setAddSubCustomDays(sub.custom_days || []);
+    setAddSubStartDate(sub.start_date);
+    setAddSubEndDate(sub.end_date || "");
+    setAddSubDeliveryAddress(sub.delivery_address || "");
+    setAddSubSpecialInstructions(sub.special_instructions || "");
+    setAddSubItems(
+      sub.items && sub.items.length > 0
+        ? sub.items.map((it) => ({ product: it.product, quantity: it.quantity }))
+        : [{ product: "", quantity: 1 }]
+    );
+    setIsEditSubModalOpen(true);
+  };
+
+  // Submit edited subscription update via PATCH
+  const handleEditSubSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSub) return;
+
+    if (!addSubStartDate) {
+      alert("Please select a start date.");
+      return;
+    }
+    if (addSubEndDate && new Date(addSubEndDate) < new Date(addSubStartDate)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+    if (addSubFrequency === "custom" && addSubCustomDays.length === 0) {
+      alert("Please select at least one day for custom frequency.");
+      return;
+    }
+    const validItems = addSubItems.filter((item) => item.product && item.quantity > 0);
+    if (validItems.length === 0) {
+      alert("Please add at least one valid product.");
+      return;
+    }
+    const productIds = validItems.map((item) => item.product);
+    if (productIds.some((val, i) => productIds.indexOf(val) !== i)) {
+      alert("You have duplicate product selections. Please combine or select different products.");
+      return;
+    }
+
+    setIsEditSubSubmitLoading(true);
+    try {
+      await customerApi.updateSubscription(editingSub.id, {
+        frequency: addSubFrequency,
+        custom_days: addSubFrequency === "custom" ? addSubCustomDays : [],
+        start_date: addSubStartDate,
+        end_date: addSubEndDate || null,
+        delivery_address: addSubDeliveryAddress,
+        special_instructions: addSubSpecialInstructions,
+        items: validItems.map((item) => ({ product: item.product, quantity: item.quantity })),
+      });
+      await fetchCustomerSubscriptions();
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+      setIsEditSubModalOpen(false);
+      setEditingSub(null);
+    } catch (error) {
+      console.error("Failed to update subscription:", error);
+      alert("Failed to update subscription. Please verify inputs and try again.");
+    } finally {
+      setIsEditSubSubmitLoading(false);
+    }
+  };
+
+  // Delete subscription handler
+  const handleDeleteSub = async (subId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this subscription? This cannot be undone.")) return;
+    try {
+      await customerApi.deleteSubscription(subId);
+      await fetchCustomerSubscriptions();
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+    } catch (error) {
+      console.error("Failed to delete subscription:", error);
+      alert("Failed to delete subscription. Please try again.");
+    }
   };
 
   // Fetch orders
@@ -1310,8 +1452,27 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                             </span>
                           </div>
 
+                          <div className="flex items-center gap-2">
+                            {/* Edit & Delete quick actions */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditSubModal(sub)}
+                              className="flex-1 py-2 px-3 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary rounded-xl text-[10px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSub(sub.id)}
+                              className="py-2 px-3 border border-red-200 bg-red-50 hover:bg-red-100/60 text-red-600 rounded-xl text-[10px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                              title="Delete Subscription"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+
                           {sub.status === "active" && (
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2">
                               {sub.is_paused ? (
                                 <button
                                   type="button"
@@ -2109,7 +2270,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
             return (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="border-b border-silver/30 pb-4 flex justify-between items-center">
+                <div className="border-b border-silver/30 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h3 className="text-lg font-bold text-charcoal tracking-tight flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-primary" />
@@ -2119,24 +2280,32 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       Day-by-day drop status mapping and vacation paused timelines for {customer.name}.
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl shrink-0">
-                    <span className="text-xs font-bold text-charcoal/80 px-2">
-                      {monthNames[month]} {year}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
                     <button
-                      onClick={handlePrevMonth}
-                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                      title="Previous Month"
+                      onClick={handleOpenGlobalLeaveModal}
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer border border-amber-600"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" /> Add Vacation / Leave
                     </button>
-                    <button
-                      onClick={handleNextMonth}
-                      className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                      title="Next Month"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl">
+                      <span className="text-xs font-bold text-charcoal/80 px-2">
+                        {monthNames[month]} {year}
+                      </span>
+                      <button
+                        onClick={handlePrevMonth}
+                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                        title="Previous Month"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleNextMonth}
+                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                        title="Next Month"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2162,9 +2331,21 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       let bg = "bg-silver/10 text-charcoal/30";
                       let title = "Scheduled";
 
+                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const isPausedDay = subscriptions.some((sub) =>
+                        sub.is_paused &&
+                        sub.pause_start &&
+                        sub.pause_end &&
+                        sub.pause_start <= dateStr &&
+                        dateStr <= sub.pause_end
+                      );
+
                       const isMay2026 = year === 2026 && month === 4;
 
-                      if (isMay2026) {
+                      if (isPausedDay) {
+                        bg = "bg-amber-500/15 text-amber-800 font-extrabold border border-amber-500/30 hover:bg-amber-500/25";
+                        title = "Vacation / Leave Day";
+                      } else if (isMay2026) {
                         if (day < 18) {
                           bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
                           title = "Delivered";
@@ -2208,12 +2389,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       <span className="text-charcoal/60">Failed Delivery Attempts</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
+                      <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/30 block" />
+                      <span className="text-charcoal/60">Vacation / Leave Days</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
                       <span className="w-3.5 h-3.5 rounded bg-primary/5 border border-primary/20 block" />
                       <span className="text-charcoal/60">Upcoming scheduled Drops</span>
                     </div>
-                  </div>
                 </div>
               </div>
+            </div>
             );
           })()}
         </div>
@@ -2296,6 +2481,90 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   {isPauseSubmitLoading ? "Pausing..." : "Confirm Pause"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Global Vacation / Leave Modal */}
+      {isGlobalLeaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-cream/20 border-b border-silver/30 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Schedule Customer Leave / Vacation
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  Set leave date range for {customer.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGlobalLeaveModalOpen(false)}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleGlobalLeaveSubmit} className="p-6 space-y-5">
+              <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex gap-3 text-xs text-amber-800">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Important Notice</p>
+                  <p className="text-[11px] font-semibold text-charcoal/60 leading-relaxed">
+                    This will pause ALL active subscriptions for {customer.name} during the selected period. No deliveries will be scheduled or charged. Active subscriptions will automatically resume after the end date.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={globalLeaveStart}
+                    onChange={(e) => setGlobalLeaveStart(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={globalLeaveEnd}
+                    onChange={(e) => setGlobalLeaveEnd(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-silver/30">
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalLeaveModalOpen(false)}
+                  className="px-4 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isGlobalLeaveSubmitLoading}
+                  className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isGlobalLeaveSubmitLoading ? "Scheduling..." : "Schedule Leave"}
                 </button>
               </div>
             </form>
@@ -2574,6 +2843,245 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                   >
                     {isAddSubSubmitLoading ? "Creating..." : "Create Subscription"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Subscription Modal */}
+      {isEditSubModalOpen && editingSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-silver/50 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-primary/10 via-primary/5 to-cream/20 border-b border-silver/30 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="font-black text-charcoal text-sm uppercase tracking-wider">
+                  Edit Subscription
+                </h3>
+                <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
+                  ID: #{editingSub.id.substring(0, 8).toUpperCase()} · {editingSub.frequency_display}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleEditSubSubmit} className="overflow-y-auto flex-1 custom-scrollbar">
+              <div className="p-6 space-y-6">
+                {/* 1. Schedule Configuration */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    1. Delivery Schedule
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Frequency
+                      </label>
+                      <select
+                        value={addSubFrequency}
+                        onChange={(e) => setAddSubFrequency(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                      >
+                        <option value="daily">Daily Delivery</option>
+                        <option value="alternate">Alternate Days</option>
+                        <option value="weekdays">Mon - Fri (Weekdays)</option>
+                        <option value="weekends">Sat - Sun (Weekends)</option>
+                        <option value="custom">Custom Days of Week</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={addSubStartDate}
+                          onChange={(e) => setAddSubStartDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                          End Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={addSubEndDate}
+                          onChange={(e) => setAddSubEndDate(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {addSubFrequency === "custom" && (
+                    <div className="space-y-2 p-4 bg-silver/5 border border-silver/30 rounded-2xl">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Select Days of Delivery
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { val: 0, label: "Mon" }, { val: 1, label: "Tue" },
+                          { val: 2, label: "Wed" }, { val: 3, label: "Thu" },
+                          { val: 4, label: "Fri" }, { val: 5, label: "Sat" },
+                          { val: 6, label: "Sun" },
+                        ].map((day) => {
+                          const isSelected = addSubCustomDays.includes(day.val);
+                          return (
+                            <button
+                              key={day.val}
+                              type="button"
+                              onClick={() => handleToggleCustomDay(day.val)}
+                              className={`px-4 py-2 border rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                                isSelected ? "bg-primary text-white border-primary shadow-xs" : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Items */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center border-b border-silver/20 pb-2">
+                    <h4 className="text-xs font-black text-charcoal uppercase tracking-wider">
+                      2. Subscription Items
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleAddSubItemRow}
+                      className="flex items-center gap-1 text-[10px] font-black text-primary hover:text-primary/80 uppercase tracking-wider cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Item
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {addSubItems.map((item, index) => (
+                      <div key={index} className="flex items-end gap-3 p-3 bg-silver/5 border border-silver/30 rounded-2xl hover:border-silver/60 transition-colors">
+                        <div className="flex-1 space-y-1.5">
+                          <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider">
+                            Product
+                          </label>
+                          <select
+                            required
+                            value={item.product}
+                            onChange={(e) => handleUpdateSubItemRow(index, "product", e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                          >
+                            <option value="">Select a product...</option>
+                            {productsList.map((p) => {
+                              const price = getProductPrice(p.id);
+                              const isAlreadySelected = addSubItems.some((it, idx) => it.product === p.id && idx !== index);
+                              return (
+                                <option key={p.id} value={p.id} disabled={isAlreadySelected}>
+                                  {p.name} - ₹{price.toFixed(2)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="w-24 space-y-1.5 shrink-0">
+                          <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider block">
+                            Qty
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateSubItemRow(index, "quantity", parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                          />
+                        </div>
+                        {addSubItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubItemRow(index)}
+                            className="p-2.5 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl transition-colors cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Delivery Details */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-charcoal uppercase tracking-wider border-b border-silver/20 pb-2">
+                    3. Delivery Details &amp; Notes
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Delivery Address Override
+                      </label>
+                      <textarea
+                        value={addSubDeliveryAddress}
+                        onChange={(e) => setAddSubDeliveryAddress(e.target.value)}
+                        rows={2}
+                        placeholder="Default customer address is used if blank..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                        Special Instructions
+                      </label>
+                      <textarea
+                        value={addSubSpecialInstructions}
+                        onChange={(e) => setAddSubSpecialInstructions(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Leave at door, call before delivery..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-5 bg-silver/5 border-t border-silver/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+                <div>
+                  <p className="text-[10px] font-bold text-charcoal/40 uppercase tracking-wider">
+                    Estimated Cost per Delivery
+                  </p>
+                  <p className="text-lg font-black text-primary">
+                    ₹{addSubItems.reduce((acc, item) => acc + (item.quantity || 0) * getProductPrice(item.product), 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                    className="px-5 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isEditSubSubmitLoading}
+                    className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isEditSubSubmitLoading ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </div>

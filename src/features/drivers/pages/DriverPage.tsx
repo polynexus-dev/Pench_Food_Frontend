@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw } from "lucide-react";
+import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw, Building2 } from "lucide-react";
 import { driverApi } from "../api/driverApi";
 import type { Driver } from "../components/types";
 import CreateDriverModal from "../components/CreateDriverModal";
@@ -177,6 +177,16 @@ const DriverPage: React.FC = () => {
                     <span className="text-sm font-bold text-charcoal font-mono">{driver.vehicle_plate}</span>
                   </div>
 
+                  {driver.warehouse_name && (
+                    <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/10 rounded-2xl">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-3.5 h-3.5 text-primary/60" />
+                        <span className="text-xs font-black text-primary/60 uppercase tracking-widest">Assigned Hub</span>
+                      </div>
+                      <span className="text-xs font-black text-primary uppercase">{driver.warehouse_name}</span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 border border-silver/30 rounded-2xl">
                       <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest mb-1">Type</p>
@@ -231,7 +241,18 @@ const DriverPage: React.FC = () => {
                         </div>
                         <div>
                           <p className="text-sm font-black text-charcoal">{driver.full_name}</p>
-                          <p className="text-[10px] text-charcoal/40 font-bold uppercase">ID: #{driver.user}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-charcoal/40 font-bold uppercase">ID: #{driver.user}</span>
+                            {driver.warehouse_name && (
+                              <>
+                                <span className="text-charcoal/30 text-[10px]">•</span>
+                                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase text-primary tracking-wider bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">
+                                  <Building2 className="w-2.5 h-2.5" />
+                                  {driver.warehouse_name}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>

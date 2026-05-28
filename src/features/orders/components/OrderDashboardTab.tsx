@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import type { OrderStats } from "./types";
 import { CheckCircle2, Clock, IndianRupee, ShoppingCart, TrendingUp, Truck } from "lucide-react";
 
@@ -7,6 +8,8 @@ interface OrderDashboardTabProps {
 }
 
 const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* 1. Metric Grid */}
@@ -17,6 +20,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
           icon={ShoppingCart} 
           bgColor="bg-primary/10"
           iconColor="text-primary"
+          onClick={() => navigate("/orders")}
         />
         <StatCard 
           label="Pending Dispatch" 
@@ -24,6 +28,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
           icon={Clock} 
           bgColor="bg-amber-100"
           iconColor="text-amber-600"
+          onClick={() => navigate("/orders")}
         />
         <StatCard 
           label="Completed" 
@@ -31,6 +36,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
           icon={CheckCircle2} 
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
+          onClick={() => navigate("/orders")}
         />
         <StatCard 
           label="Revenue" 
@@ -38,6 +44,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
           icon={IndianRupee} 
           bgColor="bg-indigo-100"
           iconColor="text-indigo-600"
+          onClick={() => navigate("/finance")}
         />
       </div>
 
@@ -99,8 +106,11 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
   );
 };
 
-const StatCard = ({ label, value, icon: Icon, bgColor, iconColor }: any) => (
-  <div className="bg-white p-6 rounded-[28px] border border-silver/50 shadow-xs flex items-center gap-5 hover:shadow-md transition-all group">
+const StatCard = ({ label, value, icon: Icon, bgColor, iconColor, onClick }: any) => (
+  <button 
+    onClick={onClick}
+    className="w-full text-left bg-white p-6 rounded-[28px] border border-silver/50 shadow-xs flex items-center gap-5 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all group cursor-pointer focus:outline-none"
+  >
     <div className={`w-14 h-14 ${bgColor} rounded-2xl flex items-center justify-center shrink-0 shadow-sm`}>
       <Icon className={`w-7 h-7 ${iconColor}`} />
     </div>
@@ -108,7 +118,7 @@ const StatCard = ({ label, value, icon: Icon, bgColor, iconColor }: any) => (
       <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest">{label}</p>
       <p className="text-2xl font-black text-charcoal mt-0.5">{value}</p>
     </div>
-  </div>
+  </button>
 );
 
 export default OrderDashboardTab;

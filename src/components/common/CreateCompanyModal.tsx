@@ -6,7 +6,7 @@ import { CustomInput } from './CustomInput';
 interface CreateCompanyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (company?: any) => void;
   isDismissible?: boolean;
 }
 
@@ -34,16 +34,12 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     setError(null);
 
     try {
-      console.log('CreateCompanyModal: Sending create request for:', { name, code });
       const newCompany = await companyApi.createCompany(name.trim(), code.trim());
-      console.log('CreateCompanyModal: Successfully created company:', newCompany);
       setName('');
       setCode('');
       
       // Dispatch a custom event to notify other layout components (e.g. Sidebar)
-      console.log('CreateCompanyModal: Dispatching company-created event with:', newCompany);
       window.dispatchEvent(new CustomEvent('company-created', { detail: newCompany }));
-      console.log('CreateCompanyModal: Event dispatched.');
 
       if (onSuccess) {
         onSuccess(newCompany);

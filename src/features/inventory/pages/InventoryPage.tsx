@@ -36,6 +36,10 @@ const InventoryPage: React.FC = () => {
   const [bottleSummary, setBottleSummary] =
     useState<BottleTrackingSummaryResponse | null>(null);
   const [isBottleLoading, setIsBottleLoading] = useState<boolean>(false);
+  const [selectedBottleDate, setSelectedBottleDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("all");
 
   // Optimization simulation state for enhanced dynamic appeal inside dashboard
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
@@ -73,14 +77,24 @@ const InventoryPage: React.FC = () => {
     }
   };
 
-  const fetchBottleSummary = async (silent = false) => {
+  const fetchBottleSummary = async (
+    silent = false,
+    date = selectedBottleDate,
+    warehouseId = selectedWarehouseId
+  ) => {
     if (!silent) {
       setIsBottleLoading(true);
     }
     try {
-      const response = await axiosInstance.get<BottleTrackingSummaryResponse>(
-        "/erp/inventory/bottle-transactions/summary/",
-      );
+      let url = "/erp/inventory/bottle-transactions/summary/";
+      const params = new URLSearchParams();
+      if (date) params.append("date", date);
+      if (warehouseId && warehouseId !== "all") params.append("warehouse", warehouseId);
+      
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+
+      const response = await axiosInstance.get<BottleTrackingSummaryResponse>(url);
       setBottleSummary(response.data);
     } catch (err) {
       console.error("Failed to fetch returnable containers summary desk:", err);
@@ -96,9 +110,9 @@ const InventoryPage: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === "bottles") {
-      fetchBottleSummary();
+      fetchBottleSummary(false, selectedBottleDate, selectedWarehouseId);
     }
-  }, [activeTab, tenant]);
+  }, [activeTab, tenant, selectedBottleDate, selectedWarehouseId]);
 
   // Compute filtering sets dynamically
   const filteredProducts = useMemo(() => {
@@ -187,7 +201,7 @@ const InventoryPage: React.FC = () => {
           <button
             onClick={() => {
               if (activeTab === "bottles") {
-                fetchBottleSummary(false);
+                fetchBottleSummary(false, selectedBottleDate, selectedWarehouseId);
               } else {
                 fetchInventory(false);
               }
@@ -311,7 +325,11 @@ const InventoryPage: React.FC = () => {
         <InventoryBottleTrackingTab
           summary={bottleSummary}
           isLoading={isBottleLoading}
-          onRefresh={() => fetchBottleSummary(true)}
+          selectedDate={selectedBottleDate}
+          onDateChange={setSelectedBottleDate}
+          selectedWarehouseId={selectedWarehouseId}
+          onWarehouseChange={setSelectedWarehouseId}
+          onRefresh={() => fetchBottleSummary(true, selectedBottleDate, selectedWarehouseId)}
         />
       )}
     </div>

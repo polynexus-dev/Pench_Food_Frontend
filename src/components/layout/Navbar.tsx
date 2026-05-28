@@ -1,24 +1,37 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
-import { companyApi } from "../../api/companyApi";
+import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
-import { Bell, Search, LogOut, MapPin, ChevronDown, Settings } from "lucide-react";
+import { Bell, Search, LogOut, MapPin, ChevronDown, Settings, Trash2 } from "lucide-react";
+import { useNotificationStore } from "../../store/useNotificationStore";
 
 const Navbar = () => {
   const { logout, user, tenant, setTenant, companyId } = useAuthStore();
-  const [cities, setCities] = useState<City[]>([]);
-  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const { notifications, markAllAsRead, clearNotifications } = useNotificationStore();
+  const { companies, fetchCompanies } = useCompanyStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
 
   const showSettings = !!user;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Close dropdown when clicking outside
+  // Derive cities from the shared company store instead of fetching independently
+  const activeCompanies = companies.filter((c) => c.is_active);
+  const activeCompany = companies.find((c) => c.id === companyId) || activeCompanies[0];
+  const cities: City[] = activeCompany?.cities || [];
+  const isLoadingCities = companies.length === 0;
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -34,40 +47,21 @@ const Navbar = () => {
 
   const selectedCity = cities.find((c) => c.schema_name === tenant) || cities[0];
 
+  // When companyId changes, ensure companies are loaded (uses cache if fresh)
   useEffect(() => {
-    const fetchCompanyCities = async () => {
-      setIsLoadingCities(true);
-      try {
-        const companies = await companyApi.getCompanies();
-        
-        // Find the active company (either the stored one or the first active one)
-        let activeCompany = companies.find((c) => c.id === companyId && c.is_active);
-        if (!activeCompany && companies.length > 0) {
-          activeCompany = companies.find((c) => c.is_active);
-        }
+    fetchCompanies();
+  }, [companyId, fetchCompanies]);
 
-        if (activeCompany) {
-          const companyCities = activeCompany.cities || [];
-          setCities(companyCities);
-
-          // Ensure tenant matches one of this company's cities
-          const citySchemas = companyCities.map((c: City) => c.schema_name);
-          if (companyCities.length > 0 && (!tenant || !citySchemas.includes(tenant))) {
-            setTenant(companyCities[0].schema_name);
-          }
-        } else {
-          setCities([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch company cities:", error);
-      } finally {
-        setIsLoadingCities(false);
+  // Auto-select city if stored tenant is missing or not in this company's cities
+  useEffect(() => {
+    if (cities.length > 0) {
+      const citySchemas = cities.map((c: City) => c.schema_name);
+      if (!tenant || !citySchemas.includes(tenant)) {
+        setTenant(cities[0].schema_name);
       }
-    };
-
-    fetchCompanyCities();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [companyId, cities.length]);
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-10 shrink-0 sticky top-0 z-20 shadow-sm">
@@ -83,7 +77,7 @@ const Navbar = () => {
       <div className="flex items-center gap-6">
         {/* City Selector */}
         <div className="relative" ref={dropdownRef}>
-          {user?.role?.toLowerCase() === "customer" || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver" ? (
+          {((user?.role?.toLowerCase() === "customer" || user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver") && !user?.is_superuser && !user?.is_staff) ? (
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-silver/10 rounded-2xl border border-silver/30 select-none">
               <div className="p-1 bg-white rounded-lg shadow-sm">
                 <MapPin className="w-3.5 h-3.5 text-charcoal/50" />
@@ -140,10 +134,76 @@ const Navbar = () => {
         </div>
 
         {/* Notifications */}
-        <button className="p-3 text-charcoal/40 hover:text-primary hover:bg-primary/5 rounded-2xl relative transition-all group">
-          <Bell className="w-5 h-5 group-hover:animate-swing" />
-          <span className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border-2 border-white ring-2 ring-red-500/20"></span>
-        </button>
+        <div className="relative" ref={notificationRef}>
+          <button
+            onClick={() => {
+              setIsNotificationsOpen(!isNotificationsOpen);
+              if (!isNotificationsOpen) {
+                markAllAsRead();
+              }
+            }}
+            className="p-3 text-charcoal/40 hover:text-primary hover:bg-primary/5 rounded-2xl relative transition-all group cursor-pointer"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5 group-hover:animate-swing" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+            )}
+          </button>
+
+          {isNotificationsOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-silver/50 rounded-2xl shadow-xl py-3 z-50 animate-in fade-in slide-in-from-top-3 duration-250 text-left">
+              <div className="flex items-center justify-between px-4 pb-2 border-b border-silver/20 mb-2">
+                <span className="text-xs font-bold text-charcoal">Notifications</span>
+                {notifications.length > 0 && (
+                  <button
+                    onClick={() => {
+                      clearNotifications();
+                      setIsNotificationsOpen(false);
+                    }}
+                    className="text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-80 overflow-y-auto px-1 space-y-1">
+                {notifications.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-charcoal/40 font-bold">
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.map((n) => {
+                    let typeDot = "bg-primary";
+                    if (n.type === "success") typeDot = "bg-emerald-500";
+                    if (n.type === "error") typeDot = "bg-rose-500";
+                    if (n.type === "warning") typeDot = "bg-amber-500";
+                    return (
+                      <div
+                        key={n.id}
+                        className="p-3 hover:bg-silver/10 rounded-xl transition-all border border-transparent hover:border-silver/20 flex gap-2.5"
+                      >
+                        <div className="mt-1">
+                          <span className={`w-2 h-2 rounded-full block ${typeDot}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-charcoal leading-snug">{n.title}</p>
+                          <p className="text-[10px] text-charcoal/60 leading-normal mt-0.5 whitespace-pre-wrap">{n.message}</p>
+                          <p className="text-[8px] text-charcoal/30 font-black uppercase tracking-wider mt-1">{n.timestamp}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Settings */}
         {showSettings && (

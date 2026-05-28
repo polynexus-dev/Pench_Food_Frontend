@@ -66,9 +66,11 @@ export interface Route {
   is_locked?: boolean;
   route_geometry: any;
   stops: Stop[];
-  status: "pending" | "started" | "in_progress" | "in_transit" | "completed" | "stopped";
+  status: "pending" | "started" | "in_progress" | "in_transit" | "completed" | "stopped" | "active";
   dispatch_bottles_1L?: number;
   dispatch_bottles_500ml?: number;
   started_at?: string | null;
   completed_at?: string | null;
+  additional_drivers?: number[];
+  additional_driver_names?: string[];
 }

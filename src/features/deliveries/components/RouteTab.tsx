@@ -11,21 +11,41 @@ import {
   Phone,
   Building2,
   MapPin,
-  FileText,
   AlertTriangle,
-  Clock,
-  Sparkles,
-  ShoppingBag,
   Layers,
   ChevronRight,
-  TrendingUp,
   Activity,
   Image as ImageIcon,
-  X
+  Plus,
+  Minus,
+  X,
+  Boxes
 } from "lucide-react";
 import type { Route, Stop, Driver } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
 import { useAuthStore } from "../../../store/useAuthStore";
+import axiosInstance from "../../../api/axiosInstance";
+
+interface BottleType {
+  id: string;
+  name: string;
+  deposit_amount: string;
+  volume_ml: number;
+  is_active: boolean;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  unit_price: string;
+  unit: string;
+  is_active: boolean;
+  bottle_type: string | null;
+  bottle_type_name?: string | null;
+  is_returnable: boolean;
+}
 
 interface RouteTabProps {
   routes: Route[];
@@ -40,6 +60,94 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  // Helper to format dates to YYYY-MM-DD in user's local timezone
+  const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [filterDate, setFilterDate] = useState<string>(() => getLocalDateStr());
+  const [filterDriver, setFilterDriver] = useState<string>("all");
+
+  // Local optimistic state for backup drivers to ensure instantaneous checkbox response
+  const [localAdditionalDrivers, setLocalAdditionalDrivers] = useState<number[]>([]);
+
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [isSubmittingDelivery, setIsSubmittingDelivery] = useState(false);
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [deliveryTransactions, setDeliveryTransactions] = useState<Record<string, { issued: number; returned: number; broken: number }>>({});
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [btRes, prodRes] = await Promise.all([
+          axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/"),
+          axiosInstance.get<Product[]>("/erp/inventory/products/")
+        ]);
+        setBottleTypes(Array.isArray(btRes.data) ? btRes.data.filter(b => b.is_active) : []);
+        setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+      } catch (err) {
+        console.error("Failed to fetch initial bottle/product data", err);
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  const openDeliveryForm = (stop: Stop) => {
+    const initialTxns: Record<string, { issued: number; returned: number; broken: number }> = {};
+    
+    bottleTypes.forEach(bt => {
+      initialTxns[bt.id] = { issued: 0, returned: 0, broken: 0 };
+    });
+
+    if (stop.product_list) {
+      stop.product_list.forEach((item) => {
+        const prod = products.find(p => p.id === item.product_id);
+        if (prod && prod.is_returnable && prod.bottle_type) {
+          const btId = prod.bottle_type;
+          if (initialTxns[btId]) {
+            initialTxns[btId].issued += item.quantity;
+            initialTxns[btId].returned += item.quantity;
+          }
+        }
+      });
+    }
+
+    setDeliveryTransactions(initialTxns);
+    setShowDeliveryModal(true);
+  };
+
+  const handleSubmitDelivery = async () => {
+    if (!selectedStop) return;
+    setIsSubmittingDelivery(true);
+    try {
+      const txnsPayload = Object.entries(deliveryTransactions)
+        .map(([btId, counts]) => ({
+          bottle_type_id: btId,
+          issued: counts.issued,
+          returned: counts.returned,
+          broken: counts.broken,
+        }))
+        .filter(t => t.issued > 0 || t.returned > 0 || t.broken > 0);
+
+      await axiosInstance.post(`/erp/orders/driver/${selectedStop.order}/submit-delivery/`, {
+        bottle_transactions: txnsPayload,
+        bottles_issued: txnsPayload.reduce((sum, t) => sum + t.issued, 0),
+        bottles_returned: txnsPayload.reduce((sum, t) => sum + t.returned, 0),
+      });
+
+      setShowDeliveryModal(false);
+      onRefresh?.();
+    } catch (err) {
+      alert("Failed to submit delivery details: " + (err as any).message);
+    } finally {
+      setIsSubmittingDelivery(false);
+    }
+  };
 
   const user = useAuthStore((state) => state.user);
   const isAuthorized = useMemo(() => {
@@ -68,6 +176,15 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     setIsEditingDriver(false);
   }, [selectedRouteId]);
 
+  // Sync local backup drivers state with selected route's data
+  useEffect(() => {
+    if (selectedRoute) {
+      setLocalAdditionalDrivers(selectedRoute.additional_drivers || []);
+    } else {
+      setLocalAdditionalDrivers([]);
+    }
+  }, [selectedRoute?.id, selectedRoute?.driver, isEditingDriver]);
+
   // Map State
   const [zoom, setZoom] = useState<number>(13);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
@@ -77,6 +194,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   const [isManualPan, setIsManualPan] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const draggedRef = useRef(false);
 
   // Sync map center with selected stop or selected route
   useEffect(() => {
@@ -197,6 +315,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     if (e.button !== 0) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
+    draggedRef.current = false;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -204,6 +323,9 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     setIsManualPan(true);
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      draggedRef.current = true;
+    }
     setDragStart({ x: e.clientX, y: e.clientY });
 
     const getTileCount = (z: number) => Math.pow(2, z);
@@ -224,15 +346,19 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((r) => {
-      return (
+      const matchesSearch =
         r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.driver_name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        r.driver_name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesDate = !filterDate || r.delivery_date === filterDate;
+      const matchesDriver = filterDriver === "all" || String(r.driver) === filterDriver;
+      
+      return matchesSearch && matchesDate && matchesDriver;
     });
-  }, [routes, searchQuery]);
+  }, [routes, searchQuery, filterDate, filterDriver]);
 
   const sortedRoutes = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateStr();
 
     return [...filteredRoutes].sort((a, b) => {
       if (a.delivery_date === todayStr && b.delivery_date !== todayStr) {
@@ -260,18 +386,36 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     });
   }, [filteredRoutes]);
 
+  // Group stops by coordinates to handle multiple customers at the exact same location
+  const groupedStops = useMemo(() => {
+    if (!selectedRoute?.stops) return [];
+    const groups: Record<string, Stop[]> = {};
+    selectedRoute.stops.forEach((stop) => {
+      // Group exact overlapping coordinates using 6 decimals (approx 10cm accuracy)
+      const key = `${stop.latitude.toFixed(6)},${stop.longitude.toFixed(6)}`;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(stop);
+    });
+    return Object.values(groups).map((stopsList) => ({
+      latitude: stopsList[0].latitude,
+      longitude: stopsList[0].longitude,
+      stops: stopsList,
+    }));
+  }, [selectedRoute?.stops]);
+
   const getFriendlyDateLabel = (dateStr: string) => {
     const today = new Date();
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-    const todayStr = formatDate(today);
+    const todayStr = getLocalDateStr(today);
     
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
-    const tomorrowStr = formatDate(tomorrow);
+    const tomorrowStr = getLocalDateStr(tomorrow);
 
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
-    const yesterdayStr = formatDate(yesterday);
+    const yesterdayStr = getLocalDateStr(yesterday);
 
     if (dateStr === todayStr) return "Today";
     if (dateStr === tomorrowStr) return "Tomorrow";
@@ -301,19 +445,28 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
   // Helper for delivery status badge colors
   const getStatusBadgeStyle = (status?: string) => {
-    switch (status) {
+    const normalised = status?.toLowerCase();
+    switch (normalised) {
       case "delivered":
         return "bg-emerald-50 border-emerald-500/20 text-emerald-700";
+      case "undelivered":
+        return "bg-rose-50 border-rose-500/20 text-rose-700";
+      case "in_transit":
+      case "dispatched":
+        return "bg-amber-50 border-amber-500/20 text-amber-700 animate-pulse";
       case "pending":
       case "confirmed":
-        return "bg-amber-50 border-amber-500/20 text-amber-700 animate-pulse";
-      case "dispatched":
-      case "in_transit":
+        return "bg-slate-100 border-slate-500/10 text-slate-600";
+      case "scheduled":
         return "bg-blue-50 border-blue-500/20 text-blue-700";
-      case "cancelled":
-        return "bg-rose-50 border-rose-500/20 text-rose-700";
+      case "vacation":
+        return "bg-orange-50 border-orange-500/20 text-orange-700";
+      case "skipped":
+        return "bg-zinc-200 border-zinc-500/30 text-zinc-800";
+      case "off_day":
+        return "bg-zinc-50 border-zinc-500/10 text-zinc-400";
       default:
-        return "bg-silver/10 border-silver/30 text-charcoal/50";
+        return "bg-slate-100 border-slate-500/10 text-slate-500";
     }
   };
 
@@ -326,7 +479,9 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
       case "in_progress":
       case "in_transit":
       case "started":
-        return { text: "Trip In Progress", style: "bg-amber-100 border-amber-300 text-amber-800 animate-pulse" };
+      case "in_transit":
+      case "active":
+        return { text: "In Transit", style: "bg-emerald-50 border-emerald-500/25 text-emerald-800 font-black shadow-2xs" };
       case "stopped":
         return { text: "Trip Stopped", style: "bg-rose-100 border-rose-300 text-rose-800" };
       default:
@@ -385,6 +540,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               
               {isEditingDriver ? (
                 <div className="flex flex-col gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-charcoal/50">Primary Driver:</span>
                   <select
                     value={selectedRoute.driver || ""}
                     onChange={async (e) => {
@@ -392,7 +548,6 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       if (!newDriverUserId) return;
                       try {
                         await deliveryApi.updateRoute(selectedRoute.id, { driver: newDriverUserId });
-                        setIsEditingDriver(false);
                         onRefresh?.();
                       } catch (err) {
                         alert("Failed to update driver: " + (err as any).message);
@@ -407,28 +562,88 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       </option>
                     ))}
                   </select>
+
+                  <div className="flex flex-col gap-1.5 mt-2 border-t border-silver/30 pt-2">
+                    <span className="text-[10px] font-bold text-charcoal/50">Backup Drivers (Emergency):</span>
+                    <div className="max-h-32 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                      {drivers
+                        .filter((d) => d.user !== selectedRoute.driver)
+                        .map((d) => {
+                          const isChecked = localAdditionalDrivers.includes(d.user);
+                          return (
+                            <label key={d.id} className="flex items-center gap-2 text-xs font-semibold text-charcoal cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={async (e) => {
+                                  let newAdditional = [...localAdditionalDrivers];
+                                  if (e.target.checked) {
+                                    newAdditional.push(d.user);
+                                  } else {
+                                    newAdditional = newAdditional.filter((id) => id !== d.user);
+                                  }
+                                  // Update local state instantly for immediate feedback
+                                  setLocalAdditionalDrivers(newAdditional);
+                                  try {
+                                    await deliveryApi.updateRoute(selectedRoute.id, { additional_drivers: newAdditional });
+                                    onRefresh?.();
+                                  } catch (err) {
+                                    alert("Failed to update backup drivers: " + (err as any).message);
+                                    // Rollback on failure
+                                    setLocalAdditionalDrivers(selectedRoute.additional_drivers || []);
+                                  }
+                                }}
+                                className="rounded text-primary focus:ring-primary/30 w-3.5 h-3.5 border-silver/60"
+                              />
+                              <span>{d.full_name}</span>
+                            </label>
+                          );
+                        })}
+                      {drivers.filter((d) => d.user !== selectedRoute.driver).length === 0 && (
+                        <span className="text-[10px] text-charcoal/40 font-medium">No backup drivers available</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
-                    <User className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-charcoal">
-                      {selectedRoute.driver_name || "Unassigned"}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
+                      <User className="w-4.5 h-4.5" />
                     </div>
-                    {(() => {
-                      const drvObj = drivers.find(d => d.user === selectedRoute.driver);
-                      if (drvObj) {
-                        return (
-                          <div className="text-[10px] font-semibold text-charcoal/50 mt-0.5">
-                            {drvObj.vehicle_type} — {drvObj.vehicle_plate}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                    <div>
+                      <div className="text-xs font-bold text-charcoal">
+                        {selectedRoute.driver_name || "Unassigned"}
+                      </div>
+                      {(() => {
+                        const drvObj = drivers.find((d) => d.user === selectedRoute.driver);
+                        if (drvObj) {
+                          return (
+                            <div className="text-[10px] font-semibold text-charcoal/50 mt-0.5">
+                              {drvObj.vehicle_type} — {drvObj.vehicle_plate}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                   </div>
+
+                  {selectedRoute.additional_driver_names && selectedRoute.additional_driver_names.length > 0 && (
+                    <div className="mt-2 border-t border-silver/30 pt-2">
+                      <span className="text-[9px] font-black uppercase text-charcoal/45 tracking-wider block mb-1">
+                        Backup Drivers
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedRoute.additional_driver_names.map((name, i) => (
+                          <span key={i} className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-800 text-[10px] font-bold rounded-lg flex items-center gap-1">
+                            <User className="w-2.5 h-2.5 text-amber-600" />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -437,7 +652,14 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
             <div className={`p-4 border rounded-2xl mb-4 flex flex-col gap-1.5 ${getTripStatusLabel(selectedRoute).style}`}>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5" />
+                  {(selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "active") ? (
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                  ) : (
+                    <Activity className="w-3.5 h-3.5" />
+                  )}
                   {getTripStatusLabel(selectedRoute).text}
                 </span>
                 <span className="text-[9px] opacity-75 font-semibold">
@@ -449,6 +671,8 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               <div className="text-[10px] font-semibold opacity-85 space-y-0.5 mt-1 border-t border-current/15 pt-2">
                 {selectedRoute.started_at ? (
                   <div>Started: {new Date(selectedRoute.started_at).toLocaleTimeString()}</div>
+                ) : (selectedRoute.status === "in_transit" || selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "active") ? (
+                  <div>Trip is currently in progress.</div>
                 ) : (
                   <div>Rider has not tapped Start Trip yet.</div>
                 )}
@@ -459,7 +683,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
               {/* Admin Trip Actions */}
               <div className="mt-3 pt-2 border-t border-current/15 flex gap-2">
-                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit") ? (
+                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit" || selectedRoute.status === "active") ? (
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -504,6 +728,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                     key={stop.id}
                     onClick={() => {
                       setSelectedStopId(stop.id);
+                      setMapCenter({ lat: stop.latitude, lng: stop.longitude });
                       setIsManualPan(false);
                     }}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-center gap-3 ${
@@ -554,8 +779,8 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
         ) : (
           /* Render standard Route List sidebar when no Route is selected */
           <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
-            {/* Search Header */}
-            <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm shrink-0">
+            {/* Search & Filter Header */}
+            <div className="bg-white p-4 rounded-3xl border border-silver/50 shadow-sm shrink-0 flex flex-col gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
                 <input
@@ -565,6 +790,56 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Date Filter */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center px-0.5">
+                    <label className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Date</label>
+                    {filterDate && (
+                      <button
+                        onClick={() => setFilterDate("")}
+                        className="text-[9px] font-bold text-primary hover:underline cursor-pointer"
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal cursor-pointer"
+                  />
+                </div>
+
+                {/* Driver Filter */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center px-0.5">
+                    <label className="text-[10px] font-black uppercase text-charcoal/40 tracking-wider">Driver</label>
+                    {filterDriver !== "all" && (
+                      <button
+                        onClick={() => setFilterDriver("all")}
+                        className="text-[9px] font-bold text-primary hover:underline cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={filterDriver}
+                    onChange={(e) => setFilterDriver(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal cursor-pointer"
+                  >
+                    <option value="all">All Drivers</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.user}>
+                        {d.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -596,9 +871,15 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                         {getFriendlyDateLabel(route.delivery_date)}
                       </span>
 
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
                         getTripStatusLabel(route).style
                       }`}>
+                        {(route.status === "in_transit" || route.status === "started" || route.status === "in_progress" || route.status === "active") && (
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                        )}
                         {getTripStatusLabel(route).text}
                       </span>
                     </div>
@@ -612,7 +893,14 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   <div className="flex items-center gap-3 mt-2">
                     <div className="flex items-center gap-1.5 opacity-60">
                        <User className="w-3 h-3" />
-                       <span className="text-[10px] font-bold text-charcoal">{route.driver_name}</span>
+                       <span className="text-[10px] font-bold text-charcoal flex items-center gap-1 flex-wrap">
+                         {route.driver_name}
+                         {route.additional_driver_names && route.additional_driver_names.length > 0 && (
+                           <span className="text-[8px] font-black bg-amber-500/15 border border-amber-500/30 text-amber-800 px-1.5 py-0.5 rounded-md leading-none shadow-2xs">
+                             +{route.additional_driver_names.length} backup
+                           </span>
+                         )}
+                       </span>
                     </div>
                     <div className="w-1 h-1 bg-charcoal opacity-20 rounded-full"></div>
                     <span className="text-[10px] font-bold text-charcoal/60">{route.stops.length} Stops</span>
@@ -663,6 +951,11 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onClick={() => {
+            if (!draggedRef.current) {
+              setSelectedStopId(null);
+            }
+          }}
         >
           {/* Tile Layer */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
@@ -698,46 +991,145 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                 />
               )}
 
-              {/* Draw All Stops */}
-              {selectedRoute?.stops.map((stop) => {
-                const pt = getOsmSvgPixel(stop.latitude, stop.longitude);
-                const isDelivered = stop.order_status === "delivered";
-                const isCurrentStop = selectedStopId === stop.id;
-                const markerColor = isDelivered ? "#10B981" : "#F59E0B";
+              {/* Draw All Stops (with coordinate grouping for overlapping/multiple customers) */}
+              {groupedStops.map((group, groupIdx) => {
+                const pt = getOsmSvgPixel(group.latitude, group.longitude);
+                
+                // If there is only one stop at this location, render the standard pin
+                if (group.stops.length === 1) {
+                  const stop = group.stops[0];
+                  const isDelivered = stop.order_status === "delivered";
+                  const isCurrentStop = selectedStopId === stop.id;
+                  const markerColor = isDelivered ? "#10B981" : "#F59E0B";
+                  
+                  return (
+                    <g 
+                      key={stop.id} 
+                      className="transition-all duration-300 cursor-pointer pointer-events-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedStopId(stop.id);
+                        setMapCenter({ lat: stop.latitude, lng: stop.longitude });
+                        setIsManualPan(false);
+                      }}
+                    >
+                      {/* Pulsing ring for current sequence */}
+                      <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "16" : "12"} fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
+                      
+                      {/* Stop Pin */}
+                      <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "10" : "8"} fill="white" stroke={markerColor} strokeWidth={isCurrentStop ? "3.5" : "2"} className="shadow-md" />
+                      
+                      {/* Sequence Number */}
+                      <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={isCurrentStop ? "9" : "8"} fontWeight="900" fill={markerColor}>
+                        {stop.sequence_number}
+                      </text>
+   
+                      {/* Tooltip */}
+                      <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24" className="pointer-events-none">
+                         <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
+                           isCurrentStop 
+                             ? "bg-primary border-primary/20 scale-105" 
+                             : isDelivered 
+                             ? "bg-emerald-600 border-emerald-500" 
+                             : "bg-charcoal border-white/10"
+                         }`}>
+                            {stop.customer_name} {isDelivered && "✓"}
+                         </div>
+                      </foreignObject>
+                    </g>
+                  );
+                }
+
+                // If there are multiple stops at this exact location, render a special grouped pin & tooltip
+                const hasSelectedStop = group.stops.some(s => s.id === selectedStopId);
+                const allStopsDelivered = group.stops.every(s => s.order_status === "delivered");
+                const markerColor = allStopsDelivered ? "#10B981" : "#F59E0B";
+                
+                // Represent sequence as first stop's sequence with a '+' (e.g. 16+)
+                const firstSeq = group.stops[0].sequence_number;
+                const displayText = `${firstSeq}+`;
+                
+                // Calculate height of the popup list based on the number of customers
+                const popupHeight = 32 * group.stops.length + 24;
+                const popupWidth = 170;
                 
                 return (
                   <g 
-                    key={stop.id} 
-                    className="transition-all duration-300 cursor-pointer pointer-events-auto"
+                    key={`group-${groupIdx}`}
+                    className="transition-all duration-300 pointer-events-auto cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedStopId(stop.id);
+                      // Select the first stop in the group to open the panel and expand the tooltip
+                      setSelectedStopId(group.stops[0].id);
+                      setMapCenter({ lat: group.latitude, lng: group.longitude });
                       setIsManualPan(false);
                     }}
                   >
                     {/* Pulsing ring for current sequence */}
-                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "16" : "12"} fill={markerColor} className={`opacity-20 ${isDelivered ? "" : "animate-pulse"}`} />
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "18" : "14"} fill={markerColor} className={`opacity-20 ${allStopsDelivered ? "" : "animate-pulse"}`} />
                     
-                    {/* Stop Pin */}
-                    <circle cx={pt.x} cy={pt.y} r={isCurrentStop ? "10" : "8"} fill="white" stroke={markerColor} strokeWidth={isCurrentStop ? "3.5" : "2"} className="shadow-md" />
+                    {/* Stop Pin (Double ring for grouped locations) */}
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "12" : "10"} fill="white" stroke={markerColor} strokeWidth={hasSelectedStop ? "4" : "2.5"} className="shadow-md" />
+                    <circle cx={pt.x} cy={pt.y} r={hasSelectedStop ? "7" : "6"} fill="none" stroke={markerColor} strokeWidth="1" strokeDasharray="2,2" />
                     
-                    {/* Sequence Number */}
-                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={isCurrentStop ? "9" : "8"} fontWeight="900" fill={markerColor}>
-                      {stop.sequence_number}
+                    {/* Combined sequence indicator */}
+                    <text x={pt.x} y={pt.y + 3} textAnchor="middle" fontSize={hasSelectedStop ? "8" : "7.5"} fontWeight="900" fill={markerColor}>
+                      {displayText}
                     </text>
  
-                    {/* Tooltip */}
-                    <foreignObject x={pt.x + 12} y={pt.y - 12} width="140" height="24" className="pointer-events-none">
-                       <div className={`text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap ${
-                         isCurrentStop 
-                           ? "bg-primary border-primary/20 scale-105" 
-                           : isDelivered 
-                           ? "bg-emerald-600 border-emerald-500" 
-                           : "bg-charcoal border-white/10"
-                       }`}>
-                          {stop.customer_name} {isDelivered && "✓"}
-                       </div>
-                    </foreignObject>
+                    {/* Tooltip: Multi-customer Interactive Box or Simple Suffix Indicator */}
+                    {hasSelectedStop ? (
+                      <foreignObject 
+                        x={pt.x + 14} 
+                        y={pt.y - (popupHeight / 2)} 
+                        width={popupWidth} 
+                        height={popupHeight} 
+                        className="pointer-events-auto animate-in fade-in zoom-in-95 duration-150"
+                      >
+                         <div className="bg-charcoal/95 border border-white/20 text-white rounded-xl shadow-xl p-2 flex flex-col gap-1 w-full text-left backdrop-blur-xs select-none">
+                            <div className="text-[7.5px] font-black uppercase text-accent/80 tracking-wider pb-1 border-b border-white/10 mb-1 flex items-center justify-between">
+                              <span>{group.stops.length} Customers Here</span>
+                              <Boxes className="w-2.5 h-2.5 text-accent" />
+                            </div>
+                            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                              {group.stops.map((s) => {
+                                const isThisStopSelected = selectedStopId === s.id;
+                                const isThisStopDelivered = s.order_status === "delivered";
+                                return (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedStopId(s.id);
+                                      setMapCenter({ lat: s.latitude, lng: s.longitude });
+                                      setIsManualPan(false);
+                                    }}
+                                    className={`flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-lg text-[9px] font-extrabold text-left w-full transition-all cursor-pointer border ${
+                                      isThisStopSelected
+                                        ? "bg-primary border-primary/20 text-white font-black"
+                                        : "bg-white/5 hover:bg-white/12 border-transparent text-white/90"
+                                    }`}
+                                  >
+                                    <span className="truncate flex-1">
+                                      #{s.sequence_number} {s.customer_name}
+                                    </span>
+                                    {isThisStopDelivered && (
+                                      <span className="text-[8px] text-emerald-400 font-bold shrink-0">✓</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                         </div>
+                      </foreignObject>
+                    ) : (
+                      <foreignObject x={pt.x + 12} y={pt.y - 12} width="200" height="24" className="pointer-events-none">
+                         <div className="text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-lg border w-fit whitespace-nowrap bg-charcoal border-white/10">
+                            {group.stops[0].customer_name} (+{group.stops.length - 1} more) {allStopsDelivered && "✓"}
+                         </div>
+                      </foreignObject>
+                    )}
                   </g>
                 );
               })}
@@ -772,6 +1164,48 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
              </button>
           )}
         </div>
+
+        {/* Selected Route Info Map Floating Overlay Card */}
+        {selectedRoute && (
+          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-silver/60 shadow-xl max-w-[240px] z-10 pointer-events-auto animate-in fade-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              <span className="text-[9px] font-black text-primary uppercase tracking-widest">
+                Active Route Details
+              </span>
+            </div>
+            
+            <h4 className="text-xs font-black text-charcoal tracking-tight mt-1.5 truncate" title={selectedRoute.name}>
+              {selectedRoute.name}
+            </h4>
+            
+            <div className="mt-2.5 pt-2 border-t border-silver/30 flex flex-col gap-2">
+              <div className="flex items-start gap-1">
+                <User className="w-3.5 h-3.5 text-charcoal/40 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <span className="text-[8px] font-bold text-charcoal/45 uppercase block leading-none mb-0.5">Primary</span>
+                  <span className="text-[11px] font-black text-charcoal truncate block">{selectedRoute.driver_name}</span>
+                </div>
+              </div>
+              
+              {selectedRoute.additional_driver_names && selectedRoute.additional_driver_names.length > 0 && (
+                <div className="flex items-start gap-1 pt-1.5 border-t border-silver/20">
+                  <User className="w-3.5 h-3.5 text-amber-600/75 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[8px] font-bold text-amber-700/60 uppercase block leading-none mb-1">Backup Crew</span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedRoute.additional_driver_names.map((name, i) => (
+                        <span key={i} className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-800 text-[9px] font-bold rounded-lg leading-none whitespace-nowrap">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Sliding Stop Details Panel (Inspector) */}
         {selectedStop && (
@@ -869,14 +1303,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   {/* Admin Order Status Actions */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-silver/20">
                     <button
-                      onClick={async () => {
-                        try {
-                          await deliveryApi.updateOrderStatus(selectedStop.order, "delivered");
-                          onRefresh?.();
-                        } catch (err) {
-                          alert("Failed to mark as delivered: " + (err as any).message);
-                        }
-                      }}
+                      onClick={() => openDeliveryForm(selectedStop)}
                       disabled={selectedStop.order_status === "delivered"}
                       className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider text-center transition-all cursor-pointer border ${
                         selectedStop.order_status === "delivered"
@@ -912,7 +1339,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                         Delivered At:
                       </span>
                       <span className="font-bold text-charcoal">
-                        {new Date(selectedStop.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(selectedStop.delivered_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                       </span>
                     </div>
                   )}
@@ -1059,6 +1486,172 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               alt="Zoomed POD" 
               className="w-full h-full max-h-[80vh] object-contain rounded-2xl"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Bottle Reconciliation Modal */}
+      {showDeliveryModal && selectedStop && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-charcoal/75 backdrop-blur-xs animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl p-6 relative animate-in zoom-in-95 duration-300 border border-silver/40 flex flex-col gap-5 text-left">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-silver/30 pb-3">
+              <div>
+                <h3 className="text-base font-black text-charcoal tracking-tight flex items-center gap-2">
+                  <Boxes className="w-5 h-5 text-primary" />
+                  Confirm Delivery & Bottles
+                </h3>
+                <p className="text-[10px] text-charcoal/40 font-bold uppercase mt-0.5">
+                  Stop #{selectedStop.sequence_number} — {selectedStop.customer_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="p-1.5 hover:bg-silver/20 text-charcoal/50 hover:text-charcoal rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex flex-col gap-4 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
+              <p className="text-xs font-semibold text-charcoal/60">
+                Confirm quantity of issued, returned, and broken bottles for each bottle type:
+              </p>
+
+              {bottleTypes.map((bt) => {
+                const tx = deliveryTransactions[bt.id] || { issued: 0, returned: 0, broken: 0 };
+                return (
+                  <div key={bt.id} className="p-3.5 bg-silver/10 border border-silver/45 rounded-2xl flex flex-col gap-2.5 text-left">
+                    <div className="flex items-center justify-between border-b border-silver/20 pb-1.5">
+                      <span className="text-[11px] font-black text-charcoal">{bt.name}</span>
+                      <span className="text-[9px] font-bold text-charcoal/40 uppercase">{bt.volume_ml}ml</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Issued */}
+                      <div className="flex flex-col items-center p-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-emerald-700 mb-1">Issued</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], issued: Math.max(0, prev[bt.id].issued - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.issued}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], issued: prev[bt.id].issued + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-emerald-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Returned */}
+                      <div className="flex flex-col items-center p-2 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-blue-700 mb-1">Returned</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], returned: Math.max(0, prev[bt.id].returned - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.returned}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], returned: prev[bt.id].returned + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-blue-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Broken */}
+                      <div className="flex flex-col items-center p-2 bg-rose-500/5 border border-rose-500/10 rounded-xl">
+                        <span className="text-[9px] font-black uppercase text-rose-700 mb-1">Broken</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], broken: Math.max(0, prev[bt.id].broken - 1) }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-rose-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="text-xs font-black text-charcoal min-w-[14px] text-center">{tx.broken}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeliveryTransactions(prev => ({
+                                ...prev,
+                                [bt.id]: { ...prev[bt.id], broken: prev[bt.id].broken + 1 }
+                              }));
+                            }}
+                            className="p-1 bg-white hover:bg-rose-50 border border-silver/45 rounded-lg text-charcoal shadow-3xs transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 border-t border-silver/30 pt-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowDeliveryModal(false)}
+                className="flex-1 py-2 px-3 border border-silver/45 hover:bg-silver/10 rounded-xl text-xs font-black uppercase tracking-wider text-charcoal transition-colors cursor-pointer text-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitDelivery}
+                disabled={isSubmittingDelivery}
+                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all border border-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-center"
+              >
+                {isSubmittingDelivery ? "Submitting..." : "Submit Delivery"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

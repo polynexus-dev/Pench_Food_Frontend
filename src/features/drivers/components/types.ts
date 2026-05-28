@@ -10,4 +10,6 @@ export interface Driver {
   phone?: string;
   rating?: number;
   zone?: string | null;
+  warehouse?: string | null;
+  warehouse_name?: string | null;
 }

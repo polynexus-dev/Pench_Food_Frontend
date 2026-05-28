@@ -11,7 +11,7 @@ export interface Order {
   id: string;
   customer: string;
   customer_name: string;
-  status: "pending" | "confirmed" | "cancelled" | "delivered" | "shipped" | "in_transit";
+  status: "pending" | "confirmed" | "cancelled" | "delivered" | "shipped" | "in_transit" | "undelivered" | "dispatched";
   status_display: string;
   scheduled_delivery_date: string;
   total: string;

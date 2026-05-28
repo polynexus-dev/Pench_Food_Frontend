@@ -2,33 +2,30 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
-import { companyApi } from '../api/companyApi';
+import { useCompanyStore } from '../store/useCompanyStore';
 import { useAuthStore } from '../store/useAuthStore';
 import CreateCompanyModal from '../components/common/CreateCompanyModal';
 
 const DashboardLayout = () => {
   const { user } = useAuthStore();
+  const { fetchCompanies } = useCompanyStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const role = user.role?.toLowerCase();
-    const isSpecialRole = role === "customer" || role === "drivers" || role === "driver" || user.is_customer || user.is_driver;
+    const isSpecialRole = (role === "customer" || role === "drivers" || role === "driver" || user.is_customer || user.is_driver) && !user.is_superuser && !user.is_staff;
 
     if (!isSpecialRole) {
-      const checkCompanies = async () => {
-        try {
-          const companies = await companyApi.getCompanies();
-          if (companies.length === 0) {
-            setIsModalOpen(true);
-          }
-        } catch (err) {
-          console.error("Failed to check companies in DashboardLayout:", err);
+      // Uses cached data from useCompanyStore — no duplicate API call
+      fetchCompanies().then((data) => {
+        console.log("DashboardLayout: resolved fetchCompanies with:", data);
+        if (data.length === 0) {
+          setIsModalOpen(true);
         }
-      };
-      checkCompanies();
+      });
     }
-  }, [user]);
+  }, [user, fetchCompanies]);
 
   const handleSuccess = () => {
     window.location.reload();

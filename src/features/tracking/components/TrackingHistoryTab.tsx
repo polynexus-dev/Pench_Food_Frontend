@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trackingApi } from "../api/trackingApi";
 import type {
   DriverRouteHistory,
-  PositionHistoryPoint,
   LiveDriverTracking,
 } from "../api/trackingApi";
 import { CustomSelect } from "../../../components/common/CustomSelect";
@@ -79,7 +78,6 @@ const TrackingHistoryTab: React.FC = () => {
       setIsDriversLoading(true);
       try {
         const data = await trackingApi.getLiveDrivers();
-        console.log({ data });
         setDrivers(data);
         if (data.length > 0) {
           setSelectedDriverId(data[0].id);
@@ -464,31 +462,22 @@ const TrackingHistoryTab: React.FC = () => {
                     })()}
 
                     {/* Animated Playback Node */}
-                    {/* {currentPlaybackPoint && (() => {
+                    {currentPlaybackPoint && (() => {
                       const svgPt = getOsmSvgPixel(currentPlaybackPoint.lat, currentPlaybackPoint.lng);
                       return (
                         <g>
-                          <circle
-                            cx={svgPt.x}
-                            cy={svgPt.y}
-                            r="28"
-                            fill="#01522D"
-                            className="opacity-20 animate-ping"
-                            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                          />
-                          <circle cx={svgPt.x} cy={svgPt.y} r="14" fill="#01522D" stroke="#ffffff" strokeWidth="2" className="drop-shadow-md" />
                           <text
                             x={svgPt.x}
-                            y={svgPt.y}
+                            y={svgPt.y - 5}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            style={{ fontSize: "15px", userSelect: "none" }}
+                            style={{ fontSize: "24px", userSelect: "none" }}
                           >
-                            🏍️
+                            🛵
                           </text>
                         </g>
                       );
-                    })()} */}
+                    })()}
                   </svg>
                 </div>
 

@@ -17,6 +17,7 @@ import {
   MapPin,
   Users,
   Search,
+  Building2,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
@@ -26,6 +27,7 @@ import { tenantApi } from "../../tenant/api/tenantApi";
 import type { Zone } from "../../tenant/components/types";
 import { driverApi } from "../api/driverApi";
 import { customerApi } from "../../customers/api/customerApi";
+import { inventoryApi } from "../../inventory/api/inventoryApi";
 
 interface DriverProfileTabProps {
   driver: Driver;
@@ -48,6 +50,11 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState<boolean>(true);
   const [isUpdatingZone, setIsUpdatingZone] = useState<boolean>(false);
+
+  // Warehouse Assignment State
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [isLoadingWarehouses, setIsLoadingWarehouses] = useState<boolean>(true);
+  const [isUpdatingWarehouse, setIsUpdatingWarehouse] = useState<boolean>(false);
 
   // Assigned Customers State
   const [assignedCustomers, setAssignedCustomers] = useState<any[]>([]);
@@ -103,6 +110,22 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
     fetchZones();
   }, []);
 
+  // Fetch warehouses on mount
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      try {
+        setIsLoadingWarehouses(true);
+        const data = await inventoryApi.getWarehouses();
+        setWarehouses(data);
+      } catch (error) {
+        console.error("Failed to fetch warehouses for assignment:", error);
+      } finally {
+        setIsLoadingWarehouses(false);
+      }
+    };
+    fetchWarehouses();
+  }, []);
+
   const handleZoneChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newZoneValue = e.target.value;
     const newZoneId = newZoneValue || null;
@@ -119,6 +142,25 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
       setStatusError("Failed to update zone assignment. Please try again.");
     } finally {
       setIsUpdatingZone(false);
+    }
+  };
+
+  const handleWarehouseChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newWarehouseValue = e.target.value;
+    const newWarehouseId = newWarehouseValue || null;
+
+    setIsUpdatingWarehouse(true);
+    setStatusError(null);
+    try {
+      const updated = await driverApi.updateDriver(driver.id, {
+        warehouse: newWarehouseId,
+      });
+      onUpdateDriver(updated);
+    } catch (err: any) {
+      console.error("Failed to update driver warehouse:", err);
+      setStatusError("Failed to update warehouse assignment. Please try again.");
+    } finally {
+      setIsUpdatingWarehouse(false);
     }
   };
 
@@ -170,7 +212,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const deliveryStats = React.useMemo(() => {
     const total = routes.length;
     const completed = routes.filter((r) => r.status === "completed" || r.is_completed).length;
-    const active = routes.filter((r) => r.status === "active").length;
+    const active = routes.filter((r) => r.status === "started" || r.status === "in_transit" || r.status === "in_progress").length;
     const pending = routes.filter((r) => r.status === "pending").length;
     return { total, completed, active, pending };
   }, [routes]);
@@ -273,6 +315,22 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 </p>
               </div>
             </div>
+
+            {driver.warehouse_name && (
+              <div className="flex items-center gap-3 p-3 bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/15 transition-colors">
+                <div className="p-1.5 bg-white rounded-lg border border-primary/20 text-primary flex-shrink-0">
+                  <Building2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black text-primary/50 uppercase tracking-wider">
+                    Assigned Hub
+                  </p>
+                  <p className="text-xs font-bold text-primary truncate">
+                    {driver.warehouse_name}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons Section */}
@@ -455,6 +513,29 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                             </select>
                           )}
                         </div>
+                        <div className="flex justify-between items-center text-xs pt-3.5 border-t border-silver/30">
+                          <span className="text-charcoal/40 font-bold flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-primary" />
+                            Assigned Hub
+                          </span>
+                          {isLoadingWarehouses ? (
+                            <span className="text-charcoal/30 font-medium">Loading hubs...</span>
+                          ) : (
+                            <select
+                              value={driver.warehouse || ""}
+                              onChange={handleWarehouseChange}
+                              disabled={isUpdatingWarehouse}
+                              className="font-bold text-charcoal bg-white border border-silver/50 rounded-xl px-2.5 py-1 text-xs focus:outline-none focus:border-primary cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+                            >
+                              <option value="">Unassigned</option>
+                              {warehouses.map((wh) => (
+                                <option key={wh.id} value={wh.id}>
+                                  {wh.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -539,21 +620,25 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                                   }) : "N/A"}
                                 </td>
                                 <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
                                     route.status === "completed" || route.is_completed
                                       ? "bg-sage/10 text-primary border-primary/10"
-                                      : route.status === "active"
-                                      ? "bg-blue-50 text-blue-500 border-blue-100"
+                                      : (route.status === "started" || route.status === "in_transit" || route.status === "in_progress")
+                                      ? "bg-emerald-50 border-emerald-500/25 text-emerald-800 font-black shadow-2xs"
                                       : "bg-amber-50 text-amber-500 border-amber-100"
                                   }`}>
                                     {route.status === "completed" || route.is_completed ? (
                                       <>
                                         <CheckCircle2 className="w-3 h-3" /> Completed
                                       </>
-                                    ) : route.status === "active" ? (
-                                      <>
-                                        <Activity className="w-3 h-3 animate-pulse" /> Active
-                                      </>
+                                    ) : (route.status === "started" || route.status === "in_transit" || route.status === "in_progress") ? (
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="relative flex h-2 w-2">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                        In Transit
+                                      </span>
                                     ) : (
                                       <>
                                         <Clock className="w-3 h-3" /> Pending
