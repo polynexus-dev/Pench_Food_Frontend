@@ -23,6 +23,14 @@ export const orderApi = {
   },
 
   /**
+   * Create a new order
+   */
+  createOrder: async (payload: { scheduled_delivery_date: string; items: { product: string; quantity: number }[] }): Promise<Order> => {
+    const response = await axiosInstance.post<Order>("/erp/orders/", payload);
+    return response.data;
+  },
+
+  /**
    * Sync orders: auto-assign zones to customers, create routes for
    * pending orders, and return the refreshed order list.
    */

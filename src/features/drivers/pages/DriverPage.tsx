@@ -31,7 +31,12 @@ const DriverPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDrivers();
+    if (tenant) {
+      fetchDrivers();
+    } else {
+      setDrivers([]);
+      setIsLoading(false);
+    }
   }, [tenant]);
 
   const filteredDrivers = useMemo(() => {

@@ -53,7 +53,12 @@ const CustomerPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCustomers();
+    if (tenant) {
+      fetchCustomers();
+    } else {
+      setCustomers([]);
+      setIsLoading(false);
+    }
   }, [tenant]);
 
   const handleAutoAssignZones = async () => {

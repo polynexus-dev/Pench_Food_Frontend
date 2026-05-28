@@ -1,66 +1,97 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShoppingCart,
   PlusCircle,
-  Clock,
-  Sparkles,
   CheckCircle2,
   X,
   CreditCard,
+  Trash2,
 } from "lucide-react";
+import { orderApi } from "../api/orderApi";
+import { inventoryApi } from "../../inventory/api/inventoryApi";
+import type { Order } from "../components/types";
+import type { Product } from "../../inventory/components/types";
 
 const CustomerOrdersPage = () => {
-  const [orders, setOrders] = useState([
-    { id: "ORD-9842", date: "Today", item: "Full Cream Fresh Milk", quantity: "2 Liters", total: "₹260.00", paymentStatus: "Paid", deliveryStatus: "Delivered" },
-    { id: "ORD-9751", date: "May 19, 2026", item: "Organic Cow Ghee (Bulk)", quantity: "1 Jar", total: "₹650.00", paymentStatus: "Paid", deliveryStatus: "Delivered" },
-    { id: "ORD-9611", date: "May 15, 2026", item: "Fresh Paneer (Bulk)", quantity: "1 Kg", total: "₹450.00", paymentStatus: "Paid", deliveryStatus: "Delivered" },
-  ]);
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [product, setProduct] = useState("Full Cream Milk");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [date, setDate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const productPrices: { [key: string]: number } = {
-    "Full Cream Milk": 130,
-    "Skimmed Milk": 110,
-    "Fresh Paneer": 450,
-    "Organic Ghee": 650,
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const fetchedOrders = await orderApi.getOrders();
+      const fetchedProducts = await inventoryApi.getProducts();
+      setOrders(fetchedOrders);
+      
+      const activeProducts = fetchedProducts.filter(p => p.is_active);
+      setProducts(activeProducts);
+      if (activeProducts.length > 0) {
+        setSelectedProductId(activeProducts[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to load orders or products:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product || !quantity || !date) return;
+    if (!selectedProductId || !quantity || !date) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      const pricePerUnit = productPrices[product] || 100;
-      const totalCost = pricePerUnit * Number(quantity);
-
-      const newOrder = {
-        id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-        date,
-        item: product,
-        quantity: `${quantity} ${product.includes("Milk") ? "Liters" : product.includes("Ghee") ? "Jar" : "Kg"}`,
-        total: `₹${totalCost.toFixed(2)}`,
-        paymentStatus: "Pending",
-        deliveryStatus: "Scheduled",
-      };
-
-      setOrders([newOrder, ...orders]);
-      setIsSubmitting(false);
+    try {
+      await orderApi.createOrder({
+        scheduled_delivery_date: date,
+        items: [
+          {
+            product: selectedProductId,
+            quantity: Number(quantity),
+          }
+        ]
+      });
       setIsModalOpen(false);
-      setSuccessMsg(`Order ${newOrder.id} placed successfully for delivery on ${date}!`);
+      setSuccessMsg("Your special order has been successfully placed!");
+      loadData();
       setTimeout(() => setSuccessMsg(null), 5000);
-    }, 1000);
+    } catch (error: any) {
+      alert(error.response?.data?.detail || error.message || "Failed to place order");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+    try {
+      await orderApi.deleteOrder(orderId);
+      setSuccessMsg("Order cancelled successfully!");
+      loadData();
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (error: any) {
+      alert(error.response?.data?.detail || error.message || "Failed to cancel order");
+    }
+  };
+
+  const selectedProductObj = products.find(p => p.id === selectedProductId);
+  const selectedProductPrice = selectedProductObj ? parseFloat(selectedProductObj.unit_price) : 0;
+  const estimatedCost = selectedProductPrice * (Number(quantity) || 1);
 
   return (
     <div className="p-8 space-y-8 bg-milk-white min-h-screen">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-3xl border border-silver/50 shadow-sm relative overflow-hidden">
+      <div className="flex flex-col md flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-3xl border border-silver/50 shadow-sm relative overflow-hidden">
         <div className="absolute -right-20 -top-20 w-60 h-60 bg-primary/5 rounded-full blur-3xl"></div>
         <div>
           <h1 className="text-3xl font-extrabold text-charcoal tracking-tight flex items-center gap-2">
@@ -72,7 +103,16 @@ const CustomerOrdersPage = () => {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            // Set default date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const year = tomorrow.getFullYear();
+            const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+            const day = String(tomorrow.getDate()).padStart(2, "0");
+            setDate(`${year}-${month}-${day}`);
+            setIsModalOpen(true);
+          }}
           className="px-5 py-3.5 bg-primary text-white hover:bg-primary/95 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/15 transition-all active:scale-[0.98] cursor-pointer shrink-0 ml-auto"
         >
           <PlusCircle className="w-5 h-5" />
@@ -94,46 +134,77 @@ const CustomerOrdersPage = () => {
           <p className="text-xs text-charcoal/60 mt-1">Review transaction status and drop fulfillment details.</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-silver/30 text-left">
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Order ID</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Date</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Item Details</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Quantity</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Total price</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Payment</th>
-                <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Delivery Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-silver/20">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-silver/5 transition-all">
-                  <td className="py-4 text-xs font-black text-primary">{order.id}</td>
-                  <td className="py-4 text-xs font-bold text-charcoal">{order.date}</td>
-                  <td className="py-4 text-xs text-charcoal/80">{order.item}</td>
-                  <td className="py-4 text-xs text-charcoal font-semibold">{order.quantity}</td>
-                  <td className="py-4 text-xs font-bold text-charcoal">{order.total}</td>
-                  <td className="py-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      order.paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800 animate-pulse"
-                    }`}>
-                      {order.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                      order.deliveryStatus === "Delivered" ? "bg-emerald-500/10 text-emerald-700" : "bg-primary/10 text-primary animate-pulse"
-                    }`}>
-                      {order.deliveryStatus}
-                    </span>
-                  </td>
+        {loading ? (
+          <div className="py-12 flex justify-center items-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-silver/30 text-left">
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Order ID</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Date</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Item Details</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Total price</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Delivery Status</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-silver/20">
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-sm text-charcoal/40">
+                      No orders found. Click "Place New Order" to request a delivery.
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((order) => {
+                    const isCancelable = order.status === "pending" || order.status === "confirmed";
+                    return (
+                      <tr key={order.id} className="hover:bg-silver/5 transition-all">
+                        <td className="py-4 text-xs font-black text-primary">#{order.id.slice(0, 8).toUpperCase()}</td>
+                        <td className="py-4 text-xs font-bold text-charcoal">
+                          {new Date(order.scheduled_delivery_date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                        <td className="py-4 text-xs text-charcoal/80">
+                          {order.items.map((it) => `${it.product_name} (${it.quantity})`).join(", ")}
+                        </td>
+                        <td className="py-4 text-xs font-bold text-charcoal">₹{order.total}</td>
+                        <td className="py-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            order.status === "delivered" 
+                              ? "bg-emerald-500/10 text-emerald-700" 
+                              : isCancelable 
+                              ? "bg-amber-100 text-amber-800" 
+                              : "bg-primary/10 text-primary"
+                          }`}>
+                            {order.status_display}
+                          </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          {isCancelable && (
+                            <button
+                              onClick={() => handleCancelOrder(order.id)}
+                              className="p-1.5 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 rounded-lg transition-all active:scale-95 inline-flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Place Order Checkout Modal */}
@@ -158,16 +229,21 @@ const CustomerOrdersPage = () => {
             <form onSubmit={handlePlaceOrder} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-charcoal/60 uppercase tracking-wider block ml-1">Product</label>
-                <select
-                  value={product}
-                  onChange={(e) => setProduct(e.target.value)}
-                  className="w-full px-4 py-3 bg-silver/10 border border-silver/50 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white transition-all cursor-pointer"
-                >
-                  <option value="Full Cream Milk">Full Cream Milk (₹130/L)</option>
-                  <option value="Skimmed Milk">Skimmed Milk (₹110/L)</option>
-                  <option value="Fresh Paneer">Fresh Paneer (₹450/Kg)</option>
-                  <option value="Organic Ghee">Organic Ghee (₹650/Jar)</option>
-                </select>
+                {products.length === 0 ? (
+                  <div className="py-2 text-xs text-rose-500">No active products found in inventory.</div>
+                ) : (
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    className="w-full px-4 py-3 bg-silver/10 border border-silver/50 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white transition-all cursor-pointer"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (₹{p.unit_price}/{p.unit})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -188,6 +264,7 @@ const CustomerOrdersPage = () => {
                   type="date"
                   required
                   value={date}
+                  min={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full px-4 py-3 bg-silver/10 border border-silver/50 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary focus:bg-white transition-all"
                 />
@@ -199,13 +276,13 @@ const CustomerOrdersPage = () => {
                   <span className="text-xs font-bold text-charcoal/60">Estimated Total Cost</span>
                 </div>
                 <span className="text-lg font-black text-primary">
-                  ₹{(productPrices[product] * (Number(quantity) || 1)).toFixed(2)}
+                  ₹{estimatedCost.toFixed(2)}
                 </span>
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || products.length === 0}
                 className="w-full bg-primary text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/95 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary/10 mt-6"
               >
                 {isSubmitting ? "Processing Order..." : "Confirm & Book Delivery"}

@@ -324,6 +324,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
     }
     switch (route.status) {
       case "in_progress":
+      case "in_transit":
       case "started":
         return { text: "Trip In Progress", style: "bg-amber-100 border-amber-300 text-amber-800 animate-pulse" };
       case "stopped":
@@ -458,7 +459,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
 
               {/* Admin Trip Actions */}
               <div className="mt-3 pt-2 border-t border-current/15 flex gap-2">
-                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress") ? (
+                {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit") ? (
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -693,8 +694,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeDasharray="8,8"
-                  className="opacity-60"
+                  className="opacity-80"
                 />
               )}
 
