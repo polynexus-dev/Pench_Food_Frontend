@@ -17,8 +17,8 @@ import {
   Pencil,
   Trash2
 } from "lucide-react";
-import type { BottleTrackingSummaryResponse } from "./types";
-import axiosInstance from "../../../api/axiosInstance";
+import type { BottleTrackingSummaryResponse, BottleType } from "./types";
+import { inventoryApi } from "../api/inventoryApi";
 
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
@@ -46,8 +46,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   useEffect(() => {
     const fetchWarehouses = async () => {
       try {
-        const response = await axiosInstance.get("/erp/inventory/warehouses/");
-        setWarehouses(response.data);
+        const data = await inventoryApi.getWarehouses();
+        setWarehouses(data.map(w => ({ id: w.id, name: w.name })));
       } catch (err) {
         console.error("Failed to load warehouses list for filtering:", err);
       }
@@ -59,9 +59,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
     if (!driverId) return;
     setIsUpdatingDriverId(driverId);
     try {
-      await axiosInstance.patch(`/erp/routing/drivers/${driverId}/`, {
-        warehouse: warehouseId === "none" ? null : warehouseId
-      });
+      await inventoryApi.reassignDriverWarehouse(driverId, warehouseId === "none" ? null : warehouseId);
       // Trigger dynamic dashboard refresh
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -83,13 +81,13 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   // Bottle type list for edit/delete (fetched separately from summary)
-  const [bottleTypes, setBottleTypes] = useState<{ id: string; name: string; volume_ml: number; deposit_amount: string; is_active: boolean }[]>([]);
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
 
   useEffect(() => {
     const fetchBottleTypes = async () => {
       try {
-        const response = await axiosInstance.get("/erp/inventory/bottle-types/");
-        setBottleTypes(Array.isArray(response.data) ? response.data : []);
+        const data = await inventoryApi.getBottleTypes();
+        setBottleTypes(data);
       } catch (err) {
         console.error("Failed to load bottle types:", err);
       }
@@ -135,10 +133,10 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
       };
 
       if (editingId) {
-        await axiosInstance.put(`/erp/inventory/bottle-types/${editingId}/`, payload);
+        await inventoryApi.updateBottleType(editingId, payload);
         setSuccess("Container type updated successfully!");
       } else {
-        await axiosInstance.post("/erp/inventory/bottle-types/", payload);
+        await inventoryApi.createBottleType(payload);
         setSuccess("Container type created successfully!");
       }
       if (onRefresh) onRefresh();
@@ -162,7 +160,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
     if (!window.confirm(`Are you sure you want to delete the container type "${typeName}"? This cannot be undone.`)) return;
     setIsDeletingId(id);
     try {
-      await axiosInstance.delete(`/erp/inventory/bottle-types/${id}/`);
+      await inventoryApi.deleteBottleType(id);
       if (onRefresh) onRefresh();
     } catch (err: any) {
       console.error("Failed to delete container type:", err);

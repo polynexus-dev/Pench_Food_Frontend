@@ -13,3 +13,10 @@ export interface Driver {
   warehouse?: string | null;
   warehouse_name?: string | null;
 }
+
+export interface Zone {
+  id: string;
+  name: string;
+  is_active?: boolean;
+}
+

@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from "react";
-import type { Product, RawMaterial } from "./types";
+import type { Product, RawMaterial, BottleType } from "./types";
 import { inventoryApi } from "../api/inventoryApi";
-import axiosInstance from "../../../api/axiosInstance";
-
-interface BottleType {
-  id: string;
-  name: string;
-  deposit_amount: string;
-  volume_ml: number;
-  is_active: boolean;
-}
 import {
   Search,
   Grid,
@@ -73,8 +64,8 @@ const InventoryManageTab: React.FC<InventoryManageTabProps> = ({
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
-        setBottleTypes(Array.isArray(response.data) ? response.data : []);
+        const data = await inventoryApi.getBottleTypes();
+        setBottleTypes(data);
       } catch (error) {
         console.error("Failed to load bottle types:", error);
       }

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X, User, Phone, Lock, Loader2, UserPlus, Truck, MapPin, Weight, Mail, Building2 } from 'lucide-react';
-import axiosInstance from '../../../api/axiosInstance';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { CustomInput } from '../../../components/common/CustomInput';
 import { CustomSelect } from '../../../components/common/CustomSelect';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
+import { driverApi } from '../api/driverApi';
+import type { Zone } from './types';
 
 interface CreateDriverModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
     zone: '',
     warehouse: ''
   });
-  const [zones, setZones] = useState<any[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState(false);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [isLoadingWarehouses, setIsLoadingWarehouses] = useState(false);
@@ -41,8 +42,8 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
       const fetchZones = async () => {
         try {
           setIsLoadingZones(true);
-          const response = await axiosInstance.get('/ems/zones/');
-          setZones(Array.isArray(response.data) ? response.data : []);
+          const data = await driverApi.getZones();
+          setZones(data);
         } catch (error) {
           console.error("Failed to fetch zones", error);
         } finally {
@@ -84,7 +85,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
         ...formData,
         max_capacity_kg: Number(formData.max_capacity_kg) || 0
       };
-      await axiosInstance.post('/accounts/register/', [payload]);
+      await driverApi.registerDriver(payload);
       onSuccess();
       onClose();
       setFormData({

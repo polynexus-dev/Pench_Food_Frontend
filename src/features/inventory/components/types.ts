@@ -89,3 +89,12 @@ export interface CreateWarehousePayload {
   };
 }
 
+export interface BottleType {
+  id: string;
+  name: string;
+  volume_ml: number;
+  deposit_amount: string;
+  is_active: boolean;
+}
+
+
