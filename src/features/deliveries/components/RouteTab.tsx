@@ -33,7 +33,22 @@ interface RouteTabProps {
   onRefresh?: () => void;
 }
 
-const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefresh }) => {
+const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoading, onRefresh }) => {
+  const routes = useMemo(() => {
+    return rawRoutes.map(route => ({
+      ...route,
+      stops: (route.stops || []).map(stop => {
+        const lat = typeof stop.latitude === "number" ? stop.latitude : parseFloat(stop.latitude as any);
+        const lng = typeof stop.longitude === "number" ? stop.longitude : parseFloat(stop.longitude as any);
+        return {
+          ...stop,
+          latitude: isNaN(lat) || lat === null || lat === undefined ? 21.1458 : lat,
+          longitude: isNaN(lng) || lng === null || lng === undefined ? 79.0882 : lng,
+        };
+      })
+    }));
+  }, [rawRoutes]);
+
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [isEditingDriver, setIsEditingDriver] = useState(false);
