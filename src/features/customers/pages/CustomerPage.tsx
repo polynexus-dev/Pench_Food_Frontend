@@ -110,10 +110,16 @@ const CustomerPage: React.FC = () => {
       
       const linked = (res.customer_to_user?.linked_existing_user || 0) + (res.user_to_customer?.linked_existing_customer || 0);
       const created = (res.customer_to_user?.created_new_user || 0) + (res.user_to_customer?.created_new_customer || 0);
+      const merged = res.duplicates_cleaned?.merged || 0;
+      
+      let msg = `Database synchronized successfully!\nLinked: ${linked} | Created: ${created} new profiles/users.`;
+      if (merged > 0) {
+        msg += `\nCleaned up ${merged} duplicate customer profiles.`;
+      }
       
       addNotification({
         title: "Sync & Refresh Success 🔄",
-        message: `Database synchronized successfully!\nLinked: ${linked} | Created: ${created} new profiles/users.`,
+        message: msg,
         type: "success"
       });
     } catch (error: any) {
