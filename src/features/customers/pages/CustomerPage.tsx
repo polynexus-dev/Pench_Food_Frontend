@@ -24,6 +24,7 @@ const CustomerPage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAutoAssigning, setIsAutoAssigning] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
 
@@ -96,6 +97,38 @@ const CustomerPage: React.FC = () => {
     }
   };
 
+  const handleSyncRefresh = async () => {
+    if (!isAuthorized) {
+      await fetchCustomers(false);
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const res = await customerApi.syncRefreshCustomers(false);
+      await fetchCustomers(true);
+      
+      const linked = (res.customer_to_user?.linked_existing_user || 0) + (res.user_to_customer?.linked_existing_customer || 0);
+      const created = (res.customer_to_user?.created_new_user || 0) + (res.user_to_customer?.created_new_customer || 0);
+      
+      addNotification({
+        title: "Sync & Refresh Success 🔄",
+        message: `Database synchronized successfully!\nLinked: ${linked} | Created: ${created} new profiles/users.`,
+        type: "success"
+      });
+    } catch (error: any) {
+      console.error("Failed to sync customers:", error);
+      addNotification({
+        title: "Sync Failed ⚠️",
+        message: error?.response?.data?.error || error?.message || "Failed to synchronize customers. Please check permissions.",
+        type: "error"
+      });
+      await fetchCustomers(false);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
@@ -138,13 +171,13 @@ const CustomerPage: React.FC = () => {
 
         <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
           <button
-            onClick={() => fetchCustomers(false)}
-            disabled={isLoading}
+            onClick={handleSyncRefresh}
+            disabled={isLoading || isSyncing}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
-            title="Refresh List"
+            title={isAuthorized ? "Sync & Refresh List" : "Refresh List"}
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
+            <RefreshCw className={`w-3.5 h-3.5 text-primary ${isLoading || isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Syncing..." : "Refresh"}
           </button>
           {isAuthorized && (
             <button

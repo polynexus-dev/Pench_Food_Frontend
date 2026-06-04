@@ -81,6 +81,34 @@ export const customerApi = {
   },
 
   /**
+   * Synchronize Customers and Users in both directions.
+   */
+  syncRefreshCustomers: async (dryRun: boolean = false): Promise<{
+    message: string;
+    dry_run: boolean;
+    tenant_schema: string;
+    customer_to_user: {
+      checked: number;
+      already_linked: number;
+      linked_existing_user: number;
+      created_new_user: number;
+      details: any[];
+    };
+    user_to_customer: {
+      checked: number;
+      already_linked: number;
+      linked_existing_customer: number;
+      created_new_customer: number;
+      details: any[];
+    };
+  }> => {
+    const response = await axiosInstance.post("/erp/customers/sync-refresh-customers/", {
+      dry_run: dryRun
+    });
+    return response.data;
+  },
+
+  /**
    * Fetch all active products
    */
   getProducts: async (): Promise<Product[]> => {
