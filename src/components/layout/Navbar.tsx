@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
-import { Bell, Search, LogOut, MapPin, ChevronDown, Settings, Trash2 } from "lucide-react";
+import { Bell, Search, LogOut, MapPin, ChevronDown, Settings, Trash2, Menu } from "lucide-react";
 import { useNotificationStore } from "../../store/useNotificationStore";
 
-const Navbar = () => {
+interface NavbarProps {
+  onMenuClick?: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const { logout, user, tenant, setTenant, companyId } = useAuthStore();
   const { notifications, markAllAsRead, clearNotifications } = useNotificationStore();
   const { companies, fetchCompanies } = useCompanyStore();
@@ -64,14 +68,24 @@ const Navbar = () => {
   }, [companyId, cities.length]);
 
   return (
-    <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-10 shrink-0 sticky top-0 z-20 shadow-sm">
-      <div className="relative w-[400px]">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/30 w-4.5 h-4.5" />
-        <input
-          type="text"
-          placeholder="Quick search everything..."
-          className="w-full pl-12 pr-4 py-3 bg-silver/10 border border-transparent rounded-2xl text-sm focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all placeholder:text-charcoal/30"
-        />
+    <header className="h-20 bg-white/80 backdrop-blur-md border-b border-silver/50 flex items-center justify-between px-4 md:px-10 shrink-0 sticky top-0 z-20 shadow-sm">
+      <div className="flex items-center gap-3 relative w-full max-w-[200px] sm:max-w-[400px]">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="p-2.5 hover:bg-silver/10 active:scale-95 rounded-2xl border border-silver/50 text-charcoal md:hidden cursor-pointer shrink-0"
+          title="Open Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="relative flex-1 hidden sm:block">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/30 w-4.5 h-4.5" />
+          <input
+            type="text"
+            placeholder="Quick search everything..."
+            className="w-full pl-12 pr-4 py-3 bg-silver/10 border border-transparent rounded-2xl text-sm focus:bg-white focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all placeholder:text-charcoal/30"
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-6">

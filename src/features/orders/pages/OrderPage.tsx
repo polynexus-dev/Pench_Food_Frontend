@@ -233,6 +233,7 @@ const OrderPage: React.FC = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onUpdateOrderStatus={handleUpdateOrderStatus}
+          onOrderCreated={() => fetchOrders(true)}
         />
       )}
       {activeTab === "calendar" && (

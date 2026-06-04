@@ -25,7 +25,7 @@ export const orderApi = {
   /**
    * Create a new order
    */
-  createOrder: async (payload: { scheduled_delivery_date: string; items: { product: string; quantity: number }[] }): Promise<Order> => {
+  createOrder: async (payload: { customer?: string; scheduled_delivery_date: string; items: { product: string; quantity: number }[] }): Promise<Order> => {
     const response = await axiosInstance.post<Order>("/erp/orders/", payload);
     return response.data;
   },
