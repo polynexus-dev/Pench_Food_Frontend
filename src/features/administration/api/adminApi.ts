@@ -12,6 +12,8 @@ export interface AdminConfiguration {
   theme_color: string;
   charge_bottle_penalty: boolean;
   bottle_penalty_amount: string | number;
+  company_upi_id?: string;
+  company_upi_name?: string;
 }
 
 export const adminApi = {

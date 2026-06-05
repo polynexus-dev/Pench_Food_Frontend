@@ -553,6 +553,39 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                     </p>
                                   </div>
                                 )}
+                                <div className="p-3.5 bg-silver/5 rounded-xl border border-silver/30 space-y-1 mt-2">
+                                  <p className="text-[9px] font-bold text-charcoal/40 uppercase">
+                                    Payment Details
+                                  </p>
+                                  <div className="text-xs font-bold text-charcoal space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-charcoal/40 text-[10px]">Method:</span>
+                                      <span className="capitalize">{(order.payment_method || "on_account").replace('_', ' ')}</span>
+                                    </div>
+                                    {(order.payment_method || "on_account") !== "on_account" && (
+                                      <div className="flex justify-between">
+                                        <span className="text-charcoal/40 text-[10px]">Collected:</span>
+                                        <span className="text-primary font-black">₹{order.amount_collected || "0.00"}</span>
+                                      </div>
+                                    )}
+                                    {order.payment_transaction_id && (
+                                      <div className="flex flex-col pt-1 border-t border-silver/20">
+                                        <span className="text-charcoal/40 text-[9px] uppercase">Transaction ID / UTR</span>
+                                        <span className="font-mono text-[10px] truncate">{order.payment_transaction_id}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-silver/20">
+                                      <span className="text-charcoal/40 text-[10px]">Payment Status:</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                        order.payment_status === "paid"
+                                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                                          : "bg-amber-50 text-amber-600 border border-amber-100"
+                                      }`}>
+                                        {order.payment_status || "Pending"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
 
                               {order.status !== "delivered" ? (

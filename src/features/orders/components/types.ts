@@ -26,6 +26,10 @@ export interface Order {
   pod_latitude?: number | string | null;
   pod_longitude?: number | string | null;
   delivered_at?: string | null;
+  payment_method?: string;
+  amount_collected?: string;
+  payment_transaction_id?: string;
+  payment_status?: string;
 }
 
 export interface OrderStats {
