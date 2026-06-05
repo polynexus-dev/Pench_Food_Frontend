@@ -7,8 +7,12 @@ import {
   TrendingUp,
   Truck,
   Package,
-  ChevronRight
+  ChevronRight,
+  PlusCircle,
+  ShoppingCart,
+  CheckCircle2
 } from 'lucide-react';
+import CreateOrderModal from '../../orders/components/modals/CreateOrderModal';
 
 const isMilkProduct = (name: string): boolean => {
   const lower = name.toLowerCase();
@@ -67,6 +71,10 @@ const OverviewPage = () => {
   const navigate = useNavigate();
   const tenant = useAuthStore((state) => state.tenant);
   
+  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+  const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>([]);
@@ -256,7 +264,7 @@ const OverviewPage = () => {
     };
 
     loadData();
-  }, [tenant]);
+  }, [tenant, reloadTrigger]);
 
   if (isLoading) {
     return (
@@ -326,6 +334,13 @@ const OverviewPage = () => {
         <h1 className="text-2xl font-bold text-charcoal">Distributor Overview</h1>
         <p className="text-charcoal/60">Welcome back! Here's what's happening {activeDateLabel} across your distribution network.</p>
       </div>
+
+      {orderSuccessMsg && (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold rounded-2xl flex items-center gap-3 animate-pulse shadow-sm">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          {orderSuccessMsg}
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -405,6 +420,21 @@ const OverviewPage = () => {
 
         {/* Quick Actions / Stock */}
         <div className="space-y-6">
+          {/* Quick Actions Widget */}
+          <div className="bg-white p-6 rounded-2xl border border-silver shadow-sm space-y-4">
+            <h3 className="font-bold text-charcoal flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-primary" />
+              Quick Actions
+            </h3>
+            <button
+              onClick={() => setIsCreateOrderOpen(true)}
+              className="w-full py-3 bg-primary text-white hover:bg-primary/95 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md shadow-primary/10"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Create Customer Order
+            </button>
+          </div>
+
           <div className="bg-cream p-6 rounded-2xl border border-accent/30">
             <h3 className="font-bold text-charcoal mb-4">Stock Highlights</h3>
             <div className="space-y-4">
@@ -418,6 +448,15 @@ const OverviewPage = () => {
           </div>
         </div>
       </div>
+      <CreateOrderModal
+        isOpen={isCreateOrderOpen}
+        onClose={() => setIsCreateOrderOpen(false)}
+        onSuccess={(msg) => {
+          setOrderSuccessMsg(msg);
+          setReloadTrigger((prev) => prev + 1);
+          setTimeout(() => setOrderSuccessMsg(null), 5000);
+        }}
+      />
     </div>
   );
 };

@@ -10,6 +10,7 @@ const DashboardLayout = () => {
   const { user } = useAuthStore();
   const { fetchCompanies } = useCompanyStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -33,16 +34,16 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen bg-milk-white overflow-hidden">
-      {/* Permanent Sidebar */}
-      <Sidebar />
+      {/* Permanent Sidebar (Desktop) & Drawer Sidebar (Mobile) */}
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Permanent Navbar */}
-        <Navbar />
+        <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-y-auto p-8 relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
           <Outlet />
         </main>
       </div>

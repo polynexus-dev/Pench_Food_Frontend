@@ -17,9 +17,12 @@ import {
   Check,
 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
+import CreateOrderModal from "../../orders/components/modals/CreateOrderModal";
 
 const CustomerDashboard = () => {
   const { user } = useAuthStore();
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
   const [leaves, setLeaves] = useState([
     { id: 1, startDate: "2026-06-01", endDate: "2026-06-05", status: "Approved" },
   ]);
@@ -88,11 +91,27 @@ const CustomerDashboard = () => {
             Manage your daily milk subscriptions, pause deliveries for vacation, and track returnable bottles.
           </p>
         </div>
-        <div className="px-5 py-3 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col items-center justify-center text-center shrink-0">
-          <span className="text-[10px] font-black uppercase text-primary tracking-wider">Account Balance</span>
-          <span className="text-2xl font-black text-primary mt-1">₹0.00</span>
+        <div className="flex flex-wrap items-center gap-4 shrink-0 self-start md:self-auto">
+          <button
+            onClick={() => setIsOrderModalOpen(true)}
+            className="px-5 py-3.5 bg-primary text-white hover:bg-primary/95 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/15 transition-all active:scale-[0.98] cursor-pointer"
+          >
+            <PlusCircle className="w-5 h-5" />
+            Place New Order
+          </button>
+          <div className="px-5 py-3 bg-primary/5 border border-primary/10 rounded-2xl flex flex-col items-center justify-center text-center shrink-0">
+            <span className="text-[10px] font-black uppercase text-primary tracking-wider">Account Balance</span>
+            <span className="text-2xl font-black text-primary mt-1">₹0.00</span>
+          </div>
         </div>
       </div>
+
+      {orderSuccessMsg && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-bold rounded-2xl flex items-center gap-3 animate-pulse shadow-sm">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          {orderSuccessMsg}
+        </div>
+      )}
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -458,8 +477,15 @@ const CustomerDashboard = () => {
               </div>
             </div>
           </div>
-        </div>
       </div>
+      <CreateOrderModal
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        onSuccess={(msg) => {
+          setOrderSuccessMsg(msg);
+          setTimeout(() => setOrderSuccessMsg(null), 5000);
+        }}
+      />
     </div>
   );
 };

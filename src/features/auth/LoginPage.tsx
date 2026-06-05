@@ -1,13 +1,6 @@
 import React, { useState } from "react";
 import { logo } from "../../assets/images";
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  ShieldCheck,
-} from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -40,8 +33,16 @@ const LoginPage: React.FC<LoginPageProps> = () => {
       const roleLower = user.role?.toLowerCase();
       const isDriver = roleLower === "drivers" || roleLower === "driver";
 
-      if (!user.is_erp_user && !user.is_superuser && !user.is_staff && !user.is_customer && !isDriver) {
-        setError("Access Denied: Your account does not have access to this portal.");
+      if (
+        !user.is_erp_user &&
+        !user.is_superuser &&
+        !user.is_staff &&
+        !user.is_customer &&
+        !isDriver
+      ) {
+        setError(
+          "Access Denied: Your account does not have access to this portal.",
+        );
         setIsLoading(false);
         return;
       }
@@ -166,7 +167,9 @@ const LoginPage: React.FC<LoginPageProps> = () => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  alert("Please contact your system administrator to recover your account credentials.");
+                  alert(
+                    "Please contact your system administrator to recover your account credentials.",
+                  );
                 }}
                 className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
               >
