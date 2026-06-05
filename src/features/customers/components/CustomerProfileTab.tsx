@@ -26,20 +26,26 @@ import {
   Download,
   RefreshCw,
   IndianRupee,
-  Activity,
   ChevronLeft,
   ChevronRight,
   QrCode,
   X,
   Loader2,
   FileText,
-  Eye,
 } from "lucide-react";
-import type { Customer, Order, Subscription, CustomerProductPrice, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "./types";
+import type {
+  Customer,
+  Order,
+  Subscription,
+  CustomerProductPrice,
+  MonthlyBill,
+  BottleType,
+  CustomerBottleBalance,
+  BottleTransaction,
+} from "./types";
 import { customerApi } from "../api/customerApi";
 import { financeApi } from "../../finance/api/financeApi";
 import axiosInstance from "../../../api/axiosInstance";
-
 
 interface CustomerProfileTabProps {
   customer: Customer;
@@ -53,7 +59,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   onUpdateCustomer,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "orders" | "subscriptions" | "payments" | "discounts" | "containers" | "calendar"
+    | "orders"
+    | "subscriptions"
+    | "payments"
+    | "discounts"
+    | "containers"
+    | "calendar"
   >("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
@@ -100,7 +111,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     if (!qrImageUrl) return;
     const link = document.createElement("a");
     link.href = qrImageUrl;
-    link.setAttribute("download", `qr_sticker_${customer.name.replace(/\s+/g, "_")}.png`);
+    link.setAttribute(
+      "download",
+      `qr_sticker_${customer.name.replace(/\s+/g, "_")}.png`,
+    );
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);
@@ -132,7 +146,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isSubscriptionsLoading, setIsSubscriptionsLoading] = useState(false);
   const [hasFetchedSubs, setHasFetchedSubs] = useState(false);
-  const [selectedSubToPause, setSelectedSubToPause] = useState<Subscription | null>(null);
+  const [selectedSubToPause, setSelectedSubToPause] =
+    useState<Subscription | null>(null);
   const [pauseStart, setPauseStart] = useState("");
   const [pauseEnd, setPauseEnd] = useState("");
   const [isPauseSubmitLoading, setIsPauseSubmitLoading] = useState(false);
@@ -141,7 +156,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [isGlobalLeaveModalOpen, setIsGlobalLeaveModalOpen] = useState(false);
   const [globalLeaveStart, setGlobalLeaveStart] = useState("");
   const [globalLeaveEnd, setGlobalLeaveEnd] = useState("");
-  const [isGlobalLeaveSubmitLoading, setIsGlobalLeaveSubmitLoading] = useState(false);
+  const [isGlobalLeaveSubmitLoading, setIsGlobalLeaveSubmitLoading] =
+    useState(false);
 
   // Create Subscription Form State
   const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
@@ -152,10 +168,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [addSubStartDate, setAddSubStartDate] = useState("");
   const [addSubEndDate, setAddSubEndDate] = useState("");
   const [addSubDeliveryAddress, setAddSubDeliveryAddress] = useState("");
-  const [addSubSpecialInstructions, setAddSubSpecialInstructions] = useState("");
-  const [addSubItems, setAddSubItems] = useState<{ product: string; quantity: number }[]>([
-    { product: "", quantity: 1 },
-  ]);
+  const [addSubSpecialInstructions, setAddSubSpecialInstructions] =
+    useState("");
+  const [addSubItems, setAddSubItems] = useState<
+    { product: string; quantity: number }[]
+  >([{ product: "", quantity: 1 }]);
   const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
 
   // Edit Subscription State
@@ -168,9 +185,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [selectedBill, setSelectedBill] = useState<MonthlyBill | null>(null);
   const [isBillsLoading, setIsBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState<string | null>(null);
-  const [downloadingBillId, setDownloadingBillId] = useState<string | null>(null);
+  const [downloadingBillId, setDownloadingBillId] = useState<string | null>(
+    null,
+  );
 
-  const handleDownloadInvoicePdf = async (billId: string, invoiceNumber: string) => {
+  const handleDownloadInvoicePdf = async (
+    billId: string,
+    invoiceNumber: string,
+  ) => {
     setDownloadingBillId(billId);
     try {
       await financeApi.downloadInvoicePdf(billId, invoiceNumber);
@@ -183,8 +205,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   };
 
   // Returnable Containers tracking States
-  const [bottleBalances, setBottleBalances] = useState<CustomerBottleBalance[]>([]);
-  const [bottleTransactions, setBottleTransactions] = useState<BottleTransaction[]>([]);
+  const [bottleBalances, setBottleBalances] = useState<CustomerBottleBalance[]>(
+    [],
+  );
+  const [bottleTransactions, setBottleTransactions] = useState<
+    BottleTransaction[]
+  >([]);
   const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
   const [isBottleLoading, setIsBottleLoading] = useState(false);
 
@@ -226,21 +252,31 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   }, [bottleBalances, bottleTransactions, bottleTypes]);
 
   // Log Bottle Event Modal State
-  const [isAddBottleTransModalOpen, setIsAddBottleTransModalOpen] = useState(false);
+  const [isAddBottleTransModalOpen, setIsAddBottleTransModalOpen] =
+    useState(false);
   const [selectedBottleType, setSelectedBottleType] = useState("");
-  const [bottleTransType, setBottleTransType] = useState<"issued" | "returned" | "broken" | "refilled">("returned");
+  const [bottleTransType, setBottleTransType] = useState<
+    "issued" | "returned" | "broken" | "refilled"
+  >("returned");
   const [bottleTransQty, setBottleTransQty] = useState(1);
   const [bottleTransNotes, setBottleTransNotes] = useState("");
-  const [isBottleTransSubmitLoading, setIsBottleTransSubmitLoading] = useState(false);
+  const [isBottleTransSubmitLoading, setIsBottleTransSubmitLoading] =
+    useState(false);
 
   // Custom price override state
   const [productsList, setProductsList] = useState<any[]>([]);
-  const [customPricesList, setCustomPricesList] = useState<CustomerProductPrice[]>([]);
+  const [customPricesList, setCustomPricesList] = useState<
+    CustomerProductPrice[]
+  >([]);
   const [isPricesLoading, setIsPricesLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [priceInputs, setPriceInputs] = useState<Record<string, { customPrice: string; discountPct: string }>>({});
+  const [priceInputs, setPriceInputs] = useState<
+    Record<string, { customPrice: string; discountPct: string }>
+  >({});
   const [savingProductId, setSavingProductId] = useState<string | null>(null);
-  const [priceSuccessMessages, setPriceSuccessMessages] = useState<Record<string, string>>({});
+  const [priceSuccessMessages, setPriceSuccessMessages] = useState<
+    Record<string, string>
+  >({});
 
   // Fetch real monthly bills from backend
   const fetchCustomerBills = async () => {
@@ -258,10 +294,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       console.error("Failed to fetch monthly bills:", error);
       if (error.response?.status === 403) {
         setBillsError(
-          "Access Restricted: Viewing billing invoices and payments requires Accountant or ERP_Admins group membership."
+          "Access Restricted: Viewing billing invoices and payments requires Accountant or ERP_Admins group membership.",
         );
       } else {
-        setBillsError("Failed to fetch billing history. Please try again later.");
+        setBillsError(
+          "Failed to fetch billing history. Please try again later.",
+        );
       }
     } finally {
       setIsBillsLoading(false);
@@ -278,13 +316,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         customerApi.getBottleTypes(),
       ]);
       setBottleBalances(balances);
-      
+
       // Sort transactions by date descending
       const sortedTransactions = [...transactions].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
       setBottleTransactions(sortedTransactions);
-      
+
       const activeTypes = types.filter((t) => t.is_active);
       setBottleTypes(activeTypes);
       if (activeTypes.length > 0) {
@@ -354,8 +393,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     try {
       const [subs, prods, cp] = await Promise.all([
         customerApi.getSubscriptions(customer.id),
-        productsList.length > 0 ? Promise.resolve(productsList) : customerApi.getProducts(),
-        customPricesList.length > 0 ? Promise.resolve(customPricesList) : customerApi.getCustomerPrices(customer.id),
+        productsList.length > 0
+          ? Promise.resolve(productsList)
+          : customerApi.getProducts(),
+        customPricesList.length > 0
+          ? Promise.resolve(customPricesList)
+          : customerApi.getCustomerPrices(customer.id),
       ]);
       setSubscriptions(subs);
       if (productsList.length === 0) setProductsList(prods);
@@ -407,9 +450,13 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
     setIsPauseSubmitLoading(true);
     try {
-      await customerApi.pauseSubscription(selectedSubToPause.id, pauseStart, pauseEnd);
+      await customerApi.pauseSubscription(
+        selectedSubToPause.id,
+        pauseStart,
+        pauseEnd,
+      );
       await fetchCustomerSubscriptions();
-      
+
       // Update parent-level customer list
       const updatedCust = await customerApi.getCustomerById(customer.id);
       onUpdateCustomer(updatedCust);
@@ -453,8 +500,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     try {
       await Promise.all(
         activeSubs.map((sub) =>
-          customerApi.pauseSubscription(sub.id, globalLeaveStart, globalLeaveEnd)
-        )
+          customerApi.pauseSubscription(
+            sub.id,
+            globalLeaveStart,
+            globalLeaveEnd,
+          ),
+        ),
       );
 
       await fetchCustomerSubscriptions();
@@ -476,7 +527,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   // Resume handler
   const handleResumeSub = async (subId: string) => {
     if (!confirm("Are you sure you want to resume this subscription?")) return;
-    
+
     try {
       await customerApi.resumeSubscription(subId);
       await fetchCustomerSubscriptions();
@@ -521,16 +572,24 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       return;
     }
 
-    const validItems = addSubItems.filter((item) => item.product && item.quantity > 0);
+    const validItems = addSubItems.filter(
+      (item) => item.product && item.quantity > 0,
+    );
     if (validItems.length === 0) {
-      alert("Please add at least one valid product with quantity greater than 0.");
+      alert(
+        "Please add at least one valid product with quantity greater than 0.",
+      );
       return;
     }
 
     const productIds = validItems.map((item) => item.product);
-    const hasDuplicates = productIds.some((val, i) => productIds.indexOf(val) !== i);
+    const hasDuplicates = productIds.some(
+      (val, i) => productIds.indexOf(val) !== i,
+    );
     if (hasDuplicates) {
-      alert("You have duplicate product selections. Please combine them or select different products.");
+      alert(
+        "You have duplicate product selections. Please combine them or select different products.",
+      );
       return;
     }
 
@@ -560,7 +619,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       setIsAddSubModalOpen(false);
     } catch (error) {
       console.error("Failed to create subscription:", error);
-      alert("Failed to create subscription. Please verify inputs and try again.");
+      alert(
+        "Failed to create subscription. Please verify inputs and try again.",
+      );
     } finally {
       setIsAddSubSubmitLoading(false);
     }
@@ -576,7 +637,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     setAddSubItems(updated);
   };
 
-  const handleUpdateSubItemRow = (index: number, field: "product" | "quantity", value: any) => {
+  const handleUpdateSubItemRow = (
+    index: number,
+    field: "product" | "quantity",
+    value: any,
+  ) => {
     const updated = [...addSubItems];
     updated[index] = {
       ...updated[index],
@@ -614,8 +679,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     setAddSubSpecialInstructions(sub.special_instructions || "");
     setAddSubItems(
       sub.items && sub.items.length > 0
-        ? sub.items.map((it) => ({ product: it.product, quantity: it.quantity }))
-        : [{ product: "", quantity: 1 }]
+        ? sub.items.map((it) => ({
+            product: it.product,
+            quantity: it.quantity,
+          }))
+        : [{ product: "", quantity: 1 }],
     );
     setIsEditSubModalOpen(true);
   };
@@ -637,14 +705,18 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       alert("Please select at least one day for custom frequency.");
       return;
     }
-    const validItems = addSubItems.filter((item) => item.product && item.quantity > 0);
+    const validItems = addSubItems.filter(
+      (item) => item.product && item.quantity > 0,
+    );
     if (validItems.length === 0) {
       alert("Please add at least one valid product.");
       return;
     }
     const productIds = validItems.map((item) => item.product);
     if (productIds.some((val, i) => productIds.indexOf(val) !== i)) {
-      alert("You have duplicate product selections. Please combine or select different products.");
+      alert(
+        "You have duplicate product selections. Please combine or select different products.",
+      );
       return;
     }
 
@@ -657,7 +729,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         end_date: addSubEndDate || null,
         delivery_address: addSubDeliveryAddress,
         special_instructions: addSubSpecialInstructions,
-        items: validItems.map((item) => ({ product: item.product, quantity: item.quantity })),
+        items: validItems.map((item) => ({
+          product: item.product,
+          quantity: item.quantity,
+        })),
       });
       await fetchCustomerSubscriptions();
       const updatedCust = await customerApi.getCustomerById(customer.id);
@@ -666,7 +741,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       setEditingSub(null);
     } catch (error) {
       console.error("Failed to update subscription:", error);
-      alert("Failed to update subscription. Please verify inputs and try again.");
+      alert(
+        "Failed to update subscription. Please verify inputs and try again.",
+      );
     } finally {
       setIsEditSubSubmitLoading(false);
     }
@@ -674,7 +751,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
   // Delete subscription handler
   const handleDeleteSub = async (subId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this subscription? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to permanently delete this subscription? This cannot be undone.",
+      )
+    )
+      return;
     try {
       await customerApi.deleteSubscription(subId);
       await fetchCustomerSubscriptions();
@@ -736,13 +818,17 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       setCustomPricesList(cp);
 
       // Initialize inputs from the active custom prices or default MRP
-      const initialInputs: Record<string, { customPrice: string; discountPct: string }> = {};
+      const initialInputs: Record<
+        string,
+        { customPrice: string; discountPct: string }
+      > = {};
       prods.forEach((p: any) => {
         const override = cp.find((o) => o.product === p.id);
         const mrp = parseFloat(p.unit_price);
         if (override) {
           const customPriceNum = parseFloat(override.custom_price);
-          const discountPctVal = mrp > 0 ? ((mrp - customPriceNum) / mrp) * 100 : 0;
+          const discountPctVal =
+            mrp > 0 ? ((mrp - customPriceNum) / mrp) * 100 : 0;
           initialInputs[p.id] = {
             customPrice: customPriceNum.toFixed(2),
             discountPct: discountPctVal.toFixed(1),
@@ -784,7 +870,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     }));
   };
 
-  const handleDiscountChange = (productId: string, value: string, mrp: number) => {
+  const handleDiscountChange = (
+    productId: string,
+    value: string,
+    mrp: number,
+  ) => {
     const numericVal = parseFloat(value);
     let customPriceVal = mrp.toFixed(2);
     if (!isNaN(numericVal)) {
@@ -806,7 +896,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
     const customPriceNum = parseFloat(inputs.customPrice);
     if (isNaN(customPriceNum) || customPriceNum < 0 || customPriceNum > mrp) {
-      alert(`Invalid custom price. Must be between ₹0.00 and the base MRP of ₹${mrp.toFixed(2)}.`);
+      alert(
+        `Invalid custom price. Must be between ₹0.00 and the base MRP of ₹${mrp.toFixed(2)}.`,
+      );
       return;
     }
 
@@ -825,7 +917,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         if (override) {
           await customerApi.updateCustomerPrice(override.id, customPriceNum);
         } else {
-          await customerApi.createCustomerPrice(customer.id, productId, customPriceNum);
+          await customerApi.createCustomerPrice(
+            customer.id,
+            productId,
+            customPriceNum,
+          );
         }
       }
 
@@ -891,7 +987,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
   const activeSubscriptionsCount = hasFetchedSubs
     ? subscriptions.filter((s) => s.status === "active" && !s.is_paused).length
-    : (customer.dashboard?.active_subscriptions || 0);
+    : customer.dashboard?.active_subscriptions || 0;
   const totalOrdersCount =
     orders.length || customer.dashboard?.total_orders || 0;
   const pendingBalance = customer.dashboard?.pending_balance || 0;
@@ -929,7 +1025,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-start md:items-end gap-5">
               {/* Huge Avatar with premium gradient border */}
-              <div 
+              <div
                 onClick={handleAvatarClick}
                 className="w-24 h-24 bg-gradient-to-tr from-primary to-sage text-white rounded-3xl flex items-center justify-center font-black text-4xl shadow-xl shadow-primary/15 border-4 border-white relative z-10 cursor-pointer hover:scale-105 active:scale-95 transition-all select-none hover:shadow-primary/25 duration-300 group/avatar"
                 title="Click to view QR Sticker"
@@ -1042,7 +1138,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   Assigned Zone
                 </p>
                 {isLoadingZones ? (
-                  <p className="text-xs font-bold text-charcoal/40 animate-pulse">Loading...</p>
+                  <p className="text-xs font-bold text-charcoal/40 animate-pulse">
+                    Loading...
+                  </p>
                 ) : (
                   <div className="relative flex items-center">
                     <select
@@ -1052,9 +1150,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                         const val = e.target.value;
                         setIsUpdatingZone(true);
                         try {
-                          const updated = await customerApi.updateCustomer(customer.id, {
-                            zone: val || null,
-                          });
+                          const updated = await customerApi.updateCustomer(
+                            customer.id,
+                            {
+                              zone: val || null,
+                            },
+                          );
                           onUpdateCustomer({
                             ...customer,
                             ...updated,
@@ -1062,7 +1163,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                             zone_name: updated.zone_name,
                           });
                         } catch (error) {
-                          console.error("Failed to update customer zone:", error);
+                          console.error(
+                            "Failed to update customer zone:",
+                            error,
+                          );
                         } finally {
                           setIsUpdatingZone(false);
                         }
@@ -1135,8 +1239,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               Custom Prices
             </p>
             <p className="text-2xl font-black text-amber-600">
-              {customer.product_rates?.filter(r => r.discount > 0).length || 0}
-              <span className="text-xs font-bold text-charcoal/30"> Active</span>
+              {customer.product_rates?.filter((r) => r.discount > 0).length ||
+                0}
+              <span className="text-xs font-bold text-charcoal/30">
+                {" "}
+                Active
+              </span>
             </p>
           </div>
           <div className="p-3.5 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-105 transition-transform">
@@ -1159,7 +1267,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             {
               id: "subscriptions",
               label: "Subscriptions",
-              count: hasFetchedSubs ? subscriptions.length : (customer.dashboard?.active_subscriptions || 0),
+              count: hasFetchedSubs
+                ? subscriptions.length
+                : customer.dashboard?.active_subscriptions || 0,
               icon: Layers,
             },
             {
@@ -1171,13 +1281,18 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             {
               id: "containers",
               label: "Containers Tracking",
-              count: bottleBalances.reduce((acc, b) => acc + (b.balance > 0 ? b.balance : 0), 0),
+              count: bottleBalances.reduce(
+                (acc, b) => acc + (b.balance > 0 ? b.balance : 0),
+                0,
+              ),
               icon: Package,
             },
             {
               id: "discounts",
               label: "Custom Prices",
-              count: customer.product_rates?.filter(r => r.discount > 0).length || 0,
+              count:
+                customer.product_rates?.filter((r) => r.discount > 0).length ||
+                0,
               icon: Percent,
             },
             {
@@ -1330,7 +1445,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     Subscription Schedules
                   </h3>
                   <p className="text-xs text-charcoal/40 mt-1">
-                    Manage recurring delivery schedules, pause vacations, and set active routes.
+                    Manage recurring delivery schedules, pause vacations, and
+                    set active routes.
                   </p>
                 </div>
                 <button
@@ -1367,7 +1483,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               ) : subscriptions.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {subscriptions.map((sub) => {
-                    const subTotal = sub.items?.reduce((acc, item) => acc + item.quantity * getProductPrice(item.product), 0) || 0;
+                    const subTotal =
+                      sub.items?.reduce(
+                        (acc, item) =>
+                          acc + item.quantity * getProductPrice(item.product),
+                        0,
+                      ) || 0;
 
                     return (
                       <div
@@ -1399,7 +1520,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     : "bg-red-50 text-red-500 border-red-100"
                               }`}
                             >
-                              {sub.is_paused ? "Paused / Vacation" : sub.status_display || sub.status}
+                              {sub.is_paused
+                                ? "Paused / Vacation"
+                                : sub.status_display || sub.status}
                             </span>
                           </div>
 
@@ -1409,18 +1532,30 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                               {sub.items.map((item) => {
                                 const price = getProductPrice(item.product);
                                 return (
-                                  <div key={item.id} className="flex justify-between items-center bg-silver/5 p-2.5 rounded-xl border border-silver/20">
+                                  <div
+                                    key={item.id}
+                                    className="flex justify-between items-center bg-silver/5 p-2.5 rounded-xl border border-silver/20"
+                                  >
                                     <div className="min-w-0">
-                                      <p className="text-xs font-bold text-charcoal truncate">{item.product_name}</p>
-                                      <p className="text-[10px] text-charcoal/40 font-semibold">Qty: {item.quantity} × ₹{price.toFixed(2)}</p>
+                                      <p className="text-xs font-bold text-charcoal truncate">
+                                        {item.product_name}
+                                      </p>
+                                      <p className="text-[10px] text-charcoal/40 font-semibold">
+                                        Qty: {item.quantity} × ₹
+                                        {price.toFixed(2)}
+                                      </p>
                                     </div>
-                                    <p className="text-xs font-black text-charcoal shrink-0">₹{(item.quantity * price).toFixed(2)}</p>
+                                    <p className="text-xs font-black text-charcoal shrink-0">
+                                      ₹{(item.quantity * price).toFixed(2)}
+                                    </p>
                                   </div>
                                 );
                               })}
                             </div>
                           ) : (
-                            <p className="text-xs text-charcoal/40 italic">No items in this subscription</p>
+                            <p className="text-xs text-charcoal/40 italic">
+                              No items in this subscription
+                            </p>
                           )}
 
                           {/* Vacation pause range banner */}
@@ -1431,7 +1566,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 Vacation Pause Active
                               </p>
                               <p className="font-semibold text-charcoal/60">
-                                Range: {formatDate(sub.pause_start)} to {formatDate(sub.pause_end)}
+                                Range: {formatDate(sub.pause_start)} to{" "}
+                                {formatDate(sub.pause_end)}
                               </p>
                               {sub.pause_updated_by_name && (
                                 <p className="text-[9px] text-charcoal/40 font-medium">
@@ -1486,7 +1622,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   type="button"
                                   onClick={() => {
                                     setSelectedSubToPause(sub);
-                                    const today = new Date().toISOString().split("T")[0];
+                                    const today = new Date()
+                                      .toISOString()
+                                      .split("T")[0];
                                     setPauseStart(today);
                                     setPauseEnd(today);
                                   }}
@@ -1527,7 +1665,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   Invoices & Payments History
                 </h3>
                 <p className="text-xs text-charcoal/40 mt-1">
-                  Track monthly aggregate billings, current outstanding balances, and logged payment receipts.
+                  Track monthly aggregate billings, current outstanding
+                  balances, and logged payment receipts.
                 </p>
               </div>
 
@@ -1545,7 +1684,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       {billsError}
                     </p>
                     <p className="text-[10px] font-medium text-charcoal/40">
-                      Standard security protocols isolate financial ledgers to authorized accounting personnel.
+                      Standard security protocols isolate financial ledgers to
+                      authorized accounting personnel.
                     </p>
                   </div>
                 </div>
@@ -1554,7 +1694,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-1 space-y-4">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-24 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"></div>
+                      <div
+                        key={i}
+                        className="h-24 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"
+                      ></div>
                     ))}
                   </div>
                   <div className="lg:col-span-2 h-72 bg-silver/10 border border-silver/30 rounded-3xl animate-pulse"></div>
@@ -1562,21 +1705,24 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
               ) : monthlyBills.length > 0 ? (
                 /* Main Dual-Pane Billing UI */
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
                   {/* Left Pane: Invoices Ledger */}
                   <div className="lg:col-span-1 space-y-3.5 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
                     <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest px-1">
                       Billing Statements ({monthlyBills.length})
                     </p>
-                    
+
                     {monthlyBills.map((bill) => {
                       const isSelected = selectedBill?.id === bill.id;
-                      
+
                       // Format "YYYY-MM" to readable "Month YYYY"
                       let monthDisplay = bill.billing_month;
                       try {
                         const [yr, mn] = bill.billing_month.split("-");
-                        const dateObj = new Date(parseInt(yr), parseInt(mn) - 1, 1);
+                        const dateObj = new Date(
+                          parseInt(yr),
+                          parseInt(mn) - 1,
+                          1,
+                        );
                         monthDisplay = dateObj.toLocaleDateString("en-IN", {
                           month: "long",
                           year: "numeric",
@@ -1623,19 +1769,32 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 Due Date
                               </p>
                               <p className="text-[10px] font-bold text-charcoal/60">
-                                {new Date(bill.due_date).toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
+                                {new Date(bill.due_date).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  },
+                                )}
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest">
                                 Remaining
                               </p>
-                              <p className={`text-xs font-black ${bill.remaining_amount > 0 ? "text-red-600" : "text-primary"}`}>
-                                ₹{parseFloat(bill.total_amount) - parseFloat(bill.amount_paid) <= 0 ? "0.00" : (parseFloat(bill.total_amount) - parseFloat(bill.amount_paid)).toFixed(2)}
+                              <p
+                                className={`text-xs font-black ${bill.remaining_amount > 0 ? "text-red-600" : "text-primary"}`}
+                              >
+                                ₹
+                                {parseFloat(bill.total_amount) -
+                                  parseFloat(bill.amount_paid) <=
+                                0
+                                  ? "0.00"
+                                  : (
+                                      parseFloat(bill.total_amount) -
+                                      parseFloat(bill.amount_paid)
+                                    ).toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -1648,7 +1807,6 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   <div className="lg:col-span-2 bg-silver/5 border border-silver/50 rounded-3xl p-6 flex flex-col min-h-[300px]">
                     {selectedBill ? (
                       <div className="space-y-6 flex-1 flex flex-col justify-between">
-                        
                         {/* Selected Invoice Details Section */}
                         <div className="space-y-4">
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-silver/30 pb-4">
@@ -1662,10 +1820,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 </span>
                               </div>
                               <h4 className="text-base font-black text-charcoal mt-1">
-                                Monthly Statement for {(() => {
+                                Monthly Statement for{" "}
+                                {(() => {
                                   try {
-                                    const [yr, mn] = selectedBill.billing_month.split("-");
-                                    return new Date(parseInt(yr), parseInt(mn) - 1, 1).toLocaleDateString("en-IN", {
+                                    const [yr, mn] =
+                                      selectedBill.billing_month.split("-");
+                                    return new Date(
+                                      parseInt(yr),
+                                      parseInt(mn) - 1,
+                                      1,
+                                    ).toLocaleDateString("en-IN", {
                                       month: "long",
                                       year: "numeric",
                                     });
@@ -1678,7 +1842,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                             <div className="flex items-center gap-4 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => handleDownloadInvoicePdf(selectedBill.id, selectedBill.invoice_number)}
+                                onClick={() =>
+                                  handleDownloadInvoicePdf(
+                                    selectedBill.id,
+                                    selectedBill.invoice_number,
+                                  )
+                                }
                                 disabled={downloadingBillId === selectedBill.id}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-silver/60 rounded-xl text-[10px] font-black text-charcoal hover:bg-silver/10 hover:border-primary/40 active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                               >
@@ -1687,14 +1856,19 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 ) : (
                                   <Download className="w-3.5 h-3.5 text-primary" />
                                 )}
-                                {downloadingBillId === selectedBill.id ? "Downloading..." : "Download PDF"}
+                                {downloadingBillId === selectedBill.id
+                                  ? "Downloading..."
+                                  : "Download PDF"}
                               </button>
                               <div className="text-right">
                                 <span className="text-[9px] font-black text-charcoal/30 uppercase tracking-widest block">
                                   Total Bill Value
                                 </span>
                                 <span className="text-xl font-black text-charcoal">
-                                  ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
+                                  ₹
+                                  {parseFloat(
+                                    selectedBill.total_amount,
+                                  ).toFixed(2)}
                                 </span>
                               </div>
                             </div>
@@ -1706,7 +1880,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 Amount Invoiced
                               </span>
                               <span className="text-xs font-black text-charcoal">
-                                ₹{parseFloat(selectedBill.total_amount).toFixed(2)}
+                                ₹
+                                {parseFloat(selectedBill.total_amount).toFixed(
+                                  2,
+                                )}
                               </span>
                             </div>
                             <div>
@@ -1714,15 +1891,25 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 Total Payments Received
                               </span>
                               <span className="text-xs font-black text-primary">
-                                ₹{parseFloat(selectedBill.amount_paid).toFixed(2)}
+                                ₹
+                                {parseFloat(selectedBill.amount_paid).toFixed(
+                                  2,
+                                )}
                               </span>
                             </div>
                             <div>
                               <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
                                 Outstanding Dues
                               </span>
-                              <span className={`text-xs font-black ${parseFloat(selectedBill.total_amount) - parseFloat(selectedBill.amount_paid) > 0 ? "text-red-600" : "text-primary"}`}>
-                                ₹{Math.max(0, parseFloat(selectedBill.total_amount) - parseFloat(selectedBill.amount_paid)).toFixed(2)}
+                              <span
+                                className={`text-xs font-black ${parseFloat(selectedBill.total_amount) - parseFloat(selectedBill.amount_paid) > 0 ? "text-red-600" : "text-primary"}`}
+                              >
+                                ₹
+                                {Math.max(
+                                  0,
+                                  parseFloat(selectedBill.total_amount) -
+                                    parseFloat(selectedBill.amount_paid),
+                                ).toFixed(2)}
                               </span>
                             </div>
                             <div>
@@ -1730,7 +1917,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 Due Date Limit
                               </span>
                               <span className="text-xs font-bold text-charcoal/60">
-                                {new Date(selectedBill.due_date).toLocaleDateString("en-IN", {
+                                {new Date(
+                                  selectedBill.due_date,
+                                ).toLocaleDateString("en-IN", {
                                   day: "2-digit",
                                   month: "short",
                                   year: "numeric",
@@ -1743,10 +1932,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                         {/* Receipts List */}
                         <div className="space-y-3.5 pt-4 flex-1">
                           <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest">
-                            Transaction Payments Logs ({selectedBill.transactions?.length || 0})
+                            Transaction Payments Logs (
+                            {selectedBill.transactions?.length || 0})
                           </p>
 
-                          {selectedBill.transactions && selectedBill.transactions.length > 0 ? (
+                          {selectedBill.transactions &&
+                          selectedBill.transactions.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-left">
                                 <thead className="text-[8px] uppercase tracking-wider text-charcoal/40 font-black border-b border-silver/30 pb-2">
@@ -1754,17 +1945,28 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     <th className="pb-2">Receipt ID</th>
                                     <th className="pb-2">Recorded Date</th>
                                     <th className="pb-2">Payment Method</th>
-                                    <th className="pb-2 text-right">Value Settled</th>
+                                    <th className="pb-2 text-right">
+                                      Value Settled
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-silver/30">
                                   {selectedBill.transactions.map((tx) => (
-                                    <tr key={tx.id} className="hover:bg-silver/5">
-                                      <td className="py-2.5 font-black text-xs text-charcoal max-w-[120px] truncate" title={tx.transaction_id || tx.id}>
-                                        {tx.transaction_id || tx.id.substring(0, 10).toUpperCase()}
+                                    <tr
+                                      key={tx.id}
+                                      className="hover:bg-silver/5"
+                                    >
+                                      <td
+                                        className="py-2.5 font-black text-xs text-charcoal max-w-[120px] truncate"
+                                        title={tx.transaction_id || tx.id}
+                                      >
+                                        {tx.transaction_id ||
+                                          tx.id.substring(0, 10).toUpperCase()}
                                       </td>
                                       <td className="py-2.5 text-[11px] font-bold text-charcoal/60">
-                                        {new Date(tx.payment_date).toLocaleDateString("en-IN", {
+                                        {new Date(
+                                          tx.payment_date,
+                                        ).toLocaleDateString("en-IN", {
                                           day: "2-digit",
                                           month: "short",
                                           year: "numeric",
@@ -1784,24 +1986,32 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                           ) : (
                             <div className="py-8 bg-white border border-silver/30 rounded-2xl text-center">
                               <CreditCard className="w-5 h-5 text-charcoal/20 mx-auto mb-1.5" />
-                              <p className="text-xs font-bold text-charcoal/50">No payments captured</p>
-                              <p className="text-[10px] text-charcoal/30 mt-0.5">No offset transaction files exist for this invoice period.</p>
+                              <p className="text-xs font-bold text-charcoal/50">
+                                No payments captured
+                              </p>
+                              <p className="text-[10px] text-charcoal/30 mt-0.5">
+                                No offset transaction files exist for this
+                                invoice period.
+                              </p>
                             </div>
                           )}
                         </div>
-
                       </div>
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
                         <div className="w-14 h-14 bg-white border border-silver/50 rounded-full flex items-center justify-center mb-3 text-primary shadow-xs">
                           <CreditCard className="w-6 h-6" />
                         </div>
-                        <h4 className="text-sm font-bold text-charcoal">Select Billing Cycle</h4>
-                        <p className="text-xs text-charcoal/40 mt-1">Select an invoice statement from the ledger to view receipt logs.</p>
+                        <h4 className="text-sm font-bold text-charcoal">
+                          Select Billing Cycle
+                        </h4>
+                        <p className="text-xs text-charcoal/40 mt-1">
+                          Select an invoice statement from the ledger to view
+                          receipt logs.
+                        </p>
                       </div>
                     )}
                   </div>
-                  
                 </div>
               ) : (
                 <div className="py-12 bg-silver/5 border border-silver/50 rounded-3xl text-center">
@@ -1812,7 +2022,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     No Billing Records Found
                   </h4>
                   <p className="text-xs text-charcoal/40 mt-1">
-                    There are no recorded monthly bills or invoice cycles for this customer partner.
+                    There are no recorded monthly bills or invoice cycles for
+                    this customer partner.
                   </p>
                 </div>
               )}
@@ -1829,7 +2040,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     Containers & Returnable Bottles Tracking
                   </h3>
                   <p className="text-xs text-charcoal/40 mt-1">
-                    Monitor customer container balances, compute outstanding deposit liabilities, and manage container returns.
+                    Monitor customer container balances, compute outstanding
+                    deposit liabilities, and manage container returns.
                   </p>
                 </div>
                 <button
@@ -1849,11 +2061,15 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
                     <IndianRupee className="w-20 h-20 text-charcoal" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Outstanding Deposit</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">
+                    Outstanding Deposit
+                  </span>
                   <span className="text-2xl font-black text-primary tracking-tight mt-1.5 block">
                     ₹{containerStats.totalLiability.toFixed(2)}
                   </span>
-                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Active deposit liabilities</span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">
+                    Active deposit liabilities
+                  </span>
                 </div>
 
                 {/* 2. Total Possession */}
@@ -1861,11 +2077,18 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
                     <Package className="w-20 h-20 text-indigo-600" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">In Possession</span>
-                  <span className="text-2xl font-black text-indigo-600 tracking-tight mt-1.5 block">
-                    {containerStats.totalPossession} <span className="text-[10px] text-charcoal/40 font-bold uppercase">Units</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">
+                    In Possession
                   </span>
-                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Bottles with customer</span>
+                  <span className="text-2xl font-black text-indigo-600 tracking-tight mt-1.5 block">
+                    {containerStats.totalPossession}{" "}
+                    <span className="text-[10px] text-charcoal/40 font-bold uppercase">
+                      Units
+                    </span>
+                  </span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">
+                    Bottles with customer
+                  </span>
                 </div>
 
                 {/* 3. Deposit Cashflow */}
@@ -1873,15 +2096,21 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
                     <CreditCard className="w-20 h-20 text-emerald-600" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Deposits Activity</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">
+                    Deposits Activity
+                  </span>
                   <div className="mt-1 flex flex-col justify-center">
                     <div className="flex justify-between text-[10px] font-bold text-charcoal/60">
                       <span>Collected:</span>
-                      <span className="text-primary">₹{containerStats.historicalDepositsCollected.toFixed(0)}</span>
+                      <span className="text-primary">
+                        ₹{containerStats.historicalDepositsCollected.toFixed(0)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-[10px] font-bold text-charcoal/60 mt-0.5">
                       <span>Refunded:</span>
-                      <span className="text-emerald-600">₹{containerStats.historicalDepositsRefunded.toFixed(0)}</span>
+                      <span className="text-emerald-600">
+                        ₹{containerStats.historicalDepositsRefunded.toFixed(0)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1891,11 +2120,18 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] pointer-events-none group-hover:scale-110 transition-transform duration-500">
                     <AlertTriangle className="w-20 h-20 text-red-600" />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Damaged / Broken</span>
-                  <span className="text-2xl font-black text-red-500 tracking-tight mt-1.5 block">
-                    {containerStats.totalBreakages} <span className="text-[10px] text-charcoal/40 font-bold uppercase">Units</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">
+                    Damaged / Broken
                   </span>
-                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">Container breakages</span>
+                  <span className="text-2xl font-black text-red-500 tracking-tight mt-1.5 block">
+                    {containerStats.totalBreakages}{" "}
+                    <span className="text-[10px] text-charcoal/40 font-bold uppercase">
+                      Units
+                    </span>
+                  </span>
+                  <span className="text-[9px] font-bold text-charcoal/40 mt-1 block">
+                    Container breakages
+                  </span>
                 </div>
               </div>
 
@@ -1904,7 +2140,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[1, 2].map((i) => (
-                      <div key={i} className="h-28 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"></div>
+                      <div
+                        key={i}
+                        className="h-28 bg-silver/10 border border-silver/30 rounded-2xl animate-pulse"
+                      ></div>
                     ))}
                   </div>
                   <div className="h-48 bg-silver/10 border border-silver/30 rounded-3xl animate-pulse"></div>
@@ -1916,12 +2155,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest animate-in fade-in duration-300">
                       Current Balances in Possession
                     </p>
-                    
+
                     {bottleBalances.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
                         {bottleBalances.map((bal) => {
-                          const bType = bottleTypes.find((t) => t.id === bal.bottle_type);
-                          const depositAmt = bType ? parseFloat(bType.deposit_amount) : 0;
+                          const bType = bottleTypes.find(
+                            (t) => t.id === bal.bottle_type,
+                          );
+                          const depositAmt = bType
+                            ? parseFloat(bType.deposit_amount)
+                            : 0;
                           const liability = bal.balance * depositAmt;
 
                           return (
@@ -1935,7 +2178,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     {bal.bottle_type_name}
                                   </h4>
                                   <p className="text-[10px] text-charcoal/40 font-bold uppercase tracking-wider mt-0.5">
-                                    Deposit Value: ₹{depositAmt.toFixed(2)} / unit
+                                    Deposit Value: ₹{depositAmt.toFixed(2)} /
+                                    unit
                                   </p>
                                 </div>
 
@@ -1943,7 +2187,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
                                     Total Liabilities Outstanding
                                   </span>
-                                  <span className={`text-sm font-black ${liability > 0 ? "text-primary" : "text-charcoal/40"}`}>
+                                  <span
+                                    className={`text-sm font-black ${liability > 0 ? "text-primary" : "text-charcoal/40"}`}
+                                  >
                                     ₹{liability.toFixed(2)}
                                   </span>
                                 </div>
@@ -1956,7 +2202,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 <span className="text-2xl font-black text-charcoal group-hover:text-primary transition-colors">
                                   {bal.balance}
                                 </span>
-                                <span className="text-[10px] font-bold text-charcoal/40 ml-1">units</span>
+                                <span className="text-[10px] font-bold text-charcoal/40 ml-1">
+                                  units
+                                </span>
                               </div>
                             </div>
                           );
@@ -1964,7 +2212,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </div>
                     ) : (
                       <div className="p-5 bg-silver/5 border border-silver/30 rounded-2xl text-center text-xs font-bold text-charcoal/40 animate-in fade-in duration-300">
-                        No outstanding bottle container balances are currently mapped to this customer account.
+                        No outstanding bottle container balances are currently
+                        mapped to this customer account.
                       </div>
                     )}
                   </div>
@@ -1972,7 +2221,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   {/* Audit Trail Log */}
                   <div className="space-y-3.5 pt-4">
                     <p className="text-[9px] font-black text-charcoal/40 uppercase tracking-widest">
-                      Container Movement Audit Trail ({bottleTransactions.length} logs)
+                      Container Movement Audit Trail (
+                      {bottleTransactions.length} logs)
                     </p>
 
                     {bottleTransactions.length > 0 ? (
@@ -1996,15 +2246,21 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   className="hover:bg-silver/5 transition-colors text-xs text-charcoal/80 font-bold"
                                 >
                                   <td className="py-3.5 px-5 font-semibold text-charcoal/50 whitespace-nowrap">
-                                    {new Date(tx.created_at).toLocaleDateString("en-IN", {
-                                      day: "2-digit",
-                                      month: "short",
-                                      year: "numeric",
-                                    })}{" "}
-                                    {new Date(tx.created_at).toLocaleTimeString("en-IN", {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
+                                    {new Date(tx.created_at).toLocaleDateString(
+                                      "en-IN",
+                                      {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                      },
+                                    )}{" "}
+                                    {new Date(tx.created_at).toLocaleTimeString(
+                                      "en-IN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      },
+                                    )}
                                   </td>
                                   <td className="py-3.5 px-5 text-charcoal font-black">
                                     {tx.bottle_type_name}
@@ -2021,7 +2277,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                               : "bg-amber-50 text-amber-600 border-amber-100"
                                       }`}
                                     >
-                                      {tx.transaction_type_display || tx.transaction_type}
+                                      {tx.transaction_type_display ||
+                                        tx.transaction_type}
                                     </span>
                                   </td>
                                   <td className="py-3.5 px-5 text-primary font-black">
@@ -2030,7 +2287,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   <td className="py-3.5 px-5 text-charcoal/50 font-semibold whitespace-nowrap">
                                     {tx.recorded_by || "System Driver"}
                                   </td>
-                                  <td className="py-3.5 px-5 text-charcoal/60 font-semibold max-w-[200px] truncate" title={tx.notes}>
+                                  <td
+                                    className="py-3.5 px-5 text-charcoal/60 font-semibold max-w-[200px] truncate"
+                                    title={tx.notes}
+                                  >
                                     {tx.notes || "—"}
                                   </td>
                                 </tr>
@@ -2042,8 +2302,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     ) : (
                       <div className="py-12 bg-silver/5 border border-silver/50 rounded-3xl text-center animate-in fade-in duration-300">
                         <Package className="w-6 h-6 text-charcoal/20 mx-auto mb-2" />
-                        <h4 className="text-sm font-bold text-charcoal">No Container Events</h4>
-                        <p className="text-xs text-charcoal/40 mt-1">There are no movement logs on file for this account.</p>
+                        <h4 className="text-sm font-bold text-charcoal">
+                          No Container Events
+                        </h4>
+                        <p className="text-xs text-charcoal/40 mt-1">
+                          There are no movement logs on file for this account.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -2062,7 +2326,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     Customer Product Prices
                   </h3>
                   <p className="text-xs text-charcoal/40 mt-1">
-                    Manage per-product custom pricing. Changes are persisted in the central inventory schema immediately.
+                    Manage per-product custom pricing. Changes are persisted in
+                    the central inventory schema immediately.
                   </p>
                 </div>
                 <div className="relative w-full sm:w-80">
@@ -2101,8 +2366,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   {(() => {
                     const filtered = productsList.filter(
                       (p) =>
-                        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+                        p.name
+                          .toLowerCase()
+                          .includes(searchQuery.toLowerCase()) ||
+                        p.sku.toLowerCase().includes(searchQuery.toLowerCase()),
                     );
 
                     if (filtered.length === 0) {
@@ -2124,9 +2391,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     return (
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         {filtered.map((p) => {
-                          const override = customPricesList.find((o) => o.product === p.id);
+                          const override = customPricesList.find(
+                            (o) => o.product === p.id,
+                          );
                           const mrp = parseFloat(p.unit_price);
-                          const input = priceInputs[p.id] || { customPrice: mrp.toFixed(2), discountPct: "0.0" };
+                          const input = priceInputs[p.id] || {
+                            customPrice: mrp.toFixed(2),
+                            discountPct: "0.0",
+                          };
                           const isCustomized = !!override;
                           const isSaving = savingProductId === p.id;
                           const successMsg = priceSuccessMessages[p.id];
@@ -2172,7 +2444,13 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     max={mrp}
                                     step="0.01"
                                     value={input.customPrice}
-                                    onChange={(e) => handlePriceChange(p.id, e.target.value, mrp)}
+                                    onChange={(e) =>
+                                      handlePriceChange(
+                                        p.id,
+                                        e.target.value,
+                                        mrp,
+                                      )
+                                    }
                                     className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                                   />
                                 </div>
@@ -2186,7 +2464,13 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     max="100"
                                     step="0.1"
                                     value={input.discountPct}
-                                    onChange={(e) => handleDiscountChange(p.id, e.target.value, mrp)}
+                                    onChange={(e) =>
+                                      handleDiscountChange(
+                                        p.id,
+                                        e.target.value,
+                                        mrp,
+                                      )
+                                    }
                                     className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                                   />
                                 </div>
@@ -2218,7 +2502,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                     <button
                                       type="button"
                                       disabled={isSaving}
-                                      onClick={() => handleResetToMrp(p.id, mrp)}
+                                      onClick={() =>
+                                        handleResetToMrp(p.id, mrp)
+                                      }
                                       className="px-3 py-2 border border-silver/50 hover:bg-silver/10 rounded-xl text-[10px] font-bold text-charcoal active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                                       title="Reset to MRP"
                                     >
@@ -2229,7 +2515,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   <button
                                     type="button"
                                     disabled={isSaving}
-                                    onClick={() => handleSavePriceOverride(p.id, mrp)}
+                                    onClick={() =>
+                                      handleSavePriceOverride(p.id, mrp)
+                                    }
                                     className="px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                                   >
                                     {isSaving ? "Saving..." : "Save Price"}
@@ -2248,159 +2536,193 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           )}
 
           {/* 6. DELIVERY CALENDAR TAB */}
-          {activeSubTab === "calendar" && (() => {
-            const year = currentDate.getFullYear();
-            const month = currentDate.getMonth();
-            const firstDayOfMonth = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const monthNames = [
-              "January", "February", "March", "April", "May", "June",
-              "July", "August", "September", "October", "November", "December"
-            ];
-            const blankBoxes = Array.from({ length: firstDayOfMonth });
-            const dayBoxes = Array.from({ length: daysInMonth });
+          {activeSubTab === "calendar" &&
+            (() => {
+              const year = currentDate.getFullYear();
+              const month = currentDate.getMonth();
+              const firstDayOfMonth = new Date(year, month, 1).getDay();
+              const daysInMonth = new Date(year, month + 1, 0).getDate();
+              const monthNames = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+              ];
+              const blankBoxes = Array.from({ length: firstDayOfMonth });
+              const dayBoxes = Array.from({ length: daysInMonth });
 
-            const handlePrevMonth = () => {
-              setCurrentDate(new Date(year, month - 1, 1));
-            };
+              const handlePrevMonth = () => {
+                setCurrentDate(new Date(year, month - 1, 1));
+              };
 
-            const handleNextMonth = () => {
-              setCurrentDate(new Date(year, month + 1, 1));
-            };
+              const handleNextMonth = () => {
+                setCurrentDate(new Date(year, month + 1, 1));
+              };
 
-            return (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="border-b border-silver/30 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-charcoal tracking-tight flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-primary" />
-                      Delivery Calendar & Dropped Logs Audit
-                    </h3>
-                    <p className="text-xs text-charcoal/60 mt-1">
-                      Day-by-day drop status mapping and vacation paused timelines for {customer.name}.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
-                    <button
-                      onClick={handleOpenGlobalLeaveModal}
-                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer border border-amber-600"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Vacation / Leave
-                    </button>
-                    <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl">
-                      <span className="text-xs font-bold text-charcoal/80 px-2">
-                        {monthNames[month]} {year}
-                      </span>
+              return (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div className="border-b border-silver/30 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-charcoal tracking-tight flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-primary" />
+                        Delivery Calendar & Dropped Logs Audit
+                      </h3>
+                      <p className="text-xs text-charcoal/60 mt-1">
+                        Day-by-day drop status mapping and vacation paused
+                        timelines for {customer.name}.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
                       <button
-                        onClick={handlePrevMonth}
-                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                        title="Previous Month"
+                        onClick={handleOpenGlobalLeaveModal}
+                        className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer border border-amber-600"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" /> Add Vacation / Leave
                       </button>
-                      <button
-                        onClick={handleNextMonth}
-                        className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
-                        title="Next Month"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 bg-silver/10 border border-silver/30 p-1.5 rounded-xl">
+                        <span className="text-xs font-bold text-charcoal/80 px-2">
+                          {monthNames[month]} {year}
+                        </span>
+                        <button
+                          onClick={handlePrevMonth}
+                          className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                          title="Previous Month"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={handleNextMonth}
+                          className="p-1 hover:bg-white rounded-lg text-charcoal transition-all cursor-pointer"
+                          title="Next Month"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Grid Calendar */}
-                <div className="max-w-md mx-auto bg-silver/5 p-6 rounded-3xl border border-silver/50 shadow-sm">
-                  <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-black text-charcoal/40 uppercase tracking-wider mb-3">
-                    <div>Su</div>
-                    <div>Mo</div>
-                    <div>Tu</div>
-                    <div>We</div>
-                    <div>Th</div>
-                    <div>Fr</div>
-                    <div>Sa</div>
-                  </div>
+                  {/* Grid Calendar */}
+                  <div className="max-w-md mx-auto bg-silver/5 p-6 rounded-3xl border border-silver/50 shadow-sm">
+                    <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-black text-charcoal/40 uppercase tracking-wider mb-3">
+                      <div>Su</div>
+                      <div>Mo</div>
+                      <div>Tu</div>
+                      <div>We</div>
+                      <div>Th</div>
+                      <div>Fr</div>
+                      <div>Sa</div>
+                    </div>
 
-                  <div className="grid grid-cols-7 gap-1.5">
-                    {/* Empty headers matching start offset */}
-                    {blankBoxes.map((_, idx) => (
-                      <div key={`blank-${idx}`} className="py-3 bg-transparent"></div>
-                    ))}
-                    {dayBoxes.map((_, index) => {
-                      const day = index + 1;
-                      let bg = "bg-silver/10 text-charcoal/30";
-                      let title = "Scheduled";
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {/* Empty headers matching start offset */}
+                      {blankBoxes.map((_, idx) => (
+                        <div
+                          key={`blank-${idx}`}
+                          className="py-3 bg-transparent"
+                        ></div>
+                      ))}
+                      {dayBoxes.map((_, index) => {
+                        const day = index + 1;
+                        let bg = "bg-silver/10 text-charcoal/30";
+                        let title = "Scheduled";
 
-                      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                      const isPausedDay = subscriptions.some((sub) =>
-                        sub.is_paused &&
-                        sub.pause_start &&
-                        sub.pause_end &&
-                        sub.pause_start <= dateStr &&
-                        dateStr <= sub.pause_end
-                      );
+                        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                        const isPausedDay = subscriptions.some(
+                          (sub) =>
+                            sub.is_paused &&
+                            sub.pause_start &&
+                            sub.pause_end &&
+                            sub.pause_start <= dateStr &&
+                            dateStr <= sub.pause_end,
+                        );
 
-                      const isMay2026 = year === 2026 && month === 4;
+                        const isMay2026 = year === 2026 && month === 4;
 
-                      if (isPausedDay) {
-                        bg = "bg-amber-500/15 text-amber-800 font-extrabold border border-amber-500/30 hover:bg-amber-500/25";
-                        title = "Vacation / Leave Day";
-                      } else if (isMay2026) {
-                        if (day < 18) {
-                          bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
-                          title = "Delivered";
-                        } else if (day === 18) {
-                          bg = "bg-rose-500/15 text-rose-700 font-extrabold border border-rose-500/20";
-                          title = "Not At Home / Failed Drop";
-                        } else if (day > 18 && day < 22) {
-                          bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                        if (isPausedDay) {
+                          bg =
+                            "bg-amber-500/15 text-amber-800 font-extrabold border border-amber-500/30 hover:bg-amber-500/25";
+                          title = "Vacation / Leave Day";
+                        } else if (isMay2026) {
+                          if (day < 18) {
+                            bg =
+                              "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                            title = "Delivered";
+                          } else if (day === 18) {
+                            bg =
+                              "bg-rose-500/15 text-rose-700 font-extrabold border border-rose-500/20";
+                            title = "Not At Home / Failed Drop";
+                          } else if (day > 18 && day < 22) {
+                            bg =
+                              "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
+                            title = "Delivered";
+                          } else {
+                            bg =
+                              "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
+                            title = "Scheduled Drop";
+                          }
+                        } else if (
+                          year < 2026 ||
+                          (year === 2026 && month < 4)
+                        ) {
+                          bg =
+                            "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
                           title = "Delivered";
                         } else {
-                          bg = "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
+                          bg =
+                            "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
                           title = "Scheduled Drop";
                         }
-                      } else if (year < 2026 || (year === 2026 && month < 4)) {
-                        bg = "bg-emerald-500/15 text-emerald-700 font-extrabold border border-emerald-500/20";
-                        title = "Delivered";
-                      } else {
-                        bg = "bg-primary/5 text-primary font-bold border border-primary/20 hover:bg-primary/10 cursor-pointer";
-                        title = "Scheduled Drop";
-                      }
 
-                      return (
-                        <div
-                          key={day}
-                          title={title}
-                          className={`py-2 text-xs rounded-lg flex flex-col items-center justify-center transition-all ${bg}`}
-                        >
-                          <span className="text-[11px]">{day}</span>
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={day}
+                            title={title}
+                            className={`py-2 text-xs rounded-lg flex flex-col items-center justify-center transition-all ${bg}`}
+                          >
+                            <span className="text-[11px]">{day}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="space-y-2 mt-6 border-t border-silver/30 pt-4">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/20 block" />
+                        <span className="text-charcoal/60">
+                          Delivered Drops
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-3.5 h-3.5 rounded bg-rose-500/15 border border-rose-500/20 block" />
+                        <span className="text-charcoal/60">
+                          Failed Delivery Attempts
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/30 block" />
+                        <span className="text-charcoal/60">
+                          Vacation / Leave Days
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-3.5 h-3.5 rounded bg-primary/5 border border-primary/20 block" />
+                        <span className="text-charcoal/60">
+                          Upcoming scheduled Drops
+                        </span>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="space-y-2 mt-6 border-t border-silver/30 pt-4">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-3.5 h-3.5 rounded bg-emerald-500/15 border border-emerald-500/20 block" />
-                      <span className="text-charcoal/60">Delivered Drops</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-3.5 h-3.5 rounded bg-rose-500/15 border border-rose-500/20 block" />
-                      <span className="text-charcoal/60">Failed Delivery Attempts</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-3.5 h-3.5 rounded bg-amber-500/15 border border-amber-500/30 block" />
-                      <span className="text-charcoal/60">Vacation / Leave Days</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-3.5 h-3.5 rounded bg-primary/5 border border-primary/20 block" />
-                      <span className="text-charcoal/60">Upcoming scheduled Drops</span>
-                    </div>
                 </div>
-              </div>
-            </div>
-            );
-          })()}
+              );
+            })()}
         </div>
       </div>
 
@@ -2434,7 +2756,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 <div className="space-y-1">
                   <p className="font-bold">Important Notice</p>
                   <p className="text-[11px] font-semibold text-charcoal/60 leading-relaxed">
-                    No deliveries will be scheduled or charged during this period. The subscription will automatically resume after the end date.
+                    No deliveries will be scheduled or charged during this
+                    period. The subscription will automatically resume after the
+                    end date.
                   </p>
                 </div>
               </div>
@@ -2518,7 +2842,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 <div className="space-y-1">
                   <p className="font-bold">Important Notice</p>
                   <p className="text-[11px] font-semibold text-charcoal/60 leading-relaxed">
-                    This will pause ALL active subscriptions for {customer.name} during the selected period. No deliveries will be scheduled or charged. Active subscriptions will automatically resume after the end date.
+                    This will pause ALL active subscriptions for {customer.name}{" "}
+                    during the selected period. No deliveries will be scheduled
+                    or charged. Active subscriptions will automatically resume
+                    after the end date.
                   </p>
                 </div>
               </div>
@@ -2564,7 +2891,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   disabled={isGlobalLeaveSubmitLoading}
                   className="px-5 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isGlobalLeaveSubmitLoading ? "Scheduling..." : "Schedule Leave"}
+                  {isGlobalLeaveSubmitLoading
+                    ? "Scheduling..."
+                    : "Schedule Leave"}
                 </button>
               </div>
             </form>
@@ -2583,7 +2912,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   Create New Subscription
                 </h3>
                 <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
-                  Configure recurring delivery schedules and items for {customer.name}
+                  Configure recurring delivery schedules and items for{" "}
+                  {customer.name}
                 </p>
               </div>
               <button
@@ -2596,7 +2926,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             </div>
 
             {/* Modal Body Form */}
-            <form onSubmit={handleAddSubSubmit} className="flex flex-col flex-1 min-h-0">
+            <form
+              onSubmit={handleAddSubSubmit}
+              className="flex flex-col flex-1 min-h-0"
+            >
               <div className="p-6 overflow-y-auto space-y-5 flex-1">
                 {/* 1. Schedule Configuration */}
                 <div className="space-y-4">
@@ -2611,7 +2944,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <select
                         value={addSubFrequency}
-                        onChange={(e) => setAddSubFrequency(e.target.value as any)}
+                        onChange={(e) =>
+                          setAddSubFrequency(e.target.value as any)
+                        }
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                       >
                         <option value="daily">Daily Delivery</option>
@@ -2717,7 +3052,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                               required
                               value={item.product}
                               onChange={(e) =>
-                                handleUpdateSubItemRow(index, "product", e.target.value)
+                                handleUpdateSubItemRow(
+                                  index,
+                                  "product",
+                                  e.target.value,
+                                )
                               }
                               className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                             >
@@ -2725,7 +3064,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                               {productsList.map((p) => {
                                 const price = getProductPrice(p.id);
                                 const isAlreadySelected = addSubItems.some(
-                                  (it, idx) => it.product === p.id && idx !== index
+                                  (it, idx) =>
+                                    it.product === p.id && idx !== index,
                                 );
                                 return (
                                   <option
@@ -2753,7 +3093,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                 handleUpdateSubItemRow(
                                   index,
                                   "quantity",
-                                  parseInt(e.target.value) || 0
+                                  parseInt(e.target.value) || 0,
                                 )
                               }
                               className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
@@ -2789,7 +3129,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <textarea
                         value={addSubDeliveryAddress}
-                        onChange={(e) => setAddSubDeliveryAddress(e.target.value)}
+                        onChange={(e) =>
+                          setAddSubDeliveryAddress(e.target.value)
+                        }
                         rows={2}
                         placeholder="Default customer address is used if blank..."
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
@@ -2802,7 +3144,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <textarea
                         value={addSubSpecialInstructions}
-                        onChange={(e) => setAddSubSpecialInstructions(e.target.value)}
+                        onChange={(e) =>
+                          setAddSubSpecialInstructions(e.target.value)
+                        }
                         rows={2}
                         placeholder="e.g. Leave at door, call before delivery..."
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
@@ -2842,7 +3186,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     disabled={isAddSubSubmitLoading}
                     className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                   >
-                    {isAddSubSubmitLoading ? "Creating..." : "Create Subscription"}
+                    {isAddSubSubmitLoading
+                      ? "Creating..."
+                      : "Create Subscription"}
                   </button>
                 </div>
               </div>
@@ -2862,12 +3208,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   Edit Subscription
                 </h3>
                 <p className="text-[10px] font-bold text-charcoal/40 uppercase mt-0.5">
-                  ID: #{editingSub.id.substring(0, 8).toUpperCase()} · {editingSub.frequency_display}
+                  ID: #{editingSub.id.substring(0, 8).toUpperCase()} ·{" "}
+                  {editingSub.frequency_display}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                onClick={() => {
+                  setIsEditSubModalOpen(false);
+                  setEditingSub(null);
+                }}
                 className="w-7 h-7 bg-white hover:bg-silver/10 border border-silver/50 rounded-lg flex items-center justify-center text-charcoal/50 hover:text-charcoal transition-colors cursor-pointer text-xs font-bold"
               >
                 ✕
@@ -2875,7 +3225,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleEditSubSubmit} className="overflow-y-auto flex-1 custom-scrollbar">
+            <form
+              onSubmit={handleEditSubSubmit}
+              className="overflow-y-auto flex-1 custom-scrollbar"
+            >
               <div className="p-6 space-y-6">
                 {/* 1. Schedule Configuration */}
                 <div className="space-y-4">
@@ -2889,7 +3242,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <select
                         value={addSubFrequency}
-                        onChange={(e) => setAddSubFrequency(e.target.value as any)}
+                        onChange={(e) =>
+                          setAddSubFrequency(e.target.value as any)
+                        }
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                       >
                         <option value="daily">Daily Delivery</option>
@@ -2933,9 +3288,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          { val: 0, label: "Mon" }, { val: 1, label: "Tue" },
-                          { val: 2, label: "Wed" }, { val: 3, label: "Thu" },
-                          { val: 4, label: "Fri" }, { val: 5, label: "Sat" },
+                          { val: 0, label: "Mon" },
+                          { val: 1, label: "Tue" },
+                          { val: 2, label: "Wed" },
+                          { val: 3, label: "Thu" },
+                          { val: 4, label: "Fri" },
+                          { val: 5, label: "Sat" },
                           { val: 6, label: "Sun" },
                         ].map((day) => {
                           const isSelected = addSubCustomDays.includes(day.val);
@@ -2945,7 +3303,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                               type="button"
                               onClick={() => handleToggleCustomDay(day.val)}
                               className={`px-4 py-2 border rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-                                isSelected ? "bg-primary text-white border-primary shadow-xs" : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
+                                isSelected
+                                  ? "bg-primary text-white border-primary shadow-xs"
+                                  : "bg-white text-charcoal border-silver/50 hover:bg-silver/10"
                               }`}
                             >
                               {day.label}
@@ -2974,7 +3334,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   </div>
                   <div className="space-y-3">
                     {addSubItems.map((item, index) => (
-                      <div key={index} className="flex items-end gap-3 p-3 bg-silver/5 border border-silver/30 rounded-2xl hover:border-silver/60 transition-colors">
+                      <div
+                        key={index}
+                        className="flex items-end gap-3 p-3 bg-silver/5 border border-silver/30 rounded-2xl hover:border-silver/60 transition-colors"
+                      >
                         <div className="flex-1 space-y-1.5">
                           <label className="text-[9px] font-black text-charcoal/40 uppercase tracking-wider">
                             Product
@@ -2982,15 +3345,28 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                           <select
                             required
                             value={item.product}
-                            onChange={(e) => handleUpdateSubItemRow(index, "product", e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateSubItemRow(
+                                index,
+                                "product",
+                                e.target.value,
+                              )
+                            }
                             className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                           >
                             <option value="">Select a product...</option>
                             {productsList.map((p) => {
                               const price = getProductPrice(p.id);
-                              const isAlreadySelected = addSubItems.some((it, idx) => it.product === p.id && idx !== index);
+                              const isAlreadySelected = addSubItems.some(
+                                (it, idx) =>
+                                  it.product === p.id && idx !== index,
+                              );
                               return (
-                                <option key={p.id} value={p.id} disabled={isAlreadySelected}>
+                                <option
+                                  key={p.id}
+                                  value={p.id}
+                                  disabled={isAlreadySelected}
+                                >
                                   {p.name} - ₹{price.toFixed(2)}
                                 </option>
                               );
@@ -3006,7 +3382,13 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                             required
                             min="1"
                             value={item.quantity}
-                            onChange={(e) => handleUpdateSubItemRow(index, "quantity", parseInt(e.target.value) || 0)}
+                            onChange={(e) =>
+                              handleUpdateSubItemRow(
+                                index,
+                                "quantity",
+                                parseInt(e.target.value) || 0,
+                              )
+                            }
                             className="w-full px-3 py-2 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                           />
                         </div>
@@ -3036,7 +3418,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <textarea
                         value={addSubDeliveryAddress}
-                        onChange={(e) => setAddSubDeliveryAddress(e.target.value)}
+                        onChange={(e) =>
+                          setAddSubDeliveryAddress(e.target.value)
+                        }
                         rows={2}
                         placeholder="Default customer address is used if blank..."
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
@@ -3048,7 +3432,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       </label>
                       <textarea
                         value={addSubSpecialInstructions}
-                        onChange={(e) => setAddSubSpecialInstructions(e.target.value)}
+                        onChange={(e) =>
+                          setAddSubSpecialInstructions(e.target.value)
+                        }
                         rows={2}
                         placeholder="e.g. Leave at door, call before delivery..."
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
@@ -3065,13 +3451,24 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     Estimated Cost per Delivery
                   </p>
                   <p className="text-lg font-black text-primary">
-                    ₹{addSubItems.reduce((acc, item) => acc + (item.quantity || 0) * getProductPrice(item.product), 0).toFixed(2)}
+                    ₹
+                    {addSubItems
+                      .reduce(
+                        (acc, item) =>
+                          acc +
+                          (item.quantity || 0) * getProductPrice(item.product),
+                        0,
+                      )
+                      .toFixed(2)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => { setIsEditSubModalOpen(false); setEditingSub(null); }}
+                    onClick={() => {
+                      setIsEditSubModalOpen(false);
+                      setEditingSub(null);
+                    }}
                     className="px-5 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer"
                   >
                     Cancel
@@ -3128,7 +3525,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 >
                   {bottleTypes.map((bt) => (
                     <option key={bt.id} value={bt.id}>
-                      {bt.name} (Deposit: ₹{parseFloat(bt.deposit_amount).toFixed(2)})
+                      {bt.name} (Deposit: ₹
+                      {parseFloat(bt.deposit_amount).toFixed(2)})
                     </option>
                   ))}
                 </select>
@@ -3162,7 +3560,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     min="1"
                     required
                     value={bottleTransQty}
-                    onChange={(e) => setBottleTransQty(parseInt(e.target.value) || 1)}
+                    onChange={(e) =>
+                      setBottleTransQty(parseInt(e.target.value) || 1)
+                    }
                     className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                   />
                 </div>
@@ -3196,7 +3596,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                   disabled={isBottleTransSubmitLoading}
                   className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/95 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
                 >
-                  {isBottleTransSubmitLoading ? "Submitting..." : "Submit Event"}
+                  {isBottleTransSubmitLoading
+                    ? "Submitting..."
+                    : "Submit Event"}
                 </button>
               </div>
             </form>
@@ -3247,10 +3649,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
             {/* 3D Flip Card Container */}
             <div className="w-full aspect-[3/4] flip-card-container">
-              <div className={`w-full h-full relative flip-card-inner ${isFlipped ? "flipped" : ""}`}>
-                
+              <div
+                className={`w-full h-full relative flip-card-inner ${isFlipped ? "flipped" : ""}`}
+              >
                 {/* FRONT SIDE: Profile Card */}
-                <div 
+                <div
                   onClick={() => setIsFlipped(true)}
                   className="absolute inset-0 w-full h-full bg-white rounded-3xl shadow-2xl border border-silver/50 flex flex-col items-center justify-between p-8 flip-card-front cursor-pointer hover:border-primary/20 transition-colors select-none"
                   title="Click to flip to QR Code"
@@ -3260,7 +3663,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     <div className="w-28 h-28 bg-gradient-to-tr from-primary to-sage text-white rounded-full flex items-center justify-center font-black text-5xl shadow-xl shadow-primary/20 border-4 border-silver/10 mb-6">
                       {customer.name.charAt(0)}
                     </div>
-                    <h3 className="text-xl font-black text-charcoal">{customer.name}</h3>
+                    <h3 className="text-xl font-black text-charcoal">
+                      {customer.name}
+                    </h3>
                     <p className="text-xs font-bold text-charcoal/40 uppercase tracking-widest mt-1">
                       {customer.company || "Private Partner"}
                     </p>
@@ -3284,7 +3689,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 </div>
 
                 {/* BACK SIDE: QR Sticker */}
-                <div 
+                <div
                   onClick={() => setIsFlipped(false)}
                   className="absolute inset-0 w-full h-full bg-white rounded-3xl shadow-2xl border border-silver/50 flex flex-col items-center justify-between p-6 flip-card-back cursor-pointer hover:border-primary/20 transition-colors select-none"
                   title="Click to flip to Profile"
@@ -3307,7 +3712,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
                   {/* Image area */}
                   <div className="flex-1 w-full flex items-center justify-center py-4">
-                    <div 
+                    <div
                       onClick={(e) => {
                         // Prevent flipping when clicking directly inside the QR label image wrapper to avoid misclicks
                         e.stopPropagation();
@@ -3317,7 +3722,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       {isLoadingQr ? (
                         <div className="flex flex-col items-center gap-2 text-charcoal/40">
                           <Loader2 className="w-7 h-7 animate-spin text-primary" />
-                          <span className="text-[9px] font-bold uppercase tracking-widest">Loading...</span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest">
+                            Loading...
+                          </span>
                         </div>
                       ) : qrImageUrl ? (
                         <img
@@ -3328,7 +3735,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       ) : (
                         <div className="flex flex-col items-center gap-1.5 text-rose-500/80 text-center px-4">
                           <AlertTriangle className="w-7 h-7" />
-                          <span className="text-[10px] font-bold">Failed to load sticker preview.</span>
+                          <span className="text-[10px] font-bold">
+                            Failed to load sticker preview.
+                          </span>
                         </div>
                       )}
                     </div>
@@ -3364,7 +3773,6 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     </button>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>

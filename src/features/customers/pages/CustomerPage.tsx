@@ -26,17 +26,19 @@ const CustomerPage: React.FC = () => {
   const [isAutoAssigning, setIsAutoAssigning] = useState<boolean>(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const [notification, _setNotification] = useState<{
+    title?: string;
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  const setNotification = (val: { message: string; type: "success" | "error" } | null) => {
+  const setNotification = (val: { title?: string; message: string; type: "success" | "error" } | null) => {
     _setNotification(val);
     if (val) {
       addNotification({
-        title: val.type === "success" ? "Auto-Assignment Complete 🎉" : "Operation Failed ⚠️",
+        title: val.title || (val.type === "success" ? "Auto-Assignment Complete 🎉" : "Operation Failed ⚠️"),
         message: val.message,
         type: val.type
       });
@@ -104,7 +106,90 @@ const CustomerPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+  // Export Customer List to CSV
+  const handleExportCSV = () => {
+    if (customers.length === 0) {
+      setNotification({
+        title: "Export Failed ⚠️",
+        message: "No customer data available to export.",
+        type: "error"
+      });
+      return;
+    }
 
+    setIsExporting(true);
+    
+    setTimeout(() => {
+      try {
+        const headers = [
+          "ID",
+          "Name",
+          "Company",
+          "Email",
+          "Phone",
+          "Address",
+          "Latitude",
+          "Longitude",
+          "Status",
+          "QR Code ID",
+          "Zone Name",
+          "Discount Rate",
+          "Created At"
+        ];
+
+        const escapeCSV = (val: any) => {
+          if (val === null || val === undefined) return '""';
+          const str = String(val);
+          return `"${str.replace(/"/g, '""')}"`;
+        };
+
+        const csvRows = [
+          headers.join(","),
+          ...customers.map(c => [
+            escapeCSV(c.id),
+            escapeCSV(c.name),
+            escapeCSV(c.company),
+            escapeCSV(c.email),
+            escapeCSV(c.phone),
+            escapeCSV(c.address),
+            c.latitude !== undefined ? c.latitude : "",
+            c.longitude !== undefined ? c.longitude : "",
+            c.is_active ? "Active" : "Inactive",
+            escapeCSV(c.qr_code_id),
+            escapeCSV(c.zone_name || c.zone || ""),
+            c.discount_rate !== undefined ? c.discount_rate : "",
+            escapeCSV(c.created_at)
+          ].join(","))
+        ];
+
+        const csvContent = "\uFEFF" + csvRows.join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `customers_export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setNotification({
+          title: "Export Successful 🎉",
+          message: `Successfully exported ${customers.length} customers to CSV.`,
+          type: "success"
+        });
+      } catch (error) {
+        console.error("Failed to export customers:", error);
+        setNotification({
+          title: "Export Failed ⚠️",
+          message: "An error occurred while generating the CSV.",
+          type: "error"
+        });
+      } finally {
+        setIsExporting(false);
+      }
+    }, 800);
+  };
 
   // Handle switching to profile details tab
   const handleViewProfile = (customerId: string) => {
@@ -157,9 +242,18 @@ const CustomerPage: React.FC = () => {
               {isAutoAssigning ? "Assigning..." : "Auto-Assign Zones"}
             </button>
           )}
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all shadow-sm">
-            <Download className="w-3.5 h-3.5" />
-            Export CSV
+          <button
+            onClick={handleExportCSV}
+            disabled={isExporting || customers.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 active:scale-95 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            title="Export Customers to CSV"
+          >
+            {isExporting ? (
+              <div className="w-3.5 h-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            ) : (
+              <Download className="w-3.5 h-3.5 text-primary" />
+            )}
+            {isExporting ? "Exporting..." : "Export CSV"}
           </button>
           <button 
             onClick={() => setIsBulkModalOpen(true)}
@@ -329,7 +423,7 @@ const CustomerPage: React.FC = () => {
           </div>
           <div>
             <h4 className="font-bold text-sm">
-              {notification.type === "success" ? "Auto-Assignment Complete" : "Error Occurred"}
+              {notification.title || (notification.type === "success" ? "Auto-Assignment Complete" : "Error Occurred")}
             </h4>
             <p className="text-xs opacity-90 mt-0.5 whitespace-pre-line">{notification.message}</p>
           </div>
