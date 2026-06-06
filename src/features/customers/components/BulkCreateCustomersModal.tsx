@@ -241,7 +241,20 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
       }
 
       let foundProductId = "";
-      if (productVal) {
+      const parsedQty = parseFloat(quantity || "1") || 1;
+
+      if (parsedQty === 1) {
+        const match = products.find((p) => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+        if (match) foundProductId = match.id;
+      } else if (parsedQty === 0.5) {
+        const match = products.find((p) => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
+        if (match) foundProductId = match.id;
+      } else if (parsedQty === 1.5 || parsedQty === 2.5) {
+        const match = products.find((p) => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+        if (match) foundProductId = match.id;
+      }
+
+      if (!foundProductId && productVal) {
         const matched = products.find(
           (p) =>
             p.id.toLowerCase() === productVal.toLowerCase() ||
@@ -335,7 +348,22 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
   const handleCellChange = (id: string, field: keyof ParsedCustomer, val: string) => {
     const updated = parsedCustomers.map(c => {
       if (c.id === id) {
-        const item = { ...c, [field]: val };
+        let item = { ...c, [field]: val };
+        
+        if (field === "quantity") {
+          let parsedQty = parseFloat(val);
+          if (parsedQty === 1) {
+            const match = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+            if (match) item.productId = match.id;
+          } else if (parsedQty === 0.5) {
+            const match = products.find(p => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
+            if (match) item.productId = match.id;
+          } else if (parsedQty === 1.5 || parsedQty === 2.5) {
+            const match = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+            if (match) item.productId = match.id;
+          }
+        }
+        
         return item;
       }
       return c;
@@ -447,23 +475,66 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
-      const subscriptionPayload = parsedCustomers.map((c, index) => {
+      const subscriptionPayload = parsedCustomers.flatMap((c, index) => {
         const createdCustomer = createdCustomers[index] || createdCustomers.find(
           (cust) => cust.name === c.name.trim() || cust.email === c.email.trim()
         );
-        return {
-          customer: createdCustomer?.id || "",
+        const customerId = createdCustomer?.id || "";
+        const qty = parseFloat(c.quantity || "1") || 1;
+
+        const baseSub = {
+          customer: customerId,
           frequency: c.subscription || "daily",
+          custom_days: [],
           start_date: tomorrowStr,
+          end_date: null,
           delivery_address: c.address.trim() || "",
           special_instructions: c.specialInstructions?.trim() || "",
-          items: [
-            {
-              product: c.productId || "",
-              quantity: parseFloat(c.quantity || "1") || 1
-            }
-          ]
         };
+
+        if (qty === 1.5 || qty === 2.5) {
+          const qty1 = Math.floor(qty); // 1 or 2
+          const qty2 = qty - qty1; // 0.5
+          
+          const a2CowMilk1L = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+          const a2CowMilk500ml = products.find(p => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
+          
+          const prod1Id = a2CowMilk1L?.id || c.productId || "";
+          const prod2Id = a2CowMilk500ml?.id || c.productId || "";
+
+          return [
+            {
+              ...baseSub,
+              items: [
+                {
+                  product: prod1Id,
+                  quantity: 1
+                }
+              ]
+            },
+            {
+              ...baseSub,
+              items: [
+                {
+                  product: prod2Id,
+                  quantity: 1
+                }
+              ]
+            }
+          ];
+        }
+
+        return [
+          {
+            ...baseSub,
+            items: [
+              {
+                product: c.productId || "",
+                quantity: 1
+              }
+            ]
+          }
+        ];
       });
 
       await customerApi.createSubscription(subscriptionPayload);
@@ -678,151 +749,177 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                     {parsedCustomers.map((c) => {
                       const hasErr = !!c.error;
                       const hasWarn = !!c.warning;
+                      const qtyVal = parseFloat(c.quantity || "1");
+                      const isSplitQty = qtyVal === 1.5 || qtyVal === 2.5;
+
                       return (
-                        <tr
-                          key={c.id}
-                          className={`border-b border-silver/30 transition-colors hover:bg-silver/5 ${
-                            hasErr
-                              ? "bg-rose-50/20 hover:bg-rose-50/30"
-                              : hasWarn
-                              ? "bg-amber-50/10 hover:bg-amber-50/20"
-                              : ""
-                          }`}
-                        >
-                          <td className="p-1 px-3">
-                            <input
-                              type="text"
-                              value={c.name}
-                              onChange={(e) => handleCellChange(c.id, "name", e.target.value)}
-                              className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                hasErr && !c.name.trim() ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            />
-                            {hasErr && !c.name.trim() && (
-                              <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
-                            )}
-                          </td>
-                          <td className="p-1 px-3">
-                            <input
-                              type="text"
-                              value={c.phone}
-                              onChange={(e) => handleCellChange(c.id, "phone", e.target.value)}
-                              className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
-                            />
-                          </td>
-                          <td className="p-1 px-2 text-center">
-                            <input
-                              type="text"
-                              value={c.latitude}
-                              onChange={(e) => handleCellChange(c.id, "latitude", e.target.value)}
-                              placeholder="lat"
-                              className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
-                                hasErr && c.latitude && isNaN(parseFloat(c.latitude)) ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            />
-                          </td>
-                          <td className="p-1 px-2 text-center">
-                            <input
-                              type="text"
-                              value={c.longitude}
-                              onChange={(e) => handleCellChange(c.id, "longitude", e.target.value)}
-                              placeholder="lng"
-                              className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
-                                hasErr && c.longitude && isNaN(parseFloat(c.longitude)) ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            />
-                          </td>
-                          <td className="p-1 px-3 text-center">
-                            <select
-                              value={c.productId || ""}
-                              onChange={(e) => handleCellChange(c.id, "productId", e.target.value)}
-                              className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                hasErr && !c.productId ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            >
-                              <option value="" disabled>Select Product</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name}
-                                </option>
-                              ))}
-                            </select>
-                            {hasErr && !c.productId && (
-                              <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Product is required</div>
-                            )}
-                          </td>
-                          <td className="p-1 px-3 text-center">
-                            <select
-                              value={c.subscription || "daily"}
-                              onChange={(e) => handleCellChange(c.id, "subscription", e.target.value)}
-                              className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold text-center ${
-                                hasErr && (!c.subscription || !["daily", "alternate", "weekdays", "weekends", "custom"].includes(c.subscription)) ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            >
-                              <option value="daily">Daily</option>
-                              <option value="alternate">Alternate</option>
-                              <option value="weekdays">Weekdays</option>
-                              <option value="weekends">Weekends</option>
-                              <option value="custom">Custom</option>
-                            </select>
-                          </td>
-                          <td className="p-1 px-2 text-center">
-                            <input
-                              type="number"
-                              min="1"
-                              step="any"
-                              value={c.quantity || ""}
-                              placeholder="qty"
-                              onChange={(e) => handleCellChange(c.id, "quantity", e.target.value)}
-                              className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-bold placeholder:text-charcoal/20 ${
-                                hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            />
-                            {hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) && (
-                              <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Invalid qty</div>
-                            )}
-                          </td>
-                          <td className="p-1 px-3">
-                            <input
-                              type="email"
-                              value={c.email}
-                              onChange={(e) => handleCellChange(c.id, "email", e.target.value)}
-                              className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                hasErr && c.email.trim() && !c.email.includes("@") ? "border-rose-400 bg-rose-50/50" : ""
-                              }`}
-                            />
-                            {hasErr && c.email.trim() && !c.email.includes("@") && (
-                              <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
-                            )}
-                          </td>
-                          <td className="p-1 px-3">
-                            <input
-                              type="text"
-                              value={c.company}
-                              placeholder={defaultCompany || "-- private --"}
-                              onChange={(e) => handleCellChange(c.id, "company", e.target.value)}
-                              className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold placeholder:text-charcoal/30"
-                            />
-                          </td>
-                          <td className="p-1 px-3">
-                            <input
-                              type="text"
-                              value={c.address}
-                              onChange={(e) => handleCellChange(c.id, "address", e.target.value)}
-                              className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
-                            />
-                          </td>
-                          <td className="p-1 text-center shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(c.id)}
-                              className="p-2.5 text-charcoal/30 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Delete Row"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={c.id}>
+                          <tr
+                            className={`border-b border-silver/30 transition-colors hover:bg-silver/5 ${
+                              hasErr
+                                ? "bg-rose-50/20 hover:bg-rose-50/30"
+                                : hasWarn
+                                ? "bg-amber-50/10 hover:bg-amber-50/20"
+                                : ""
+                            }`}
+                          >
+                            <td className="p-1 px-3">
+                              <input
+                                type="text"
+                                value={c.name}
+                                onChange={(e) => handleCellChange(c.id, "name", e.target.value)}
+                                className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
+                                  hasErr && !c.name.trim() ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              />
+                              {hasErr && !c.name.trim() && (
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
+                              )}
+                            </td>
+                            <td className="p-1 px-3">
+                              <input
+                                type="text"
+                                value={c.phone}
+                                onChange={(e) => handleCellChange(c.id, "phone", e.target.value)}
+                                className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
+                              />
+                            </td>
+                            <td className="p-1 px-2 text-center">
+                              <input
+                                type="text"
+                                value={c.latitude}
+                                onChange={(e) => handleCellChange(c.id, "latitude", e.target.value)}
+                                placeholder="lat"
+                                className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
+                                  hasErr && c.latitude && isNaN(parseFloat(c.latitude)) ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              />
+                            </td>
+                            <td className="p-1 px-2 text-center">
+                              <input
+                                type="text"
+                                value={c.longitude}
+                                onChange={(e) => handleCellChange(c.id, "longitude", e.target.value)}
+                                placeholder="lng"
+                                className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
+                                  hasErr && c.longitude && isNaN(parseFloat(c.longitude)) ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              />
+                            </td>
+                            <td className="p-1 px-3 text-center">
+                              <select
+                                value={c.productId || ""}
+                                onChange={(e) => handleCellChange(c.id, "productId", e.target.value)}
+                                className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
+                                  hasErr && !c.productId ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              >
+                                <option value="" disabled>Select Product</option>
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {hasErr && !c.productId && (
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Product is required</div>
+                              )}
+                            </td>
+                            <td className="p-1 px-3 text-center">
+                              <select
+                                value={c.subscription || "daily"}
+                                onChange={(e) => handleCellChange(c.id, "subscription", e.target.value)}
+                                className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold text-center ${
+                                  hasErr && (!c.subscription || !["daily", "alternate", "weekdays", "weekends", "custom"].includes(c.subscription)) ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              >
+                                <option value="daily">Daily</option>
+                                <option value="alternate">Alternate</option>
+                                <option value="weekdays">Weekdays</option>
+                                <option value="weekends">Weekends</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </td>
+                            <td className="p-1 px-2 text-center">
+                              <input
+                                type="number"
+                                min="1"
+                                step="any"
+                                value={c.quantity || ""}
+                                placeholder="qty"
+                                onChange={(e) => handleCellChange(c.id, "quantity", e.target.value)}
+                                className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-bold placeholder:text-charcoal/20 ${
+                                  hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              />
+                              {hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) && (
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Invalid qty</div>
+                              )}
+                            </td>
+                            <td className="p-1 px-3">
+                              <input
+                                type="email"
+                                value={c.email}
+                                onChange={(e) => handleCellChange(c.id, "email", e.target.value)}
+                                className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
+                                  hasErr && c.email.trim() && !c.email.includes("@") ? "border-rose-400 bg-rose-50/50" : ""
+                                }`}
+                              />
+                              {hasErr && c.email.trim() && !c.email.includes("@") && (
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
+                              )}
+                            </td>
+                            <td className="p-1 px-3">
+                              <input
+                                type="text"
+                                value={c.company}
+                                placeholder={defaultCompany || "-- private --"}
+                                onChange={(e) => handleCellChange(c.id, "company", e.target.value)}
+                                className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold placeholder:text-charcoal/30"
+                              />
+                            </td>
+                            <td className="p-1 px-3">
+                              <input
+                                type="text"
+                                value={c.address}
+                                onChange={(e) => handleCellChange(c.id, "address", e.target.value)}
+                                className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
+                              />
+                            </td>
+                            <td className="p-1 text-center shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRow(c.id)}
+                                className="p-2.5 text-charcoal/30 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Delete Row"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                          {isSplitQty && (
+                            <tr className="bg-[#FAFBFB]">
+                              <td colSpan={11} className="px-5 py-2.5 border-b border-silver/30">
+                                <details className="group">
+                                  <summary className="font-bold text-[10px] text-charcoal/50 hover:text-primary uppercase tracking-wider cursor-pointer list-none flex items-center gap-1.5 select-none outline-none">
+                                    <span className="transition-transform group-open:rotate-90 text-[8px] text-charcoal/40">▶</span>
+                                    View split subscriptions details ({c.quantity} L)
+                                  </summary>
+                                  <div className="mt-2.5 pl-4 space-y-1.5 text-xs text-charcoal/85 animate-in fade-in duration-200">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></div>
+                                      <span>Subscription 1: <strong>{Math.floor(qtyVal)}x</strong> A2 Cow Milk (1L)</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-sage shrink-0"></div>
+                                      <span>Subscription 2: <strong>1x</strong> A2 Cow Milk (500ml)</span>
+                                    </div>
+                                  </div>
+                                </details>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
