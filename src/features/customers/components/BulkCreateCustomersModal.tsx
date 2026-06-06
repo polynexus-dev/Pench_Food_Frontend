@@ -10,7 +10,7 @@ import {
   Sparkles,
   MapPin,
   Loader2,
-  Plus
+  Plus,
 } from "lucide-react";
 import { customerApi } from "../api/customerApi";
 import { companyApi, type Company } from "../../../api/companyApi";
@@ -40,13 +40,11 @@ interface ParsedCustomer {
   warning?: string;
 }
 
-export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> = ({
-  isOpen,
-  onClose,
-  onSuccess
-}) => {
+export const BulkCreateCustomersModal: React.FC<
+  BulkCreateCustomersModalProps
+> = ({ isOpen, onClose, onSuccess }) => {
   const tenant = useAuthStore((state) => state.tenant);
-  
+
   // State
   const [inputText, setInputText] = useState("");
   const [defaultCompany, setDefaultCompany] = useState("");
@@ -67,7 +65,9 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
         setIsLoadingCompanies(true);
         try {
           const companiesRes = await companyApi.getCompanies();
-          const fetchedCompanies = Array.isArray(companiesRes) ? companiesRes : [];
+          const fetchedCompanies = Array.isArray(companiesRes)
+            ? companiesRes
+            : [];
           setCompanies(fetchedCompanies.filter((c) => c.is_active));
         } catch (err) {
           console.error("Failed to fetch companies:", err);
@@ -103,7 +103,9 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
 
   const normalizeFrequency = (freq: string): string => {
     const val = freq.trim().toLowerCase();
-    if (["daily", "alternate", "weekdays", "weekends", "custom"].includes(val)) {
+    if (
+      ["daily", "alternate", "weekdays", "weekends", "custom"].includes(val)
+    ) {
       return val;
     }
     if (val.includes("daily") || val.includes("day")) return "daily";
@@ -147,10 +149,15 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
     };
 
     const headerLine = firstLine.toLowerCase();
-    if (headerLine.includes("name") || headerLine.includes("email") || headerLine.includes("phone") || headerLine.includes("subscription")) {
+    if (
+      headerLine.includes("name") ||
+      headerLine.includes("email") ||
+      headerLine.includes("phone") ||
+      headerLine.includes("subscription")
+    ) {
       startIndex = 1;
-      const headers = firstLine.split(sep).map(h => h.trim().toLowerCase());
-      
+      const headers = firstLine.split(sep).map((h) => h.trim().toLowerCase());
+
       colMapping = {
         name: -1,
         email: -1,
@@ -162,21 +169,40 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
         subscription: -1,
         quantity: -1,
         product: -1,
-        instructions: -1
+        instructions: -1,
       };
 
       headers.forEach((h, index) => {
         if (h.includes("name")) colMapping.name = index;
-        else if (h.includes("email") || h.includes("mail")) colMapping.email = index;
-        else if (h.includes("phone") || h.includes("contact") || h.includes("mobile")) colMapping.phone = index;
-        else if (h.includes("company") || h.includes("firm")) colMapping.company = index;
-        else if (h.includes("address") || h.includes("location")) colMapping.address = index;
+        else if (h.includes("email") || h.includes("mail"))
+          colMapping.email = index;
+        else if (
+          h.includes("phone") ||
+          h.includes("contact") ||
+          h.includes("mobile")
+        )
+          colMapping.phone = index;
+        else if (h.includes("company") || h.includes("firm"))
+          colMapping.company = index;
+        else if (h.includes("address") || h.includes("location"))
+          colMapping.address = index;
         else if (h.includes("lat")) colMapping.latitude = index;
-        else if (h.includes("lng") || h.includes("lon") || h.includes("longitude")) colMapping.longitude = index;
+        else if (
+          h.includes("lng") ||
+          h.includes("lon") ||
+          h.includes("longitude")
+        )
+          colMapping.longitude = index;
         else if (h.includes("sub")) colMapping.subscription = index;
-        else if (h.includes("qty") || h.includes("quantity")) colMapping.quantity = index;
+        else if (h.includes("qty") || h.includes("quantity"))
+          colMapping.quantity = index;
         else if (h.includes("prod")) colMapping.product = index;
-        else if (h.includes("instruction") || h.includes("note") || h.includes("special")) colMapping.instructions = index;
+        else if (
+          h.includes("instruction") ||
+          h.includes("note") ||
+          h.includes("special")
+        )
+          colMapping.instructions = index;
       });
     }
 
@@ -204,7 +230,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
         cols.push(currentCell.trim());
       } else {
         // Tab separated
-        cols = line.split("\t").map(c => c.trim());
+        cols = line.split("\t").map((c) => c.trim());
       }
 
       const getColVal = (idx: number) => {
@@ -244,13 +270,25 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
       const parsedQty = parseFloat(quantity || "1") || 1;
 
       if (parsedQty === 1) {
-        const match = products.find((p) => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+        const match = products.find(
+          (p) =>
+            p.name.toLowerCase().includes("1l") ||
+            p.name.toLowerCase().includes("1 l"),
+        );
         if (match) foundProductId = match.id;
       } else if (parsedQty === 0.5) {
-        const match = products.find((p) => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
+        const match = products.find(
+          (p) =>
+            p.name.toLowerCase().includes("500ml") ||
+            p.name.toLowerCase().includes("500 ml"),
+        );
         if (match) foundProductId = match.id;
       } else if (parsedQty === 1.5 || parsedQty === 2.5) {
-        const match = products.find((p) => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+        const match = products.find(
+          (p) =>
+            p.name.toLowerCase().includes("1l") ||
+            p.name.toLowerCase().includes("1 l"),
+        );
         if (match) foundProductId = match.id;
       }
 
@@ -259,7 +297,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
           (p) =>
             p.id.toLowerCase() === productVal.toLowerCase() ||
             p.name.toLowerCase() === productVal.toLowerCase() ||
-            p.sku.toLowerCase() === productVal.toLowerCase()
+            p.sku.toLowerCase() === productVal.toLowerCase(),
         );
         if (matched) {
           foundProductId = matched.id;
@@ -281,7 +319,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
         subscription: subscription ? normalizeFrequency(subscription) : "daily",
         quantity: quantity || "1",
         productId: foundProductId,
-        specialInstructions: instructions
+        specialInstructions: instructions,
       });
     }
 
@@ -291,7 +329,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
 
   // Run validation checks on each customer row
   const validateRows = (list: ParsedCustomer[]) => {
-    const validated = list.map(item => {
+    const validated = list.map((item) => {
       const copy = { ...item };
       delete copy.error;
       delete copy.warning;
@@ -326,8 +364,13 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
 
       if (!copy.error) {
         const freq = copy.subscription?.trim().toLowerCase() || "";
-        if (!["daily", "alternate", "weekdays", "weekends", "custom"].includes(freq)) {
-          copy.error = "Subscription frequency must be 'daily', 'alternate', 'weekdays', 'weekends', or 'custom'.";
+        if (
+          !["daily", "alternate", "weekdays", "weekends", "custom"].includes(
+            freq,
+          )
+        ) {
+          copy.error =
+            "Subscription frequency must be 'daily', 'alternate', 'weekdays', 'weekends', or 'custom'.";
         }
       }
 
@@ -345,25 +388,41 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
   };
 
   // Handle cell text changes in preview grid
-  const handleCellChange = (id: string, field: keyof ParsedCustomer, val: string) => {
-    const updated = parsedCustomers.map(c => {
+  const handleCellChange = (
+    id: string,
+    field: keyof ParsedCustomer,
+    val: string,
+  ) => {
+    const updated = parsedCustomers.map((c) => {
       if (c.id === id) {
         let item = { ...c, [field]: val };
-        
+
         if (field === "quantity") {
           let parsedQty = parseFloat(val);
           if (parsedQty === 1) {
-            const match = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+            const match = products.find(
+              (p) =>
+                p.name.toLowerCase().includes("1l") ||
+                p.name.toLowerCase().includes("1 l"),
+            );
             if (match) item.productId = match.id;
           } else if (parsedQty === 0.5) {
-            const match = products.find(p => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
+            const match = products.find(
+              (p) =>
+                p.name.toLowerCase().includes("500ml") ||
+                p.name.toLowerCase().includes("500 ml"),
+            );
             if (match) item.productId = match.id;
           } else if (parsedQty === 1.5 || parsedQty === 2.5) {
-            const match = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
+            const match = products.find(
+              (p) =>
+                p.name.toLowerCase().includes("1l") ||
+                p.name.toLowerCase().includes("1 l"),
+            );
             if (match) item.productId = match.id;
           }
         }
-        
+
         return item;
       }
       return c;
@@ -373,7 +432,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
 
   // Delete row from preview grid
   const handleDeleteRow = (id: string) => {
-    const filtered = parsedCustomers.filter(c => c.id !== id);
+    const filtered = parsedCustomers.filter((c) => c.id !== id);
     validateRows(filtered);
   };
 
@@ -427,9 +486,11 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
       return;
     }
 
-    const hasErrors = parsedCustomers.some(c => !!c.error);
+    const hasErrors = parsedCustomers.some((c) => !!c.error);
     if (hasErrors) {
-      setSubmitError("Please fix all validation errors highlighted in red before creating.");
+      setSubmitError(
+        "Please fix all validation errors highlighted in red before creating.",
+      );
       return;
     }
 
@@ -437,7 +498,7 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
     setSubmitError(null);
 
     try {
-      const payload = parsedCustomers.map(c => {
+      const payload = parsedCustomers.map((c) => {
         const item: any = {
           name: c.name.trim(),
         };
@@ -476,9 +537,12 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
       const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
       const subscriptionPayload = parsedCustomers.flatMap((c, index) => {
-        const createdCustomer = createdCustomers[index] || createdCustomers.find(
-          (cust) => cust.name === c.name.trim() || cust.email === c.email.trim()
-        );
+        const createdCustomer =
+          createdCustomers[index] ||
+          createdCustomers.find(
+            (cust) =>
+              cust.name === c.name.trim() || cust.email === c.email.trim(),
+          );
         const customerId = createdCustomer?.id || "";
         const qty = parseFloat(c.quantity || "1") || 1;
 
@@ -492,49 +556,51 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
           special_instructions: c.specialInstructions?.trim() || "",
         };
 
-        if (qty === 1.5 || qty === 2.5) {
-          const qty1 = Math.floor(qty); // 1 or 2
-          const qty2 = qty - qty1; // 0.5
-          
-          const a2CowMilk1L = products.find(p => p.name.toLowerCase().includes("1l") || p.name.toLowerCase().includes("1 l"));
-          const a2CowMilk500ml = products.find(p => p.name.toLowerCase().includes("500ml") || p.name.toLowerCase().includes("500 ml"));
-          
-          const prod1Id = a2CowMilk1L?.id || c.productId || "";
-          const prod2Id = a2CowMilk500ml?.id || c.productId || "";
+        const a2CowMilk1L = products.find(
+          (p) =>
+            p.name.toLowerCase().includes("1l") ||
+            p.name.toLowerCase().includes("1 l"),
+        );
+        const a2CowMilk500ml = products.find(
+          (p) =>
+            p.name.toLowerCase().includes("500ml") ||
+            p.name.toLowerCase().includes("500 ml"),
+        );
 
-          return [
-            {
-              ...baseSub,
-              items: [
-                {
-                  product: prod1Id,
-                  quantity: 1
-                }
-              ]
-            },
-            {
-              ...baseSub,
-              items: [
-                {
-                  product: prod2Id,
-                  quantity: 1
-                }
-              ]
-            }
-          ];
-        }
+        const prod1Id = a2CowMilk1L?.id || c.productId || "";
+        const prod2Id = a2CowMilk500ml?.id || c.productId || "";
 
-        return [
-          {
+        const subs: any[] = [];
+        const wholeLiters = Math.floor(qty);
+
+        // 1. Create 1 subscription of the 1L product with quantity = wholeLiters
+        if (wholeLiters > 0) {
+          subs.push({
             ...baseSub,
             items: [
               {
-                product: c.productId || "",
-                quantity: 1
-              }
-            ]
-          }
-        ];
+                product: prod1Id,
+                quantity: wholeLiters,
+              },
+            ],
+          });
+        }
+
+        // 2. If there is a remainder (like 0.5 L), create 1 subscription of 500ml product with quantity = 1
+        const remainder = qty - wholeLiters;
+        if (remainder > 0) {
+          subs.push({
+            ...baseSub,
+            items: [
+              {
+                product: prod2Id,
+                quantity: 1,
+              },
+            ],
+          });
+        }
+
+        return subs;
       });
 
       await customerApi.createSubscription(subscriptionPayload);
@@ -549,11 +615,16 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
         const errorMsg = Array.isArray(serverErr[firstKey])
           ? serverErr[firstKey][0]
           : typeof serverErr[firstKey] === "string"
-          ? serverErr[firstKey]
-          : "Invalid field values.";
-        setSubmitError(`Row Validation Failed -> ${firstKey.toUpperCase()}: ${errorMsg}`);
+            ? serverErr[firstKey]
+            : "Invalid field values.";
+        setSubmitError(
+          `Row Validation Failed -> ${firstKey.toUpperCase()}: ${errorMsg}`,
+        );
       } else {
-        setSubmitError(serverErr?.detail || "Bulk import failed. Please check formatting and duplicates.");
+        setSubmitError(
+          serverErr?.detail ||
+            "Bulk import failed. Please check formatting and duplicates.",
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -561,14 +632,13 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
   };
 
   // Statistics
-  const errorCount = parsedCustomers.filter(c => !!c.error).length;
-  const warningCount = parsedCustomers.filter(c => !!c.warning).length;
+  const errorCount = parsedCustomers.filter((c) => !!c.error).length;
+  const warningCount = parsedCustomers.filter((c) => !!c.warning).length;
   const validCount = parsedCustomers.length - errorCount;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
-        
         {/* Header */}
         <div className="px-8 py-5.5 bg-gradient-to-r from-primary to-sage text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
@@ -576,9 +646,14 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold leading-none">Bulk Customer Import</h2>
+              <h2 className="text-xl font-bold leading-none">
+                Bulk Customer Import
+              </h2>
               <p className="text-[10px] uppercase tracking-wider text-white/80 font-black mt-1">
-                Active City Scoping: <span className="underline decoration-white/50">{tenant?.toUpperCase() || "N/A"}</span>
+                Active City Scoping:{" "}
+                <span className="underline decoration-white/50">
+                  {tenant?.toUpperCase() || "N/A"}
+                </span>
               </p>
             </div>
           </div>
@@ -592,7 +667,6 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
 
         {/* Modal Body */}
         <div className="p-8 overflow-y-auto flex-1 space-y-6 custom-scrollbar text-left">
-          
           {submitError && (
             <div className="p-4 bg-rose-50 border border-rose-100 text-rose-700 text-xs font-black rounded-2xl flex items-start gap-2.5 animate-shake">
               <AlertTriangle className="w-4.5 h-4.5 text-rose-500 shrink-0 mt-0.5" />
@@ -629,7 +703,8 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                 </select>
               </div>
               <p className="text-[10px] text-charcoal/40 font-semibold ml-1.5 mt-0.5">
-                Applied automatically to imported customers with no specific company name.
+                Applied automatically to imported customers with no specific
+                company name.
               </p>
             </div>
 
@@ -644,7 +719,9 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                 className="flex items-center gap-2 px-5 py-3 bg-white border border-silver/60 rounded-2xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs cursor-pointer animate-in fade-in"
               >
                 <Upload className="w-4 h-4 text-primary" />
-                {parsedCustomers.length > 0 ? "Change CSV File" : "Choose CSV File"}
+                {parsedCustomers.length > 0
+                  ? "Change CSV File"
+                  : "Choose CSV File"}
               </button>
               <input
                 type="file"
@@ -673,14 +750,17 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                 <Upload className="w-8 h-8" />
               </div>
               <div>
-                <h4 className="text-sm font-black text-charcoal">Drag & Drop your CSV File</h4>
+                <h4 className="text-sm font-black text-charcoal">
+                  Drag & Drop your CSV File
+                </h4>
                 <p className="text-xs text-charcoal/40 mt-1 font-semibold">
                   Or click anywhere to browse local files (under 5MB)
                 </p>
               </div>
               <div className="mt-2 text-[10px] text-charcoal/35 font-bold uppercase bg-silver/20 px-3 py-1.5 rounded-xl border border-silver/10 flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5" />
-                Columns: Name, Phone, Latitude, Longitude, Subscription, Quantity (Optional: Email, Company, Address)
+                Columns: Name, Phone, Latitude, Longitude, Subscription,
+                Quantity (Optional: Email, Company, Address)
               </div>
             </div>
           )}
@@ -688,7 +768,6 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
           {/* Preview Section */}
           {parsedCustomers.length > 0 && (
             <div className="space-y-4 flex flex-col flex-1 min-h-[250px]">
-              
               {/* Summary Badges */}
               <div className="flex flex-wrap items-center justify-between gap-4 shrink-0 px-1">
                 <div className="flex items-center gap-3">
@@ -732,16 +811,36 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                 <table className="w-full min-w-[1290px] text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-[#F5F7F8] border-b border-silver/45 sticky top-0 z-10 animate-fade-in">
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[160px] bg-[#F5F7F8]">Name *</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[130px] bg-[#F5F7F8]">Phone</th>
-                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[100px] bg-[#F5F7F8]">Lat</th>
-                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[100px] bg-[#F5F7F8]">Lng</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[160px] bg-[#F5F7F8]">Product *</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[140px] bg-[#F5F7F8]">Subscription *</th>
-                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[80px] bg-[#F5F7F8]">Qty *</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[180px] bg-[#F5F7F8]">Email</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[150px] bg-[#F5F7F8]">Company</th>
-                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[200px] bg-[#F5F7F8]">Address</th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[160px] bg-[#F5F7F8]">
+                        Name *
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[130px] bg-[#F5F7F8]">
+                        Phone
+                      </th>
+                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[100px] bg-[#F5F7F8]">
+                        Lat
+                      </th>
+                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[100px] bg-[#F5F7F8]">
+                        Lng
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[160px] bg-[#F5F7F8]">
+                        Product *
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[140px] bg-[#F5F7F8]">
+                        Subscription *
+                      </th>
+                      <th className="py-3.5 px-3 font-black text-charcoal/50 text-[10px] uppercase tracking-wider text-center min-w-[80px] bg-[#F5F7F8]">
+                        Qty *
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[180px] bg-[#F5F7F8]">
+                        Email
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[150px] bg-[#F5F7F8]">
+                        Company
+                      </th>
+                      <th className="py-3.5 px-5 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[200px] bg-[#F5F7F8]">
+                        Address
+                      </th>
                       <th className="py-3.5 px-4 w-[50px] text-center bg-[#F5F7F8]"></th>
                     </tr>
                   </thead>
@@ -750,7 +849,8 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                       const hasErr = !!c.error;
                       const hasWarn = !!c.warning;
                       const qtyVal = parseFloat(c.quantity || "1");
-                      const isSplitQty = qtyVal === 1.5 || qtyVal === 2.5;
+                      const hasMultipleSubs =
+                        Math.floor(qtyVal) > 0 && qtyVal % 1 > 0;
 
                       return (
                         <React.Fragment key={c.id}>
@@ -759,28 +859,40 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                               hasErr
                                 ? "bg-rose-50/20 hover:bg-rose-50/30"
                                 : hasWarn
-                                ? "bg-amber-50/10 hover:bg-amber-50/20"
-                                : ""
+                                  ? "bg-amber-50/10 hover:bg-amber-50/20"
+                                  : ""
                             }`}
                           >
                             <td className="p-1 px-3">
                               <input
                                 type="text"
                                 value={c.name}
-                                onChange={(e) => handleCellChange(c.id, "name", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(c.id, "name", e.target.value)
+                                }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                  hasErr && !c.name.trim() ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr && !c.name.trim()
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               />
                               {hasErr && !c.name.trim() && (
-                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
+                                  {c.error}
+                                </div>
                               )}
                             </td>
                             <td className="p-1 px-3">
                               <input
                                 type="text"
                                 value={c.phone}
-                                onChange={(e) => handleCellChange(c.id, "phone", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "phone",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
                               />
                             </td>
@@ -788,10 +900,20 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                               <input
                                 type="text"
                                 value={c.latitude}
-                                onChange={(e) => handleCellChange(c.id, "latitude", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "latitude",
+                                    e.target.value,
+                                  )
+                                }
                                 placeholder="lat"
                                 className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
-                                  hasErr && c.latitude && isNaN(parseFloat(c.latitude)) ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr &&
+                                  c.latitude &&
+                                  isNaN(parseFloat(c.latitude))
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               />
                             </td>
@@ -799,22 +921,42 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                               <input
                                 type="text"
                                 value={c.longitude}
-                                onChange={(e) => handleCellChange(c.id, "longitude", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "longitude",
+                                    e.target.value,
+                                  )
+                                }
                                 placeholder="lng"
                                 className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-mono font-bold placeholder:text-charcoal/20 ${
-                                  hasErr && c.longitude && isNaN(parseFloat(c.longitude)) ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr &&
+                                  c.longitude &&
+                                  isNaN(parseFloat(c.longitude))
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               />
                             </td>
                             <td className="p-1 px-3 text-center">
                               <select
                                 value={c.productId || ""}
-                                onChange={(e) => handleCellChange(c.id, "productId", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "productId",
+                                    e.target.value,
+                                  )
+                                }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                  hasErr && !c.productId ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr && !c.productId
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               >
-                                <option value="" disabled>Select Product</option>
+                                <option value="" disabled>
+                                  Select Product
+                                </option>
                                 {products.map((p) => (
                                   <option key={p.id} value={p.id}>
                                     {p.name}
@@ -822,15 +964,33 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                                 ))}
                               </select>
                               {hasErr && !c.productId && (
-                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Product is required</div>
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
+                                  Product is required
+                                </div>
                               )}
                             </td>
                             <td className="p-1 px-3 text-center">
                               <select
                                 value={c.subscription || "daily"}
-                                onChange={(e) => handleCellChange(c.id, "subscription", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "subscription",
+                                    e.target.value,
+                                  )
+                                }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold text-center ${
-                                  hasErr && (!c.subscription || !["daily", "alternate", "weekdays", "weekends", "custom"].includes(c.subscription)) ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr &&
+                                  (!c.subscription ||
+                                    ![
+                                      "daily",
+                                      "alternate",
+                                      "weekdays",
+                                      "weekends",
+                                      "custom",
+                                    ].includes(c.subscription))
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               >
                                 <option value="daily">Daily</option>
@@ -847,34 +1007,70 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                                 step="any"
                                 value={c.quantity || ""}
                                 placeholder="qty"
-                                onChange={(e) => handleCellChange(c.id, "quantity", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "quantity",
+                                    e.target.value,
+                                  )
+                                }
                                 className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-bold placeholder:text-charcoal/20 ${
-                                  hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr &&
+                                  (!c.quantity ||
+                                    parseFloat(c.quantity) <= 0 ||
+                                    isNaN(parseFloat(c.quantity)))
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               />
-                              {hasErr && (!c.quantity || parseFloat(c.quantity) <= 0 || isNaN(parseFloat(c.quantity))) && (
-                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">Invalid qty</div>
-                              )}
+                              {hasErr &&
+                                (!c.quantity ||
+                                  parseFloat(c.quantity) <= 0 ||
+                                  isNaN(parseFloat(c.quantity))) && (
+                                  <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
+                                    Invalid qty
+                                  </div>
+                                )}
                             </td>
                             <td className="p-1 px-3">
                               <input
                                 type="email"
                                 value={c.email}
-                                onChange={(e) => handleCellChange(c.id, "email", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "email",
+                                    e.target.value,
+                                  )
+                                }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                  hasErr && c.email.trim() && !c.email.includes("@") ? "border-rose-400 bg-rose-50/50" : ""
+                                  hasErr &&
+                                  c.email.trim() &&
+                                  !c.email.includes("@")
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
                                 }`}
                               />
-                              {hasErr && c.email.trim() && !c.email.includes("@") && (
-                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">{c.error}</div>
-                              )}
+                              {hasErr &&
+                                c.email.trim() &&
+                                !c.email.includes("@") && (
+                                  <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
+                                    {c.error}
+                                  </div>
+                                )}
                             </td>
                             <td className="p-1 px-3">
                               <input
                                 type="text"
                                 value={c.company}
                                 placeholder={defaultCompany || "-- private --"}
-                                onChange={(e) => handleCellChange(c.id, "company", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "company",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold placeholder:text-charcoal/30"
                               />
                             </td>
@@ -882,7 +1078,13 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                               <input
                                 type="text"
                                 value={c.address}
-                                onChange={(e) => handleCellChange(c.id, "address", e.target.value)}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    c.id,
+                                    "address",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
                               />
                             </td>
@@ -897,22 +1099,32 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                               </button>
                             </td>
                           </tr>
-                          {isSplitQty && (
+                          {hasMultipleSubs && (
                             <tr className="bg-[#FAFBFB]">
-                              <td colSpan={11} className="px-5 py-2.5 border-b border-silver/30">
+                              <td
+                                colSpan={11}
+                                className="px-5 py-2.5 border-b border-silver/30"
+                              >
                                 <details className="group">
                                   <summary className="font-bold text-[10px] text-charcoal/50 hover:text-primary uppercase tracking-wider cursor-pointer list-none flex items-center gap-1.5 select-none outline-none">
-                                    <span className="transition-transform group-open:rotate-90 text-[8px] text-charcoal/40">▶</span>
-                                    View split subscriptions details ({c.quantity} L)
+                                    <span className="transition-transform group-open:rotate-90 text-[8px] text-charcoal/40">
+                                      ▶
+                                    </span>
+                                    View split subscriptions details (
+                                    {c.quantity} L)
                                   </summary>
                                   <div className="mt-2.5 pl-4 space-y-1.5 text-xs text-charcoal/85 animate-in fade-in duration-200">
                                     <div className="flex items-center gap-2">
                                       <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"></div>
-                                      <span>Subscription 1: <strong>{Math.floor(qtyVal)}x</strong> A2 Cow Milk (1L)</span>
+                                      <span>
+                                        Subscription 1: <strong>{Math.floor(qtyVal)}x</strong> A2 Cow Milk (1L)
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <div className="w-1.5 h-1.5 rounded-full bg-sage shrink-0"></div>
-                                      <span>Subscription 2: <strong>1x</strong> A2 Cow Milk (500ml)</span>
+                                      <span>
+                                        Subscription 2: <strong>1x</strong> A2 Cow Milk (500ml)
+                                      </span>
                                     </div>
                                   </div>
                                 </details>
@@ -931,7 +1143,9 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
                 <div className="p-3 bg-amber-50/70 border border-amber-200/50 text-amber-800 text-[10px] font-semibold rounded-xl flex items-center gap-2 shrink-0">
                   <MapPin className="w-3.5 h-3.5 text-amber-600" />
                   <span>
-                    Note: {warningCount} row(s) do not contain coordinates. They will be imported successfully, but you must assign them to delivery zones manually or via auto-assignment later.
+                    Note: {warningCount} row(s) do not contain coordinates. They
+                    will be imported successfully, but you must assign them to
+                    delivery zones manually or via auto-assignment later.
                   </span>
                 </div>
               )}
@@ -954,7 +1168,9 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || parsedCustomers.length === 0 || errorCount > 0}
+              disabled={
+                isSubmitting || parsedCustomers.length === 0 || errorCount > 0
+              }
               className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none"
             >
               {isSubmitting ? (
@@ -971,7 +1187,6 @@ export const BulkCreateCustomersModal: React.FC<BulkCreateCustomersModalProps> =
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
