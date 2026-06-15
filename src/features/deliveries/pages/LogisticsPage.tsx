@@ -63,7 +63,7 @@ const LogisticsPage: React.FC = () => {
     
     const connect = () => {
       try {
-        const wsUrl = getCityWsUrl(tenant);
+        const wsUrl = getCityWsUrl(tenant || "");
         // Append JWT Token to query string for secure authentication
         const finalUrl = `${wsUrl}${wsUrl.includes("?") ? "&" : "?"}token=${accessToken}`;
         
@@ -162,6 +162,28 @@ const LogisticsPage: React.FC = () => {
       setNotification({
         title: "Regeneration Failed",
         message: "Failed to regenerate daily routes. Please try again.",
+        type: "error"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshAndMerge = async () => {
+    setIsLoading(true);
+    try {
+      const res = await deliveryApi.refreshAndMergeRoutes(targetDate);
+      setNotification({
+        title: "Fleet Refreshed & Merged",
+        message: `Successfully refreshed fleet routes for ${targetDate}!\nMerged: ${res.routes_merged} duplicate routes | Assigned: ${res.orders_assigned} unassigned orders.`,
+        type: "success"
+      });
+      await fetchLogisticsData(true);
+    } catch (error) {
+      console.error("Failed to refresh and merge routes:", error);
+      setNotification({
+        title: "Refresh Failed",
+        message: "Failed to refresh and merge routes. Please try again.",
         type: "error"
       });
     } finally {
@@ -303,6 +325,14 @@ const LogisticsPage: React.FC = () => {
           >
             <Sparkles className="w-3.5 h-3.5" />
             Bulk Assign Orders
+          </button>
+          <button
+            onClick={handleRefreshAndMerge}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold active:scale-95 transition-all shadow-md shadow-indigo-600/10 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh & Merge Routes
           </button>
           <button
             onClick={() => fetchLogisticsData(false)}

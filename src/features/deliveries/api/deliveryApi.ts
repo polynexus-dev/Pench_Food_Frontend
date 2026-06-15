@@ -67,6 +67,19 @@ export const deliveryApi = {
   },
 
   /**
+   * Refresh and merge routes for a specific date
+   */
+  refreshAndMergeRoutes: async (date?: string): Promise<{
+    status: string;
+    date: string;
+    routes_merged: number;
+    orders_assigned: number;
+  }> => {
+    const response = await axiosInstance.post("/erp/orders/routes/refresh-and-merge/", { date });
+    return response.data;
+  },
+
+  /**
    * Lock a route to disable adjustments
    */
   lockRoute: async (routeId: string): Promise<any> => {
