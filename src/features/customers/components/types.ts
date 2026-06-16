@@ -36,6 +36,8 @@ export interface Customer {
   };
   zone?: string | null;
   zone_name?: string | null;
+  is_new?: boolean;
+  trial_approved?: boolean;
 }
 
 

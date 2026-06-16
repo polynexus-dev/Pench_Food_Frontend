@@ -7,6 +7,7 @@ import CustomerDashboardTab from "../components/CustomerDashboardTab";
 import CustomerDetailTab from "../components/CustomerDetailTab";
 import CustomerProfileTab from "../components/CustomerProfileTab";
 import CustomerQrTab from "../components/CustomerQrTab";
+import TrialApprovalsTab from "../components/TrialApprovalsTab";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import { BulkCreateCustomersModal } from "../components/BulkCreateCustomersModal";
 import type { Customer } from "../components/types";
@@ -17,7 +18,7 @@ const CustomerPage: React.FC = () => {
   const addNotification = useNotificationStore((state) => state.addNotification);
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile" | "customer-qr">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile" | "customer-qr" | "trial-approvals">("dashboard");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Data State
@@ -374,6 +375,28 @@ const CustomerPage: React.FC = () => {
           )}
         </button>
 
+        {isAuthorized && (
+          <button
+            onClick={() => {
+              setActiveTab("trial-approvals");
+              setSelectedCustomerId(null);
+            }}
+            className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+              activeTab === "trial-approvals"
+                ? "text-primary font-black"
+                : "text-charcoal/50 hover:text-charcoal"
+            }`}
+          >
+            <CheckCircle
+              className={`w-4 h-4 ${activeTab === "trial-approvals" ? "text-primary" : "text-charcoal/40"}`}
+            />
+            Trial Approvals
+            {activeTab === "trial-approvals" && (
+              <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+            )}
+          </button>
+        )}
+
         {selectedCustomerId && selectedCustomer && (
           <button
             onClick={() => setActiveTab("profile")}
@@ -435,6 +458,12 @@ const CustomerPage: React.FC = () => {
         <CustomerQrTab
           customers={customers}
           isLoading={isLoading}
+        />
+      )}
+
+      {activeTab === "trial-approvals" && (
+        <TrialApprovalsTab
+          onViewProfile={handleViewProfile}
         />
       )}
 

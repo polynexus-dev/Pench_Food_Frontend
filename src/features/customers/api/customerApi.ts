@@ -16,6 +16,22 @@ export const customerApi = {
   },
 
   /**
+   * Fetch new/trial customers waiting for approval
+   */
+  getNewCustomers: async (): Promise<Customer[]> => {
+    const response = await axiosInstance.get<Customer[]>("/erp/customers/new-customers/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Approve a trial customer
+   */
+  approveCustomer: async (id: string): Promise<Customer> => {
+    const response = await axiosInstance.post<Customer>(`/erp/customers/${id}/approve/`);
+    return response.data;
+  },
+
+  /**
    * Fetch a single customer by ID
    */
   getCustomerById: async (id: string): Promise<Customer> => {
@@ -100,6 +116,9 @@ export const customerApi = {
       linked_existing_customer: number;
       created_new_customer: number;
       details: any[];
+    };
+    duplicates_cleaned?: {
+      merged: number;
     };
   }> => {
     const response = await axiosInstance.post("/erp/customers/sync-refresh-customers/", {
