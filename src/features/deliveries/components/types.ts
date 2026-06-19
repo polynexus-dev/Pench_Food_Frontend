@@ -73,6 +73,10 @@ export interface Route {
   completed_at?: string | null;
   additional_drivers?: number[];
   additional_driver_names?: string[];
+  actual_distance_km?: number;
+  stoppage_duration_minutes?: number;
+  actual_duration_minutes?: number;
+  stoppage_history?: any[];
 }
 
 export interface BottleType {

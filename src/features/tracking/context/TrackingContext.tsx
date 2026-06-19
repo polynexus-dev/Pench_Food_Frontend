@@ -10,6 +10,10 @@ export interface DriverLocationState {
   lng: number;
   trail: [number, number][]; // Array of [lng, lat] pairs
   last_updated: Date;
+  actual_distance_km?: number;
+  actual_duration_minutes?: number;
+  stoppage_duration_minutes?: number;
+  stoppage_history?: any[];
 }
 
 export interface LogMessage {
@@ -133,7 +137,51 @@ export const TrackingProvider: React.FC = () => {
         try {
           const data = JSON.parse(event.data);
           
-          if (data.type === "broadcast_location" || (data.driver_id && data.lat && data.lng)) {
+          if (data.type === "initial_state") {
+            if (Array.isArray(data.drivers)) {
+              const initialDrivers: Record<string, DriverLocationState> = {};
+              data.drivers.forEach((drv: any) => {
+                if (drv.driver_id && drv.lat && drv.lng) {
+                  initialDrivers[drv.driver_id] = {
+                    driver_id: drv.driver_id,
+                    driver_name: drv.driver_name || `Driver #${drv.driver_id}`,
+                    lat: parseFloat(drv.lat),
+                    lng: parseFloat(drv.lng),
+                    trail: Array.isArray(drv.trail) ? drv.trail : [],
+                    last_updated: new Date(),
+                    actual_distance_km: drv.actual_distance_km !== undefined ? parseFloat(drv.actual_distance_km) : undefined,
+                    actual_duration_minutes: drv.actual_duration_minutes !== undefined ? parseInt(drv.actual_duration_minutes) : undefined,
+                    stoppage_duration_minutes: drv.stoppage_duration_minutes !== undefined ? parseInt(drv.stoppage_duration_minutes) : undefined,
+                    stoppage_history: Array.isArray(drv.stoppage_history) ? drv.stoppage_history : [],
+                  };
+                }
+              });
+              setDrivers(initialDrivers);
+              const firstId = Object.keys(initialDrivers)[0];
+              if (firstId) {
+                setSelectedDriverId((prevId) => prevId || firstId);
+              }
+            } else if (data.driver && data.driver.driver_id && data.driver.lat && data.driver.lng) {
+              const drv = data.driver;
+              setDrivers((prev) => ({
+                ...prev,
+                [drv.driver_id]: {
+                  driver_id: drv.driver_id,
+                  driver_name: drv.driver_name || `Driver #${drv.driver_id}`,
+                  lat: parseFloat(drv.lat),
+                  lng: parseFloat(drv.lng),
+                  trail: Array.isArray(drv.trail) ? drv.trail : [],
+                  last_updated: new Date(),
+                  actual_distance_km: drv.actual_distance_km !== undefined ? parseFloat(drv.actual_distance_km) : undefined,
+                  actual_duration_minutes: drv.actual_duration_minutes !== undefined ? parseInt(drv.actual_duration_minutes) : undefined,
+                  stoppage_duration_minutes: drv.stoppage_duration_minutes !== undefined ? parseInt(drv.stoppage_duration_minutes) : undefined,
+                  stoppage_history: Array.isArray(drv.stoppage_history) ? drv.stoppage_history : [],
+                }
+              }));
+              setSelectedDriverId((prevId) => prevId || drv.driver_id);
+            }
+            addLog("success", "Received initial tracking states from server", data);
+          } else if (data.type === "broadcast_location" || (data.driver_id && data.lat && data.lng)) {
             // Log incoming telemetry stream
             addLog("broadcast", `Location broadcast received: ${data.driver_name || data.driver_id}`, data);
 
@@ -146,6 +194,10 @@ export const TrackingProvider: React.FC = () => {
                 lng: parseFloat(data.lng),
                 trail: Array.isArray(data.trail) ? data.trail : [],
                 last_updated: new Date(),
+                actual_distance_km: data.actual_distance_km !== undefined ? parseFloat(data.actual_distance_km) : undefined,
+                actual_duration_minutes: data.actual_duration_minutes !== undefined ? parseInt(data.actual_duration_minutes) : undefined,
+                stoppage_duration_minutes: data.stoppage_duration_minutes !== undefined ? parseInt(data.stoppage_duration_minutes) : undefined,
+                stoppage_history: Array.isArray(data.stoppage_history) ? data.stoppage_history : [],
               },
             }));
 
@@ -261,6 +313,10 @@ export const TrackingProvider: React.FC = () => {
             lng: currentLng,
             trail: payload.trail as [number, number][],
             last_updated: new Date(),
+            actual_distance_km: 0.0,
+            actual_duration_minutes: 0,
+            stoppage_duration_minutes: 0,
+            stoppage_history: [],
           },
         }));
       });
@@ -302,6 +358,21 @@ export const TrackingProvider: React.FC = () => {
               lng: mockData.lng,
               trail: mockData.trail as [number, number][],
               last_updated: new Date(),
+              actual_distance_km: parseFloat((1.2 + Math.random() * 3).toFixed(2)),
+              actual_duration_minutes: 15 + Math.floor(Math.random() * 10),
+              stoppage_duration_minutes: Math.floor(Math.random() * 4),
+              stoppage_history: [
+                {
+                  lat: parseFloat((mockData.lat - 0.002).toFixed(5)),
+                  lng: parseFloat((mockData.lng - 0.002).toFixed(5)),
+                  start_time: new Date(Date.now() - 30 * 60000).toISOString(),
+                  end_time: new Date(Date.now() - 25 * 60000).toISOString(),
+                  duration_minutes: 5,
+                  near_customers: 1,
+                  allowance_minutes: 2.0,
+                  unproductive_minutes: 3.0,
+                }
+              ],
             },
           }));
         });

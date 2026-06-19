@@ -323,6 +323,45 @@ const TrackingDashboardTab: React.FC = () => {
                   );
                 })}
 
+                {/* Render Stoppage History Nodes */}
+                {driversList.map((drv) => {
+                  if (!drv.stoppage_history) return null;
+                  const isSelected = drv.driver_id === selectedDriverId;
+                  return drv.stoppage_history.map((stop: any, idx: number) => {
+                    const pt = getOsmSvgPixel(stop.lat, stop.lng);
+                    return (
+                      <g
+                        key={`stop-${drv.driver_id}-${idx}`}
+                        className="transition-all duration-300 pointer-events-auto cursor-help"
+                      >
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={isSelected ? "12" : "8"}
+                          fill="#EF4444"
+                          className="opacity-75 animate-pulse"
+                        />
+                        <text
+                          x={pt.x}
+                          y={pt.y}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          style={{ fontSize: isSelected ? "13px" : "10px", userSelect: "none" }}
+                        >
+                          🛑
+                        </text>
+                        <title>
+                          {`Stoppage Details for ${drv.driver_name}:
+Duration: ${stop.duration_minutes} mins
+Unproductive: ${stop.unproductive_minutes} mins
+Allowance: ${stop.allowance_minutes} mins
+Near Customers: ${stop.near_customers}`}
+                        </title>
+                      </g>
+                    );
+                  });
+                })}
+
                 {/* Render Pilot interactive nodes */}
                 {driversList.map((drv) => {
                   const pt = getOsmSvgPixel(drv.lat, drv.lng);
@@ -442,6 +481,42 @@ const TrackingDashboardTab: React.FC = () => {
                       {selectedDriver.lng.toFixed(5)}
                     </div>
                   </div>
+                  {selectedDriver.actual_distance_km !== undefined && (
+                    <div className="mt-2 pt-2 border-t border-silver/30 text-[10px] space-y-1 font-semibold">
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Actual Dist:</span>
+                        <span className="font-bold text-charcoal">{selectedDriver.actual_distance_km.toFixed(2)} km</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Actual Dur:</span>
+                        <span className="font-bold text-charcoal">{selectedDriver.actual_duration_minutes} mins</span>
+                      </div>
+                      <div className="flex justify-between text-rose-800">
+                        <span>Live Stoppage:</span>
+                        <span className="font-bold">{selectedDriver.stoppage_duration_minutes} mins</span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedDriver.stoppage_history && selectedDriver.stoppage_history.length > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-silver/30">
+                      <span className="text-rose-800 font-black text-[9px] uppercase tracking-wider block mb-1">Stoppage Details</span>
+                      <div className="max-h-24 overflow-y-auto space-y-1 custom-scrollbar text-[9px]">
+                        {selectedDriver.stoppage_history.map((stop: any, idx: number) => (
+                          <div key={idx} className="bg-rose-50/50 border border-rose-100 p-1.5 rounded-lg flex flex-col gap-0.5 pointer-events-auto">
+                            <div className="flex justify-between font-bold text-rose-950">
+                              <span>Stop #{idx + 1} ({stop.duration_minutes}m)</span>
+                              <span className="text-rose-700">+{stop.unproductive_minutes}m unproductive</span>
+                            </div>
+                            <div className="text-[8px] text-charcoal/60 leading-tight">
+                              Location: {stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}
+                              <br />
+                              Allow: {stop.allowance_minutes}m ({stop.near_customers} cust)
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-1.5 text-[9px] text-charcoal/50 flex items-center gap-1 font-medium">
                     <Clock className="w-2.5 h-2.5 text-primary shrink-0" />{" "}
                     Updated: {selectedDriver.last_updated.toLocaleTimeString()}
@@ -543,6 +618,22 @@ const TrackingDashboardTab: React.FC = () => {
                         {drv.trail.length} nodes
                       </div>
                     </div>
+                    {drv.actual_distance_km !== undefined && (
+                      <div className="grid grid-cols-3 gap-1 pt-1.5 mt-1.5 border-t border-dashed border-silver/40 text-[9px] font-semibold">
+                        <div>
+                          <span className="text-charcoal/50 text-[8px] block font-bold">Dist</span>
+                          {drv.actual_distance_km.toFixed(2)} km
+                        </div>
+                        <div>
+                          <span className="text-charcoal/50 text-[8px] block font-bold">Dur</span>
+                          {drv.actual_duration_minutes} mins
+                        </div>
+                        <div className="text-rose-800">
+                          <span className="text-rose-800/60 text-[8px] block font-bold text-rose-800">Stoppage</span>
+                          {drv.stoppage_duration_minutes} mins
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mt-2 text-[9px] text-charcoal/40 flex items-center justify-between font-sans">
                       <span>

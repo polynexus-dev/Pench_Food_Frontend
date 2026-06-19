@@ -733,6 +733,24 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoadi
                 )}
               </div>
 
+              {/* Trip Metrics Details */}
+              {(selectedRoute.started_at || selectedRoute.actual_distance_km !== undefined) && (
+                <div className="text-[10px] font-semibold opacity-85 space-y-1 mt-2 border-t border-current/15 pt-2">
+                  <div className="flex justify-between">
+                    <span>Actual Distance:</span>
+                    <span className="font-black">{selectedRoute.actual_distance_km ?? "0.00"} km</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Actual Duration:</span>
+                    <span className="font-black">{selectedRoute.actual_duration_minutes ?? 0} mins</span>
+                  </div>
+                  <div className="flex justify-between text-rose-800">
+                    <span>Unproductive Stoppage:</span>
+                    <span className="font-black">{selectedRoute.stoppage_duration_minutes ?? 0} mins</span>
+                  </div>
+                </div>
+              )}
+
               {/* Admin Trip Actions */}
               <div className="mt-3 pt-2 border-t border-current/15 flex gap-2">
                 {!(selectedRoute.status === "started" || selectedRoute.status === "in_progress" || selectedRoute.status === "in_transit" || selectedRoute.status === "active") ? (
@@ -752,18 +770,11 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoadi
                   </button>
                 ) : (
                   <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        await deliveryApi.completeTrip(selectedRoute.id);
-                        onRefresh?.();
-                      } catch (err) {
-                        alert("Failed to complete trip: " + (err as any).message);
-                      }
-                    }}
-                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-2xs cursor-pointer text-center border border-rose-700"
+                    disabled
+                    title="Manual trip completion is disabled. Trips are automatically completed by the system at 12:00 PM."
+                    className="flex-1 bg-silver/30 text-charcoal/40 py-1.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border border-silver/35 shadow-none cursor-not-allowed text-center"
                   >
-                    End Trip
+                    End Trip (Disabled)
                   </button>
                 )}
               </div>

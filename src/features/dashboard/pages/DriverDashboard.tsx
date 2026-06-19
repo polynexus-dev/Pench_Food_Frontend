@@ -237,14 +237,22 @@ const DriverDashboard = () => {
 
               {route && (
                 <button
+                  disabled={route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active"}
                   onClick={handleToggleTrip}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-sm active:scale-95 transition-all ${
+                  title={
                     route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active"
-                      ? "bg-rose-600 hover:bg-rose-700 text-white"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      ? "Manual trip completion is disabled. Trips auto-complete at 12:00 PM."
+                      : ""
+                  }
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all ${
+                    route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active"
+                      ? "bg-silver/30 border border-silver/30 text-charcoal/40 cursor-not-allowed"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
                   }`}
                 >
-                  {route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active" ? "End active trip" : "Start Dispatch Run"}
+                  {route.status === "started" || route.status === "in_progress" || route.status === "in_transit" || route.status === "active"
+                    ? "End active trip (Disabled)"
+                    : "Start Dispatch Run"}
                 </button>
               )}
             </div>
