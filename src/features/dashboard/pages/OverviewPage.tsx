@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/useAuthStore';
-import axiosInstance from '../../../api/axiosInstance';
+import { deliveryApi } from '../../deliveries/api/deliveryApi';
+import { inventoryApi } from '../../inventory/api/inventoryApi';
+import { orderApi } from '../../orders/api/orderApi';
 import { 
   Droplets,
   TrendingUp,
@@ -85,13 +87,8 @@ const OverviewPage = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // 1. Fetch routes and stock in parallel (they're independent)
-        const [routesRes, stockRes] = await Promise.all([
-          axiosInstance.get('/erp/orders/routes/'),
-          axiosInstance.get('/erp/inventory/stock/')
-        ]);
-        const routes = Array.isArray(routesRes.data) ? routesRes.data : [];
-        const stockList = Array.isArray(stockRes.data) ? stockRes.data : [];
+        // 1. Fetch routes first to get the dates immediately
+        const routes = await deliveryApi.getRoutes();
         
         const uniqueDates = Array.from(new Set(routes.map((r: any) => r.delivery_date)))
           .sort((a: any, b: any) => b.localeCompare(a));
@@ -103,14 +100,12 @@ const OverviewPage = () => {
         const formattedLabel = getFriendlyDateLabel(activeDate);
         setActiveDateLabel(formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`);
 
-        // 2. Fetch active and previous date orders in parallel
-        const [ordersActiveRes, ordersPrevRes] = await Promise.all([
-          axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: activeDate } }),
-          prevDate ? axiosInstance.get('/erp/orders/', { params: { scheduled_delivery_date: prevDate } }) : Promise.resolve({ data: [] }),
+        // 2. Fetch stock, active orders, and previous orders in parallel (this overlaps the slower calls)
+        const [stockList, ordersActive, ordersPrev] = await Promise.all([
+          inventoryApi.getStock(),
+          orderApi.getOrders({ scheduled_delivery_date: activeDate }),
+          prevDate ? orderApi.getOrders({ scheduled_delivery_date: prevDate }) : Promise.resolve([])
         ]);
-
-        const ordersActive = Array.isArray(ordersActiveRes.data) ? ordersActiveRes.data : [];
-        const ordersPrev = Array.isArray(ordersPrevRes.data) ? ordersPrevRes.data : [];
 
         // 3. Compute Stats
         // A. Milk Volume

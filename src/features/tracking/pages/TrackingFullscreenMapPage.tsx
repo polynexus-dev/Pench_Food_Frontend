@@ -159,8 +159,8 @@ const TrackingFullscreenMapPage: React.FC = () => {
 
               const isSelected = drv.driver_id === selectedDriverId;
               const pathPoints = drv.trail
-                .filter(([lng, lat]) => lat && lng)
-                .map(([lng, lat]) => {
+                .filter(([lng, lat]: [number, number]) => lat && lng)
+                .map(([lng, lat]: [number, number]) => {
                   const pt = getOsmSvgPixel(lat, lng);
                   return `${pt.x},${pt.y}`;
                 });

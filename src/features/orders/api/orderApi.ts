@@ -17,8 +17,8 @@ export const orderApi = {
   /**
    * Fetch all orders for the current tenant
    */
-  getOrders: async (): Promise<Order[]> => {
-    const response = await axiosInstance.get<Order[]>("/erp/orders/");
+  getOrders: async (params?: Record<string, any>): Promise<Order[]> => {
+    const response = await axiosInstance.get<Order[]>("/erp/orders/", { params });
     return Array.isArray(response.data) ? response.data : [];
   },
 
