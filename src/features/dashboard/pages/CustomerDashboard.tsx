@@ -7,7 +7,6 @@ import {
   PlusCircle,
   Clock,
   CheckCircle2,
-  AlertCircle,
   Sparkles,
   Volume2,
   VolumeX,
@@ -475,8 +474,9 @@ const CustomerDashboard = () => {
                   + ₹100 Received
                 </span>
               </div>
-            </div>
           </div>
+        </div>
+      </div>
       </div>
       <CreateOrderModal
         isOpen={isOrderModalOpen}
