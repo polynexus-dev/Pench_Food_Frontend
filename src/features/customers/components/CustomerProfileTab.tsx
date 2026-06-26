@@ -174,7 +174,6 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     { product: string; quantity: number }[]
   >([{ product: "", quantity: 1 }]);
   const [isAddSubSubmitLoading, setIsAddSubSubmitLoading] = useState(false);
-  const [frequencies, setFrequencies] = useState<{ value: string; label: string }[]>([]);
 
   // Edit Subscription State
   const [isEditSubModalOpen, setIsEditSubModalOpen] = useState(false);
@@ -392,7 +391,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const fetchCustomerSubscriptions = async () => {
     setIsSubscriptionsLoading(true);
     try {
-      const [subs, prods, cp, freqList] = await Promise.all([
+      const [subs, prods, cp] = await Promise.all([
         customerApi.getSubscriptions(customer.id),
         productsList.length > 0
           ? Promise.resolve(productsList)
@@ -400,14 +399,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         customPricesList.length > 0
           ? Promise.resolve(customPricesList)
           : customerApi.getCustomerPrices(customer.id),
-        frequencies.length > 0
-          ? Promise.resolve(frequencies)
-          : customerApi.getSubscriptionFrequencies(),
       ]);
       setSubscriptions(subs);
       if (productsList.length === 0) setProductsList(prods);
       if (customPricesList.length === 0) setCustomPricesList(cp);
-      if (frequencies.length === 0) setFrequencies(freqList);
       setHasFetchedSubs(true);
     } catch (error) {
       console.error("Failed to fetch customer subscriptions:", error);
@@ -2954,21 +2949,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                         }
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                       >
-                        {frequencies.length > 0 ? (
-                          frequencies.map((freq) => (
-                            <option key={freq.value} value={freq.value}>
-                              {freq.label}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="daily">Daily Delivery</option>
-                            <option value="alternate">Alternate Days</option>
-                            <option value="weekdays">Mon - Fri (Weekdays)</option>
-                            <option value="weekends">Sat - Sun (Weekends)</option>
-                            <option value="custom">Custom Days of Week</option>
-                          </>
-                        )}
+                        <option value="daily">Daily Delivery</option>
+                        <option value="alternate">Alternate Days</option>
+                        <option value="weekdays">Mon - Fri (Weekdays)</option>
+                        <option value="weekends">Sat - Sun (Weekends)</option>
+                        <option value="custom">Custom Days of Week</option>
                       </select>
                     </div>
 
@@ -3262,21 +3247,11 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                         }
                         className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
                       >
-                        {frequencies.length > 0 ? (
-                          frequencies.map((freq) => (
-                            <option key={freq.value} value={freq.value}>
-                              {freq.label}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="daily">Daily Delivery</option>
-                            <option value="alternate">Alternate Days</option>
-                            <option value="weekdays">Mon - Fri (Weekdays)</option>
-                            <option value="weekends">Sat - Sun (Weekends)</option>
-                            <option value="custom">Custom Days of Week</option>
-                          </>
-                        )}
+                        <option value="daily">Daily Delivery</option>
+                        <option value="alternate">Alternate Days</option>
+                        <option value="weekdays">Mon - Fri (Weekdays)</option>
+                        <option value="weekends">Sat - Sun (Weekends)</option>
+                        <option value="custom">Custom Days of Week</option>
                       </select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
