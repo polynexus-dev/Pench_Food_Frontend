@@ -247,6 +247,15 @@ export const customerApi = {
   },
 
   /**
+   * Fetch list of available subscription frequencies (value and label choices)
+   */
+  getSubscriptionFrequencies: async (): Promise<{ value: string; label: string }[]> => {
+    const response = await axiosInstance.get<{ value: string; label: string }[]>("/erp/subscriptions/frequencies/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+
+  /**
    * Fetch all monthly bills for a specific customer
    */
   getMonthlyBills: async (customerId: string): Promise<MonthlyBill[]> => {
