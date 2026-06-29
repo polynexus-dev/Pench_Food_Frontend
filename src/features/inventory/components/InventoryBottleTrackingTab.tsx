@@ -23,7 +23,7 @@ import {
   Activity,
   CircleDot,
 } from "lucide-react";
-import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry, BottleType } from "./types";
+import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry, BottleType, CustomerBottleBalance } from "./types";
 import { inventoryApi } from "../api/inventoryApi";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import { SaveBottleTypeModal } from "./modals/SaveBottleTypeModal";
@@ -57,6 +57,27 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   const [isUpdatingDriverId, setIsUpdatingDriverId] = useState<string | null>(
     null,
   );
+
+  // Customer bottle balances state
+  const [customerBalances, setCustomerBalances] = useState<CustomerBottleBalance[]>([]);
+  const [isBalancesLoading, setIsBalancesLoading] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedBalanceBottleType, setSelectedBalanceBottleType] = useState("all");
+
+  useEffect(() => {
+    const fetchBalances = async () => {
+      setIsBalancesLoading(true);
+      try {
+        const data = await inventoryApi.getCustomerBottleBalances();
+        setCustomerBalances(data);
+      } catch (err) {
+        console.error("Failed to load customer bottle balances:", err);
+      } finally {
+        setIsBalancesLoading(false);
+      }
+    };
+    fetchBalances();
+  }, [summary]);
 
   useEffect(() => {
     const fetchWarehouses = async () => {
@@ -225,6 +246,20 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           .includes(driverSearch.toLowerCase().trim()),
     );
   }, [summary, driverSearch]);
+
+  const filteredBalances = React.useMemo(() => {
+    return customerBalances.filter((cb) => {
+      const matchSearch = cb.customer_name.toLowerCase().includes(customerSearch.toLowerCase().trim());
+      const matchType = selectedBalanceBottleType === "all" || cb.bottle_type === selectedBalanceBottleType;
+      return matchSearch && matchType && cb.balance > 0;
+    });
+  }, [customerBalances, customerSearch, selectedBalanceBottleType]);
+
+  const balanceTotals = React.useMemo(() => {
+    const totalOut = customerBalances.reduce((sum, cb) => sum + cb.balance, 0);
+    const totalCustomers = new Set(customerBalances.filter(cb => cb.balance > 0).map(cb => cb.customer)).size;
+    return { totalOut, totalCustomers };
+  }, [customerBalances]);
 
   // 7-day trend chart helpers
   const chartMax = React.useMemo(() => {
@@ -1076,6 +1111,112 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
               })
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 3. Customer Bottle Balances Ledger */}
+      <div className="bg-white p-6 rounded-2xl border border-silver/60 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-charcoal flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-primary" /> Customer Bottle Balances Ledger
+            </h3>
+            <p className="text-[11px] text-charcoal/50 mt-0.5">
+              Monitor how many returnable bottles are currently outstanding with individual customers.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* Search Input */}
+            <div className="relative max-w-xs w-full lg:w-60">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-3.5 w-3.5 text-charcoal/40" />
+              </span>
+              <input
+                type="text"
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+                placeholder="Search by customer name..."
+                className="w-full text-xs font-medium pl-9 pr-4 py-2 border border-silver rounded-xl bg-silver/10 hover:bg-white focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-charcoal/30"
+              />
+            </div>
+
+            {/* Filter by Bottle Type */}
+            <select
+              value={selectedBalanceBottleType}
+              onChange={e => setSelectedBalanceBottleType(e.target.value)}
+              className="px-3 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer w-full lg:w-48"
+            >
+              <option value="all">All Bottle Types</option>
+              {bottleTypes.map((bt) => (
+                <option key={bt.id} value={bt.id}>{bt.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Ledger statistics row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-silver/5 border border-silver/50 rounded-2xl text-xs">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Total Outstanding (All Customers)</span>
+            <span className="text-xl font-black text-charcoal tracking-tight mt-1 block">{balanceTotals.totalOut} units</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Active Holding Customers</span>
+            <span className="text-xl font-black text-charcoal tracking-tight mt-1 block">{balanceTotals.totalCustomers} customers</span>
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 block">Average Outstanding / Customer</span>
+            <span className="text-xl font-black text-charcoal tracking-tight mt-1 block">
+              {balanceTotals.totalCustomers > 0 ? (balanceTotals.totalOut / balanceTotals.totalCustomers).toFixed(1) : 0} units
+            </span>
+          </div>
+        </div>
+
+        {/* Table View */}
+        <div className="overflow-x-auto">
+          {isBalancesLoading ? (
+            <div className="p-8 text-center text-xs text-charcoal/40 font-bold animate-pulse">
+              Loading customer balances...
+            </div>
+          ) : filteredBalances.length === 0 ? (
+            <div className="p-8 text-center text-xs font-bold border border-dashed border-silver/60 rounded-xl text-charcoal/40 flex flex-col items-center gap-2">
+              <AlertCircle className="w-6 h-6 text-charcoal/30" />
+              No outstanding customer balances found.
+            </div>
+          ) : (
+            <div className="max-h-[300px] overflow-y-auto pr-1">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-silver/60 text-[9px] font-black uppercase text-charcoal/40">
+                    <th className="py-2">Customer</th>
+                    <th className="py-2">Bottle Type</th>
+                    <th className="py-2 text-right">Outstanding Balance</th>
+                    <th className="py-2 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-silver/40 text-[11px] font-semibold text-charcoal/80">
+                  {filteredBalances.map((cb) => (
+                    <tr key={cb.id} className="hover:bg-silver/10 transition-colors">
+                      <td className="py-2.5 flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 text-primary font-black text-[9px] flex items-center justify-center">
+                          {cb.customer_name.split(" ").map(n => n[0]).join("").toUpperCase()}
+                        </div>
+                        <span className="font-bold">{cb.customer_name}</span>
+                      </td>
+                      <td className="py-2.5">{cb.bottle_type_name}</td>
+                      <td className="py-2.5 text-right font-black text-amber-800">{cb.balance}</td>
+                      <td className="py-2.5 text-right">
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-md border bg-amber-50 text-amber-700 border-amber-100">
+                          Holding Bottles
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

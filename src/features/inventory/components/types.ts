@@ -105,3 +105,12 @@ export interface BottleType {
   deposit_amount: string;
   is_active: boolean;
 }
+
+export interface CustomerBottleBalance {
+  id: string;
+  customer: string;
+  customer_name: string;
+  bottle_type: string;
+  bottle_type_name: string;
+  balance: number;
+}
