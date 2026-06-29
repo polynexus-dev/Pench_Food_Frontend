@@ -89,7 +89,6 @@ export interface CreateWarehousePayload {
   };
 }
 
-<<<<<<< HEAD
 export interface BottleTrackingHistoryEntry {
   date: string;
   dispatched: number;
@@ -98,7 +97,6 @@ export interface BottleTrackingHistoryEntry {
   lost_broken: number;
 }
 
-=======
 export interface BottleType {
   id: string;
   name: string;
@@ -106,6 +104,3 @@ export interface BottleType {
   deposit_amount: string;
   is_active: boolean;
 }
-
-
->>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616

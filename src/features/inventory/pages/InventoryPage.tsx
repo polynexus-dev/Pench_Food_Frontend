@@ -5,7 +5,9 @@ import type {
   Product,
   BottleTrackingSummaryResponse,
   BottleTrackingHistoryEntry,
+  BottleGlobalSummary,
 } from "../components/types";
+import axiosInstance from "../../../api/axiosInstance";
 import InventoryDashboardTab from "../components/InventoryDashboardTab";
 import InventoryManageTab from "../components/InventoryManageTab";
 import InventoryBottleTrackingTab from "../components/InventoryBottleTrackingTab";
@@ -121,7 +123,7 @@ const InventoryPage: React.FC = () => {
             const response = await axiosInstance.get<BottleTrackingSummaryResponse>(url);
             const data = response.data;
             const totals = (data.global_summary || []).reduce(
-              (acc, item) => {
+              (acc: { dispatched: number; returned: number; with_customers: number; lost_broken: number }, item: BottleGlobalSummary) => {
                 acc.dispatched += item.total_dispatched_today;
                 acc.returned += item.total_returned_today;
                 acc.with_customers += item.total_with_customers;
