@@ -24,6 +24,7 @@ import {
   CircleDot,
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry, BottleType, CustomerBottleBalance } from "./types";
+import { Link } from "react-router-dom";
 import { inventoryApi } from "../api/inventoryApi";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import { SaveBottleTypeModal } from "./modals/SaveBottleTypeModal";
@@ -359,27 +360,62 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             </select>
           </div>
 
-          {/* Date Picker */}
+          {/* Filter Mode Selection */}
+          <div className="flex flex-col gap-1 w-full sm:w-28">
+            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">
+              Filter Mode
+            </span>
+            <select
+              value={selectedDate === "all" ? "all" : selectedDate.length === 7 ? "monthly" : "daily"}
+              onChange={(e) => {
+                const mode = e.target.value;
+                if (mode === "all") {
+                  onDateChange("all");
+                } else if (mode === "monthly") {
+                  const currentMonth = new Date().toISOString().slice(0, 7);
+                  onDateChange(currentMonth);
+                } else {
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  onDateChange(todayStr);
+                }
+              }}
+              className="w-full px-3 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+            >
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+              <option value="all">All-Time</option>
+            </select>
+          </div>
+
+          {/* Date / Month Picker */}
           <div className="flex flex-col gap-1 w-full sm:w-auto">
             <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">
-              {selectedDate === "all" ? "Audit Range: Month-Wise" : "Select Audit Date"}
+              {selectedDate === "all"
+                ? "Audit Range: Month-Wise"
+                : selectedDate.length === 7
+                ? "Select Audit Month"
+                : "Select Audit Date"}
             </span>
             <div className="relative flex items-center">
               <Calendar className="absolute left-3 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
-              <input
-                type="date"
-                value={selectedDate === "all" ? "" : selectedDate}
-                onChange={(e) => onDateChange(e.target.value || "all")}
-                className="w-full sm:w-auto pl-9 pr-12 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
-              />
-              {selectedDate !== "all" && (
-                <button
-                  onClick={() => onDateChange("all")}
-                  className="absolute right-3 text-[10px] font-black text-primary hover:text-primary/80 transition-colors cursor-pointer border border-primary/20 rounded-md px-1.5 py-0.5 bg-primary/5"
-                  title="Clear date filter to show all-time monthly summary"
-                >
-                  Clear
-                </button>
+              {selectedDate === "all" ? (
+                <div className="w-full sm:w-44 px-3 py-2 pl-9 border border-silver/60 rounded-xl text-xs font-bold text-primary/80 bg-primary/5 whitespace-nowrap">
+                  All-Time Monthly Trend
+                </div>
+              ) : selectedDate.length === 7 ? (
+                <input
+                  type="month"
+                  value={selectedDate}
+                  onChange={(e) => onDateChange(e.target.value || new Date().toISOString().slice(0, 7))}
+                  className="w-full sm:w-auto pl-9 pr-4 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+                />
+              ) : (
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => onDateChange(e.target.value || new Date().toISOString().slice(0, 10))}
+                  className="w-full sm:w-auto pl-9 pr-4 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+                />
               )}
             </div>
           </div>
@@ -1202,7 +1238,12 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                         <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 text-primary font-black text-[9px] flex items-center justify-center">
                           {cb.customer_name.split(" ").map(n => n[0]).join("").toUpperCase()}
                         </div>
-                        <span className="font-bold">{cb.customer_name}</span>
+                        <Link
+                          to={`/customers?viewProfile=${cb.customer}`}
+                          className="font-bold text-primary hover:underline hover:text-primary/80 transition-colors"
+                        >
+                          {cb.customer_name}
+                        </Link>
                       </td>
                       <td className="py-2.5">{cb.bottle_type_name}</td>
                       <td className="py-2.5 text-right font-black text-amber-800">{cb.balance}</td>

@@ -10,12 +10,14 @@ import CustomerQrTab from "../components/CustomerQrTab";
 import TrialApprovalsTab from "../components/TrialApprovalsTab";
 import CreateCustomerModal from "../components/CreateCustomerModal";
 import { BulkCreateCustomersModal } from "../components/BulkCreateCustomersModal";
+import { useSearchParams } from "react-router-dom";
 import type { Customer } from "../components/types";
 
 const CustomerPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant);
   const user = useAuthStore((state) => state.user);
   const addNotification = useNotificationStore((state) => state.addNotification);
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Tab State
   const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile" | "customer-qr" | "trial-approvals">("dashboard");
@@ -78,6 +80,19 @@ const CustomerPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [tenant]);
+
+  useEffect(() => {
+    const custId = searchParams.get("viewProfile");
+    if (custId && customers.length > 0) {
+      const exists = customers.some(c => c.id === custId);
+      if (exists) {
+        setSelectedCustomerId(custId);
+        setActiveTab("profile");
+        // Clear query parameter to avoid locking view on refresh
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, customers]);
 
   const handleAutoAssignZones = async () => {
     setIsAutoAssigning(true);
