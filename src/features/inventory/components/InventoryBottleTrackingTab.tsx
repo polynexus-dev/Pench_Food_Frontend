@@ -15,7 +15,6 @@ import {
   Warehouse,
   Pencil,
   Trash2,
-<<<<<<< HEAD
   TrendingUp,
   TrendingDown,
   Package,
@@ -24,16 +23,11 @@ import {
   Activity,
   CircleDot,
 } from "lucide-react";
-import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry } from "./types";
-import axiosInstance from "../../../api/axiosInstance";
-=======
-} from "lucide-react";
-import type { BottleTrackingSummaryResponse, BottleType } from "./types";
+import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry, BottleType } from "./types";
 import { inventoryApi } from "../api/inventoryApi";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import { SaveBottleTypeModal } from "./modals/SaveBottleTypeModal";
 import DeleteBottleTypeModal from "./modals/DeleteBottleTypeModal";
->>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
@@ -54,10 +48,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   selectedWarehouseId,
   onWarehouseChange,
   onRefresh,
-<<<<<<< HEAD
   history = [],
-=======
->>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 }) => {
   // Container creation state
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>(
@@ -953,7 +944,6 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                     Returned (Empty)
                                   </th>
                                   <th className="py-2 text-right">Broken</th>
-<<<<<<< HEAD
                                   <th className="py-2 text-right text-blue-700 bg-blue-50/50">In Transit</th>
                                 </tr>
                               </thead>
@@ -966,35 +956,6 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                     <td className="py-2.5 text-right text-blue-600">{bottle.returned}</td>
                                     <td className="py-2.5 text-right text-rose-600">{bottle.broken}</td>
                                     <td className="py-2.5 text-right text-blue-800 bg-blue-50/30 font-black">
-=======
-                                  <th className="py-2 text-right text-amber-700 bg-amber-50/50">
-                                    Outstanding (Full)
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-silver/40 text-[11px] font-semibold text-charcoal/80">
-                                {route.bottles.map((bottle) => (
-                                  <tr
-                                    key={bottle.bottle_type_id}
-                                    className="hover:bg-silver/10 transition-colors"
-                                  >
-                                    <td className="py-2.5 font-bold">
-                                      {bottle.bottle_type_name}
-                                    </td>
-                                    <td className="py-2.5 text-right">
-                                      {bottle.dispatched}
-                                    </td>
-                                    <td className="py-2.5 text-right text-emerald-600">
-                                      {bottle.delivered}
-                                    </td>
-                                    <td className="py-2.5 text-right text-blue-600">
-                                      {bottle.returned}
-                                    </td>
-                                    <td className="py-2.5 text-right text-rose-600">
-                                      {bottle.broken}
-                                    </td>
-                                    <td className="py-2.5 text-right text-amber-800 bg-amber-50/30 font-black">
->>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
                                       {bottle.remaining_full}
                                     </td>
                                   </tr>
