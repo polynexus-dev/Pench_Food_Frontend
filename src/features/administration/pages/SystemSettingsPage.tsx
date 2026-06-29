@@ -31,7 +31,9 @@ const SystemSettingsPage: React.FC = () => {
     company_name: "",
     theme_color: "#007bff",
     charge_bottle_penalty: false,
-    bottle_penalty_amount: "0.00"
+    bottle_penalty_amount: "0.00",
+    company_upi_id: "",
+    company_upi_name: ""
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -293,6 +295,36 @@ const SystemSettingsPage: React.FC = () => {
                     />
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* CARD F: UPI Payment Settings */}
+            <div className="p-6 bg-white border border-silver/50 rounded-3xl shadow-xs space-y-5">
+              <div className="flex items-center gap-2 pb-1.5 border-b border-silver/30">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-sm font-black text-charcoal uppercase tracking-wider">UPI Collection Settings</h3>
+              </div>
+
+              <div className="space-y-4">
+                <CustomInput
+                  label="Company UPI VPA (e.g. pay@bank)"
+                  icon={Settings}
+                  type="text"
+                  name="company_upi_id"
+                  value={config.company_upi_id || ""}
+                  onChange={(e) => handleChange("company_upi_id", e.target.value)}
+                  placeholder="company@okaxis"
+                />
+
+                <CustomInput
+                  label="Company UPI Display Name"
+                  icon={Building2}
+                  type="text"
+                  name="company_upi_name"
+                  value={config.company_upi_name || ""}
+                  onChange={(e) => handleChange("company_upi_name", e.target.value)}
+                  placeholder="Pench Foods Pvt Ltd"
+                />
               </div>
             </div>
 

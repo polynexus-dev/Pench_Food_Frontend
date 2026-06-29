@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Layers,
   ChevronRight,
+  ChevronDown,
   Activity,
   Image as ImageIcon,
   Plus,
@@ -21,31 +22,9 @@ import {
   X,
   Boxes
 } from "lucide-react";
-import type { Route, Stop, Driver } from "./types";
+import type { Route, Stop, Driver, BottleType, Product } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
 import { useAuthStore } from "../../../store/useAuthStore";
-import axiosInstance from "../../../api/axiosInstance";
-
-interface BottleType {
-  id: string;
-  name: string;
-  deposit_amount: string;
-  volume_ml: number;
-  is_active: boolean;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  description: string;
-  unit_price: string;
-  unit: string;
-  is_active: boolean;
-  bottle_type: string | null;
-  bottle_type_name?: string | null;
-  is_returnable: boolean;
-}
 
 interface RouteTabProps {
   routes: Route[];
@@ -54,12 +33,48 @@ interface RouteTabProps {
   onRefresh?: () => void;
 }
 
-const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefresh }) => {
+const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoading, onRefresh }) => {
+  const routes = useMemo(() => {
+    return rawRoutes.map(route => ({
+      ...route,
+      stops: (route.stops || []).map(stop => {
+        const lat = typeof stop.latitude === "number" ? stop.latitude : parseFloat(stop.latitude as any);
+        const lng = typeof stop.longitude === "number" ? stop.longitude : parseFloat(stop.longitude as any);
+        return {
+          ...stop,
+          latitude: isNaN(lat) || lat === null || lat === undefined ? 21.1458 : lat,
+          longitude: isNaN(lng) || lng === null || lng === undefined ? 79.0882 : lng,
+        };
+      })
+    }));
+  }, [rawRoutes]);
+
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [isEditingDriver, setIsEditingDriver] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+
+  const [isDriverDropdownOpen, setIsDriverDropdownOpen] = useState(false);
+  const [isAssignDriverDropdownOpen, setIsAssignDriverDropdownOpen] = useState(false);
+  const driverDropdownRef = useRef<HTMLDivElement>(null);
+  const assignDriverDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (driverDropdownRef.current && !driverDropdownRef.current.contains(event.target as Node)) {
+        setIsDriverDropdownOpen(false);
+      }
+      if (assignDriverDropdownRef.current && !assignDriverDropdownRef.current.contains(event.target as Node)) {
+        setIsAssignDriverDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Helper to format dates to YYYY-MM-DD in user's local timezone
   const getLocalDateStr = (d = new Date()) => {
@@ -84,12 +99,12 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [btRes, prodRes] = await Promise.all([
-          axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/"),
-          axiosInstance.get<Product[]>("/erp/inventory/products/")
+        const [btData, prodData] = await Promise.all([
+          deliveryApi.getBottleTypes(),
+          deliveryApi.getProducts()
         ]);
-        setBottleTypes(Array.isArray(btRes.data) ? btRes.data.filter(b => b.is_active) : []);
-        setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+        setBottleTypes(btData.filter(b => b.is_active));
+        setProducts(prodData);
       } catch (err) {
         console.error("Failed to fetch initial bottle/product data", err);
       }
@@ -134,7 +149,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
         }))
         .filter(t => t.issued > 0 || t.returned > 0 || t.broken > 0);
 
-      await axiosInstance.post(`/erp/orders/driver/${selectedStop.order}/submit-delivery/`, {
+      await deliveryApi.submitDelivery(selectedStop.order, {
         bottle_transactions: txnsPayload,
         bottles_issued: txnsPayload.reduce((sum, t) => sum + t.issued, 0),
         bottles_returned: txnsPayload.reduce((sum, t) => sum + t.returned, 0),
@@ -541,27 +556,64 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
               {isEditingDriver ? (
                 <div className="flex flex-col gap-2 mt-1">
                   <span className="text-[10px] font-bold text-charcoal/50">Primary Driver:</span>
-                  <select
-                    value={selectedRoute.driver || ""}
-                    onChange={async (e) => {
-                      const newDriverUserId = e.target.value ? parseInt(e.target.value) : null;
-                      if (!newDriverUserId) return;
-                      try {
-                        await deliveryApi.updateRoute(selectedRoute.id, { driver: newDriverUserId });
-                        onRefresh?.();
-                      } catch (err) {
-                        alert("Failed to update driver: " + (err as any).message);
-                      }
-                    }}
-                    className="w-full bg-white border border-silver/60 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:outline-none focus:border-primary/40 transition-colors"
-                  >
-                    <option value="" disabled>Select a driver...</option>
-                    {drivers.map((d) => (
-                      <option key={d.id} value={d.user}>
-                        {d.full_name} ({d.vehicle_type} - {d.vehicle_plate})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative" ref={assignDriverDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsAssignDriverDropdownOpen(!isAssignDriverDropdownOpen)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-primary/5 hover:bg-primary/10 active:scale-[0.98] rounded-xl border border-primary/10 hover:border-primary/20 transition-all cursor-pointer select-none text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <User className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-bold text-primary truncate">
+                          {(() => {
+                            const selectedDrv = drivers.find((d) => d.user === selectedRoute.driver);
+                            return selectedDrv 
+                              ? `${selectedDrv.full_name} (${selectedDrv.vehicle_type} - ${selectedDrv.vehicle_plate})` 
+                              : "Select primary driver...";
+                          })()}
+                        </span>
+                      </div>
+                      <ChevronDown className={`w-3.5 h-3.5 text-primary/60 transition-transform duration-300 shrink-0 ${isAssignDriverDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isAssignDriverDropdownOpen && (
+                      <div className="absolute left-0 mt-1.5 w-full bg-white border border-silver/50 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-250">
+                        <p className="px-3.5 py-1 text-[8px] font-black text-charcoal/30 uppercase tracking-widest border-b border-silver/20 mb-1 block">
+                          Select Primary Driver
+                        </p>
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                          {drivers.map((d) => {
+                            const isActive = d.user === selectedRoute.driver;
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={async () => {
+                                  setIsAssignDriverDropdownOpen(false);
+                                  try {
+                                    await deliveryApi.updateRoute(selectedRoute.id, { driver: d.user });
+                                    onRefresh?.();
+                                  } catch (err) {
+                                    alert("Failed to update driver: " + (err as any).message);
+                                  }
+                                }}
+                                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left font-bold transition-all ${
+                                  isActive
+                                    ? "text-primary bg-primary/5 border-l-2 border-primary"
+                                    : "text-charcoal/60 hover:text-charcoal hover:bg-silver/10 border-l-2 border-transparent"
+                                }`}
+                              >
+                                <span className="truncate">{d.full_name} ({d.vehicle_type} - {d.vehicle_plate})</span>
+                                {isActive && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex flex-col gap-1.5 mt-2 border-t border-silver/30 pt-2">
                     <span className="text-[10px] font-bold text-charcoal/50">Backup Drivers (Emergency):</span>
@@ -827,18 +879,74 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes, drivers, isLoading, onRefre
                       </button>
                     )}
                   </div>
-                  <select
-                    value={filterDriver}
-                    onChange={(e) => setFilterDriver(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-silver/10 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all text-charcoal cursor-pointer"
-                  >
-                    <option value="all">All Drivers</option>
-                    {drivers.map((d) => (
-                      <option key={d.id} value={d.user}>
-                        {d.full_name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative" ref={driverDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsDriverDropdownOpen(!isDriverDropdownOpen)}
+                      className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-primary/5 hover:bg-primary/10 active:scale-[0.98] rounded-xl border border-primary/10 hover:border-primary/20 transition-all cursor-pointer select-none text-left"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <User className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-bold text-primary truncate max-w-[100px]">
+                          {(() => {
+                            const selectedDriverObj = drivers.find((d) => String(d.user) === filterDriver);
+                            return filterDriver === "all" ? "All Drivers" : (selectedDriverObj?.full_name || "Select Driver");
+                          })()}
+                        </span>
+                      </div>
+                      <ChevronDown className={`w-3.5 h-3.5 text-primary/60 transition-transform duration-300 shrink-0 ${isDriverDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isDriverDropdownOpen && (
+                      <div className="absolute right-0 mt-1.5 w-48 bg-white border border-silver/50 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-250">
+                        <p className="px-3.5 py-1 text-[8px] font-black text-charcoal/30 uppercase tracking-widest border-b border-silver/20 mb-1 block">
+                          Filter by Driver
+                        </p>
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilterDriver("all");
+                              setIsDriverDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left font-bold transition-all ${
+                              filterDriver === "all"
+                                ? "text-primary bg-primary/5 border-l-2 border-primary"
+                                : "text-charcoal/60 hover:text-charcoal hover:bg-silver/10 border-l-2 border-transparent"
+                            }`}
+                          >
+                            <span>All Drivers</span>
+                            {filterDriver === "all" && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                            )}
+                          </button>
+                          {drivers.map((d) => {
+                            const isActive = String(d.user) === filterDriver;
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => {
+                                  setFilterDriver(String(d.user));
+                                  setIsDriverDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left font-bold transition-all ${
+                                  isActive
+                                    ? "text-primary bg-primary/5 border-l-2 border-primary"
+                                    : "text-charcoal/60 hover:text-charcoal hover:bg-silver/10 border-l-2 border-transparent"
+                                }`}
+                              >
+                                <span className="truncate">{d.full_name}</span>
+                                {isActive && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

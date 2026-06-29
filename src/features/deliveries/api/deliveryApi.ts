@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Driver, Route } from "../components/types";
+import type { Driver, Route, BottleType, Product } from "../components/types";
 
 /**
  * Delivery/Logistics API Service
@@ -119,6 +119,42 @@ export const deliveryApi = {
    */
   getMyRoute: async (): Promise<Route> => {
     const response = await axiosInstance.get<Route>("/erp/orders/driver/my-route/");
+    return response.data;
+  },
+
+  /**
+   * Fetch active bottle types
+   */
+  getBottleTypes: async (): Promise<BottleType[]> => {
+    const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Fetch products catalog
+   */
+  getProducts: async (): Promise<Product[]> => {
+    const response = await axiosInstance.get<Product[]>("/erp/inventory/products/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Submit bottle transactions and delivery summary for a specific order
+   */
+  submitDelivery: async (
+    orderId: string,
+    payload: {
+      bottle_transactions: {
+        bottle_type_id: string;
+        issued: number;
+        returned: number;
+        broken: number;
+      }[];
+      bottles_issued: number;
+      bottles_returned: number;
+    }
+  ): Promise<any> => {
+    const response = await axiosInstance.post(`/erp/orders/driver/${orderId}/submit-delivery/`, payload);
     return response.data;
   }
 };

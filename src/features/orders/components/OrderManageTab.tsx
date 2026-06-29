@@ -15,11 +15,13 @@ import {
   PackageOpen,
   Camera,
   ExternalLink,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PlusCircle
 } from "lucide-react";
 import type { Order, OrderItem } from "./types";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { getCityUrl } from "../../../utils/constants";
+import CreateOrderModal from "./modals/CreateOrderModal";
 
 
 interface OrderManageTabProps {
@@ -28,6 +30,7 @@ interface OrderManageTabProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onUpdateOrderStatus: (orderId: string, status: string) => Promise<void>;
+  onOrderCreated: () => void;
 }
 
 const OrderManageTab: React.FC<OrderManageTabProps> = ({ 
@@ -35,10 +38,13 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   isLoading, 
   searchQuery, 
   setSearchQuery,
-  onUpdateOrderStatus
+  onUpdateOrderStatus,
+  onOrderCreated
 }) => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Filter States
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -188,9 +194,24 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {successMsg && (
+        <div className="mb-4 px-4 py-3 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <p className="text-xs font-bold text-primary flex items-center gap-2">
+            <Check className="w-4 h-4 text-primary shrink-0" />
+            {successMsg}
+          </p>
+          <button
+            onClick={() => setSuccessMsg(null)}
+            className="p-1 hover:bg-primary/10 rounded-lg text-primary/50 hover:text-primary transition-all cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Search & Filters */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-[24px] border border-silver/50 shadow-sm">
-        <div className="relative w-full md:w-96">
+        <div className="relative w-full md:flex-1 max-w-xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
           <input 
             type="text"
@@ -200,7 +221,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
             className="w-full pl-12 pr-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-sm font-bold focus:outline-none focus:border-primary/30 transition-all outline-none"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
            <button 
              onClick={() => setIsAdvancedOpen(prev => !prev)}
              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -211,6 +232,13 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
            >
               <Filter className="w-3.5 h-3.5" />
               Advanced Filters
+           </button>
+           <button
+             onClick={() => setIsCreateModalOpen(true)}
+             className="flex items-center gap-2 px-4 py-3 bg-primary text-white hover:bg-primary/95 border border-primary rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-primary/10 active:scale-95 whitespace-nowrap"
+           >
+             <PlusCircle className="w-3.5 h-3.5" />
+             Create Order
            </button>
         </div>
       </div>
@@ -553,6 +581,39 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                     </p>
                                   </div>
                                 )}
+                                <div className="p-3.5 bg-silver/5 rounded-xl border border-silver/30 space-y-1 mt-2">
+                                  <p className="text-[9px] font-bold text-charcoal/40 uppercase">
+                                    Payment Details
+                                  </p>
+                                  <div className="text-xs font-bold text-charcoal space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-charcoal/40 text-[10px]">Method:</span>
+                                      <span className="capitalize">{(order.payment_method || "on_account").replace('_', ' ')}</span>
+                                    </div>
+                                    {(order.payment_method || "on_account") !== "on_account" && (
+                                      <div className="flex justify-between">
+                                        <span className="text-charcoal/40 text-[10px]">Collected:</span>
+                                        <span className="text-primary font-black">₹{order.amount_collected || "0.00"}</span>
+                                      </div>
+                                    )}
+                                    {order.payment_transaction_id && (
+                                      <div className="flex flex-col pt-1 border-t border-silver/20">
+                                        <span className="text-charcoal/40 text-[9px] uppercase">Transaction ID / UTR</span>
+                                        <span className="font-mono text-[10px] truncate">{order.payment_transaction_id}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between pt-1 border-t border-silver/20">
+                                      <span className="text-charcoal/40 text-[10px]">Payment Status:</span>
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                                        order.payment_status === "paid"
+                                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                                          : "bg-amber-50 text-amber-600 border border-amber-100"
+                                      }`}>
+                                        {order.payment_status || "Pending"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
 
                               {order.status !== "delivered" ? (
@@ -679,6 +740,15 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
           </table>
         </div>
       </div>
+      <CreateOrderModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(msg) => {
+          setSuccessMsg(msg);
+          onOrderCreated();
+          setTimeout(() => setSuccessMsg(null), 5000);
+        }}
+      />
     </div>
   );
 };

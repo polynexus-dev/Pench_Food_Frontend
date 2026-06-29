@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Driver } from "../components/types";
+import type { Driver, Zone } from "../components/types";
 
 /**
  * Driver API Service
@@ -34,6 +34,22 @@ export const driverApi = {
    */
   updateDriver: async (id: string, driverData: Partial<Driver>): Promise<Driver> => {
     const response = await axiosInstance.patch<Driver>(`/ems/drivers/${id}/`, driverData);
+    return response.data;
+  },
+
+  /**
+   * Fetch all zones
+   */
+  getZones: async (): Promise<Zone[]> => {
+    const response = await axiosInstance.get<Zone[]>("/ems/zones/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Register a new rider / driver user account
+   */
+  registerDriver: async (payload: any): Promise<any> => {
+    const response = await axiosInstance.post("/accounts/register/", [payload]);
     return response.data;
   }
 };

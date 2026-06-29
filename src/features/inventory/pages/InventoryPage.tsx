@@ -18,7 +18,6 @@ import {
   Boxes,
   Warehouse,
 } from "lucide-react";
-import axiosInstance from "../../../api/axiosInstance";
 import InventoryWarehouseTab from "../components/InventoryWarehouseTab";
 
 const InventoryPage: React.FC = () => {
@@ -90,16 +89,8 @@ const InventoryPage: React.FC = () => {
       setIsBottleLoading(true);
     }
     try {
-      let url = "/erp/inventory/bottle-transactions/summary/";
-      const params = new URLSearchParams();
-      if (date) params.append("date", date);
-      if (warehouseId && warehouseId !== "all") params.append("warehouse", warehouseId);
-      
-      const queryString = params.toString();
-      if (queryString) url += `?${queryString}`;
-
-      const response = await axiosInstance.get<BottleTrackingSummaryResponse>(url);
-      setBottleSummary(response.data);
+      const data = await inventoryApi.getBottleSummary(date, warehouseId);
+      setBottleSummary(data);
     } catch (err) {
       console.error("Failed to fetch returnable containers summary desk:", err);
       setBottleSummary(null);

@@ -15,15 +15,21 @@ import {
   User,
   CreditCard,
   Briefcase,
+  X,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCompanyStore } from "../../store/useCompanyStore";
 import type { Company } from "../../api/companyApi";
 
-const Sidebar = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { tenant, setTenant, companyId, setCompanyId, user } = useAuthStore();
   const { companies, isLoading: isLoadingCompanies, fetchCompanies } = useCompanyStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const resolveCompanyAndTenant = (activeCompanies: Company[], selectCompanyId?: string) => {
@@ -84,7 +90,7 @@ const Sidebar = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        setIsDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -100,105 +106,138 @@ const Sidebar = () => {
   const isLockedRole = isCustomer || ((user?.role?.toLowerCase() === "drivers" || user?.role?.toLowerCase() === "driver") && !user?.is_superuser && !user?.is_staff);
 
   return (
-    <aside className="w-72 bg-gradient-to-b from-[#1a2e21] to-[#0a140d] text-white hidden md:flex flex-col h-full shrink-0 shadow-2xl relative z-30">
-      <div className="p-6 relative select-none" ref={dropdownRef}>
-        {isLockedRole ? (
-          <div className="w-full text-left p-3.5 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between select-none">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 shrink-0">
-                <Droplets className="text-primary w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
-                  {currentCompany ? currentCompany.name : "PENCH"}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
-                  {currentCity ? currentCity.name : "Dairy ERP"}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="w-full text-left p-3.5 hover:bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex items-center justify-between group cursor-pointer"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 group-hover:rotate-0 transition-transform shrink-0">
-                <Droplets className="text-primary w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
-                  {currentCompany ? currentCompany.name : "PENCH"}
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
-                  {currentCity ? currentCity.name : "Dairy ERP"}
-                </span>
-              </div>
-            </div>
-            <ChevronDown
-              className={`w-4 h-4 text-white/40 group-hover:text-white transition-transform duration-300 shrink-0 ml-2 ${
-                isOpen ? "rotate-180 text-white" : ""
-              }`}
-            />
-          </button>
-        )}
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-45 md:hidden animate-in fade-in duration-300"
+        />
+      )}
 
-        {isOpen && !isLockedRole && (
-          <div className="absolute top-[88px] left-6 right-6 bg-[#122217] border border-white/10 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
-            <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white/40">
-              Switch Company
-            </p>
-            <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
-              {isLoadingCompanies ? (
-                <div className="px-3 py-2.5 text-xs text-white/40 flex items-center gap-2">
-                  <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Loading...
+      <aside
+        className={`
+          w-72 bg-gradient-to-b from-[#1a2e21] to-[#0a140d] text-white flex flex-col h-full shrink-0 shadow-2xl transition-all duration-300
+          ${
+            isOpen
+              ? "fixed inset-y-0 left-0 z-50 animate-in slide-in-from-left md:relative md:z-30 md:flex"
+              : "hidden md:flex relative z-30"
+          }
+        `}
+      >
+        <div className="p-6 relative select-none flex items-center justify-between gap-2" ref={dropdownRef}>
+          <div className="flex-1 min-w-0">
+            {isLockedRole ? (
+              <div className="w-full text-left p-3.5 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between select-none">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 shrink-0">
+                    <Droplets className="text-primary w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
+                      {currentCompany ? currentCompany.name : "PENCH"}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
+                      {currentCity ? currentCity.name : "Dairy ERP"}
+                    </span>
+                  </div>
                 </div>
-              ) : companies.filter((c) => c.is_active).length === 0 ? (
-                <div className="px-3 py-2.5 text-xs text-white/40">No companies found</div>
-              ) : (
-                companies.filter((c) => c.is_active).map((company) => {
-                  const isActive = company.id === companyId;
-                  return (
-                    <button
-                      key={company.id}
-                      onClick={() => {
-                        setCompanyId(company.id);
-                        const companyCities = company.cities || [];
-                        const firstCity = companyCities[0];
-                        if (firstCity) {
-                          setTenant(firstCity.schema_name);
-                        } else {
-                          setTenant("");
-                        }
-                        setIsOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-accent text-primary font-bold shadow-[0_4px_12px_rgba(240,192,86,0.15)]"
-                          : "text-white/70 hover:bg-white/5 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                            isActive ? "bg-primary text-accent" : "bg-white/10 text-white"
-                          }`}
-                        >
-                          {company.code ? company.code.substring(0, 2).toUpperCase() : company.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-xs font-semibold truncate">{company.name}</span>
-                      </div>
-                      {isActive && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full text-left p-3.5 hover:bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20 rotate-3 group-hover:rotate-0 transition-transform shrink-0">
+                    <Droplets className="text-primary w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-base font-extrabold tracking-tight block leading-none text-white truncate">
+                      {currentCompany ? currentCompany.name : "PENCH"}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold opacity-80 mt-1 block">
+                      {currentCity ? currentCity.name : "Dairy ERP"}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-white/40 group-hover:text-white transition-transform duration-300 shrink-0 ml-2 ${
+                    isDropdownOpen ? "rotate-180 text-white" : ""
+                  }`}
+                />
+              </button>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Mobile Close Button */}
+          {isOpen && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="md:hidden p-2.5 text-white/60 hover:text-white rounded-xl hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+              title="Close Menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {isDropdownOpen && !isLockedRole && (
+            <div className="absolute top-[88px] left-6 right-6 bg-[#122217] border border-white/10 rounded-2xl shadow-2xl z-50 p-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+              <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white/40">
+                Switch Company
+              </p>
+              <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                {isLoadingCompanies ? (
+                  <div className="px-3 py-2.5 text-xs text-white/40 flex items-center gap-2">
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Loading...
+                  </div>
+                ) : companies.filter((c) => c.is_active).length === 0 ? (
+                  <div className="px-3 py-2.5 text-xs text-white/40">No companies found</div>
+                ) : (
+                  companies.filter((c) => c.is_active).map((company) => {
+                    const isActive = company.id === companyId;
+                    return (
+                      <button
+                        key={company.id}
+                        onClick={() => {
+                          setCompanyId(company.id);
+                          const companyCities = company.cities || [];
+                          const firstCity = companyCities[0];
+                          if (firstCity) {
+                            setTenant(firstCity.schema_name);
+                          } else {
+                            setTenant("");
+                          }
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-accent text-primary font-bold shadow-[0_4px_12px_rgba(240,192,86,0.15)]"
+                            : "text-white/70 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                              isActive ? "bg-primary text-accent" : "bg-white/10 text-white"
+                            }`}
+                          >
+                            {company.code ? company.code.substring(0, 2).toUpperCase() : company.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-xs font-semibold truncate">{company.name}</span>
+                        </div>
+                        {isActive && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
       <nav className="flex-1 px-4 mt-6 space-y-1.5 overflow-y-auto custom-scrollbar">
         {isCustomer ? (
@@ -254,6 +293,7 @@ const Sidebar = () => {
         </div>
       </div>
     </aside>
+    </>
   );
 };
 
@@ -264,7 +304,7 @@ const SidebarItem = ({
   end = false,
   pulse = false,
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   to: string;
   end?: boolean;

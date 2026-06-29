@@ -74,3 +74,25 @@ export interface Route {
   additional_drivers?: number[];
   additional_driver_names?: string[];
 }
+
+export interface BottleType {
+  id: string;
+  name: string;
+  deposit_amount: string;
+  volume_ml: number;
+  is_active: boolean;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  unit_price: string;
+  unit: string;
+  is_active: boolean;
+  bottle_type: string | null;
+  bottle_type_name?: string | null;
+  is_returnable: boolean;
+}
+

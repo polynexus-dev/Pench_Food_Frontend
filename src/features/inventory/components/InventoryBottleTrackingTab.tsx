@@ -12,10 +12,10 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  X,
   Warehouse,
   Pencil,
   Trash2,
+<<<<<<< HEAD
   TrendingUp,
   TrendingDown,
   Package,
@@ -26,6 +26,14 @@ import {
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry } from "./types";
 import axiosInstance from "../../../api/axiosInstance";
+=======
+} from "lucide-react";
+import type { BottleTrackingSummaryResponse, BottleType } from "./types";
+import { inventoryApi } from "../api/inventoryApi";
+import { useNotificationStore } from "../../../store/useNotificationStore";
+import { SaveBottleTypeModal } from "./modals/SaveBottleTypeModal";
+import DeleteBottleTypeModal from "./modals/DeleteBottleTypeModal";
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
@@ -46,17 +54,24 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   selectedWarehouseId,
   onWarehouseChange,
   onRefresh,
+<<<<<<< HEAD
   history = [],
+=======
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 }) => {
   // Container creation state
-  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
-  const [isUpdatingDriverId, setIsUpdatingDriverId] = useState<string | null>(null);
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const [isUpdatingDriverId, setIsUpdatingDriverId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const fetchWarehouses = async () => {
       try {
-        const response = await axiosInstance.get("/erp/inventory/warehouses/");
-        setWarehouses(response.data);
+        const data = await inventoryApi.getWarehouses();
+        setWarehouses(data.map((w) => ({ id: w.id, name: w.name })));
       } catch (err) {
         console.error("Failed to load warehouses list for filtering:", err);
       }
@@ -64,13 +79,17 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
     fetchWarehouses();
   }, []);
 
-  const handleReassignDriverWarehouse = async (driverId: string, warehouseId: string) => {
+  const handleReassignDriverWarehouse = async (
+    driverId: string,
+    warehouseId: string,
+  ) => {
     if (!driverId) return;
     setIsUpdatingDriverId(driverId);
     try {
-      await axiosInstance.patch(`/erp/routing/drivers/${driverId}/`, {
-        warehouse: warehouseId === "none" ? null : warehouseId
-      });
+      await inventoryApi.reassignDriverWarehouse(
+        driverId,
+        warehouseId === "none" ? null : warehouseId,
+      );
       // Trigger dynamic dashboard refresh
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -83,22 +102,53 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   // Container creation/edit state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [volumeMl, setVolumeMl] = useState("1000");
-  const [depositAmount, setDepositAmount] = useState("50.00");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<BottleType | null>(null);
+  const [deletingContainer, setDeletingContainer] = useState<BottleType | null>(
+    null,
+  );
+
+  const addNotification = useNotificationStore(
+    (state) => state.addNotification,
+  );
+  const [notification, _setNotification] = useState<{
+    title: string;
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const setNotification = React.useCallback(
+    (
+      val: { title: string; message: string; type: "success" | "error" } | null,
+    ) => {
+      _setNotification(val);
+      if (val) {
+        addNotification({
+          title: val.title,
+          message: val.message,
+          type: val.type,
+        });
+      }
+    },
+    [addNotification],
+  );
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification, setNotification]);
 
   // Bottle type list for edit/delete (fetched separately from summary)
-  const [bottleTypes, setBottleTypes] = useState<{ id: string; name: string; volume_ml: number; deposit_amount: string; is_active: boolean }[]>([]);
+  const [bottleTypes, setBottleTypes] = useState<BottleType[]>([]);
 
   useEffect(() => {
     const fetchBottleTypes = async () => {
       try {
-        const response = await axiosInstance.get("/erp/inventory/bottle-types/");
-        setBottleTypes(Array.isArray(response.data) ? response.data : []);
+        const data = await inventoryApi.getBottleTypes();
+        setBottleTypes(data);
       } catch (err) {
         console.error("Failed to load bottle types:", err);
       }
@@ -108,93 +158,37 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
 
   const openCreateModal = () => {
     setEditingId(null);
-    setName("");
-    setVolumeMl("1000");
-    setDepositAmount("50.00");
-    setError(null);
-    setSuccess(null);
+    setEditingItem(null);
     setIsModalOpen(true);
   };
 
-  const openEditModal = (bt: { id: string; name: string; volume_ml: number; deposit_amount: string }) => {
+  const openEditModal = (bt: BottleType) => {
     setEditingId(bt.id);
-    setName(bt.name);
-    setVolumeMl(String(bt.volume_ml));
-    setDepositAmount(bt.deposit_amount);
-    setError(null);
-    setSuccess(null);
+    setEditingItem(bt);
     setIsModalOpen(true);
   };
 
-  const handleSubmitBottleType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !volumeMl || !depositAmount) {
-      setError("Please fill in all required fields.");
-      return;
-    }
-    setIsSubmitting(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const payload = {
-        name,
-        volume_ml: parseInt(volumeMl),
-        deposit_amount: parseFloat(depositAmount).toFixed(2),
-        is_active: true
-      };
-
-      if (editingId) {
-        await axiosInstance.put(`/erp/inventory/bottle-types/${editingId}/`, payload);
-        setSuccess("Container type updated successfully!");
-      } else {
-        await axiosInstance.post("/erp/inventory/bottle-types/", payload);
-        setSuccess("Container type created successfully!");
-      }
-      if (onRefresh) onRefresh();
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setEditingId(null);
-        setName("");
-        setVolumeMl("1000");
-        setDepositAmount("50.00");
-        setSuccess(null);
-      }, 1200);
-    } catch (err: any) {
-      console.error("Failed to save container type:", err);
-      setError(editingId ? "Failed to update container type." : "Failed to create container type. Please verify configurations.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteBottleType = async (id: string, typeName: string) => {
-    if (!window.confirm(`Are you sure you want to delete the container type "${typeName}"? This cannot be undone.`)) return;
-    setIsDeletingId(id);
-    try {
-      await axiosInstance.delete(`/erp/inventory/bottle-types/${id}/`);
-      if (onRefresh) onRefresh();
-    } catch (err: any) {
-      console.error("Failed to delete container type:", err);
-      alert("Failed to delete container type. It may be in use by products.");
-    } finally {
-      setIsDeletingId(null);
-    }
+  const handleDeleteClick = (bt: BottleType) => {
+    setDeletingContainer(bt);
   };
 
   const [driverSearch, setDriverSearch] = useState<string>("");
-  const [expandedDrivers, setExpandedDrivers] = useState<Record<string, boolean>>({});
+  const [expandedDrivers, setExpandedDrivers] = useState<
+    Record<string, boolean>
+  >({});
 
   // Toggle driver route detail card expansion
   const toggleDriver = (routeId: string) => {
-    setExpandedDrivers(prev => ({
+    setExpandedDrivers((prev) => ({
       ...prev,
-      [routeId]: !prev[routeId]
+      [routeId]: !prev[routeId],
     }));
   };
 
   // Compute stats totals dynamically from global summaries
   const totals = React.useMemo(() => {
-    if (!summary || !summary.global_summary) return { customers: 0, broken: 0, dispatched: 0, returned: 0 };
+    if (!summary || !summary.global_summary)
+      return { customers: 0, broken: 0, dispatched: 0, returned: 0 };
     return summary.global_summary.reduce(
       (acc, item) => {
         acc.customers += item.total_with_customers;
@@ -203,7 +197,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         acc.returned += item.total_returned_today;
         return acc;
       },
-      { customers: 0, broken: 0, dispatched: 0, returned: 0 }
+      { customers: 0, broken: 0, dispatched: 0, returned: 0 },
     );
   }, [summary]);
 
@@ -228,10 +222,16 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   const filteredDrivers = React.useMemo(() => {
     if (!summary || !summary.driver_breakdown) return [];
     return summary.driver_breakdown.filter(
-      drv =>
-        drv.driver_name.toLowerCase().includes(driverSearch.toLowerCase().trim()) ||
-        drv.vehicle_plate.toLowerCase().includes(driverSearch.toLowerCase().trim()) ||
-        drv.route_name.toLowerCase().includes(driverSearch.toLowerCase().trim())
+      (drv) =>
+        drv.driver_name
+          .toLowerCase()
+          .includes(driverSearch.toLowerCase().trim()) ||
+        drv.vehicle_plate
+          .toLowerCase()
+          .includes(driverSearch.toLowerCase().trim()) ||
+        drv.route_name
+          .toLowerCase()
+          .includes(driverSearch.toLowerCase().trim()),
     );
   }, [summary, driverSearch]);
 
@@ -258,7 +258,10 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         {/* Loading Aggregates skeleton */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white p-5 h-28 rounded-2xl border border-silver/40 shadow-xs" />
+            <div
+              key={i}
+              className="bg-white p-5 h-28 rounded-2xl border border-silver/40 shadow-xs"
+            />
           ))}
         </div>
         {/* Loading details tables */}
@@ -276,7 +279,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             Returnable Asset Analytics & Types
           </h2>
           <p className="text-xs text-charcoal/40 mt-1">
-            Monitor outstanding delivery assets, track breakages, and manage regional glass container configurations.
+            Monitor outstanding delivery assets, track breakages, and manage
+            regional glass container configurations.
           </p>
         </div>
         <button
@@ -294,15 +298,22 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             <Warehouse className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-xs font-black text-charcoal">Reconciliation Filters</h3>
-            <p className="text-[10px] text-charcoal/40 font-medium">Segment tracking stats and driver route collections by warehouse & target date</p>
+            <h3 className="text-xs font-black text-charcoal">
+              Reconciliation Filters
+            </h3>
+            <p className="text-[10px] text-charcoal/40 font-medium">
+              Segment tracking stats and driver route collections by warehouse &
+              target date
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
           {/* Warehouse Dropdown */}
           <div className="flex flex-col gap-1 w-full sm:w-48">
-            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">Select Warehouse</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">
+              Select Warehouse
+            </span>
             <select
               value={selectedWarehouseId}
               onChange={(e) => onWarehouseChange(e.target.value)}
@@ -310,14 +321,18 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             >
               <option value="all">All Warehouses</option>
               {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Date Picker */}
           <div className="flex flex-col gap-1 w-full sm:w-auto">
-            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">Select Audit Date</span>
+            <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">
+              Select Audit Date
+            </span>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
               <input
@@ -633,14 +648,20 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
             <UserCheck className="w-24 h-24 text-charcoal" />
           </div>
-          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">Outstanding Assets</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">
+            Outstanding Assets
+          </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-charcoal tracking-tight">
               {totals.customers}
             </span>
-            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">At Customers</span>
+            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+              At Customers
+            </span>
           </div>
-          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">Pending return collection</div>
+          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
+            Pending return collection
+          </div>
         </div>
 
         {/* Loaded / Dispatched Today */}
@@ -648,14 +669,20 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
             <Bike className="w-24 h-24 text-amber-600" />
           </div>
-          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">Dispatched Today</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">
+            Dispatched Today
+          </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-amber-600 tracking-tight">
               {totals.dispatched}
             </span>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md">Rider bags (Bike)</span>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md">
+              Rider bags (Bike)
+            </span>
           </div>
-          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">Active delivery volume today</div>
+          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
+            Active delivery volume today
+          </div>
         </div>
 
         {/* Empty Returns Today */}
@@ -663,14 +690,20 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
             <ArrowRightLeft className="w-24 h-24 text-emerald-600" />
           </div>
-          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">Collected Returns</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">
+            Collected Returns
+          </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-emerald-600 tracking-tight">
               {totals.returned}
             </span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">Empty Back</span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
+              Empty Back
+            </span>
           </div>
-          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">Empties collected on route</div>
+          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
+            Empties collected on route
+          </div>
         </div>
 
         {/* Broken / Lifetime Losses */}
@@ -678,25 +711,32 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           <div className="absolute right-[-10px] bottom-[-10px] opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-500">
             <AlertOctagon className="w-24 h-24 text-rose-600" />
           </div>
-          <span className="text-[11px] font-black uppercase tracking-widest text-rose-600/60 block">Damaged / Lost</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-rose-600/60 block">
+            Damaged / Lost
+          </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-rose-600 tracking-tight">
               {totals.broken}
             </span>
-            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">Write-Offs</span>
+            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md">
+              Write-Offs
+            </span>
           </div>
-          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">Recorded breakage events</div>
+          <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
+            Recorded breakage events
+          </div>
         </div>
       </div>
 
       {/* 2. Breakdown Matrix Panels */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         {/* Left Side: Product wise tracking summary table */}
-        <div className="bg-white p-6 rounded-2xl border border-silver/60 shadow-xs xl:col-span-1 flex flex-col justify-between">
+        <div className="bg-white p-6 rounded-2xl border border-silver/60 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-charcoal flex items-center gap-2">
-                <Boxes className="w-4 h-4 text-primary" /> Returnable Catalog Varieties
+                <Boxes className="w-4 h-4 text-primary" /> Returnable Catalog
+                Varieties
               </h3>
               <Calendar className="w-4 h-4 text-charcoal/30" />
             </div>
@@ -704,18 +744,25 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
               Detailed tracking balance parameters grouped by container type.
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
               {!summary || summary.global_summary.length === 0 ? (
                 <div className="p-4 text-center text-xs text-charcoal/40 font-bold border border-dashed border-silver rounded-xl">
                   No returnable container types found.
                 </div>
               ) : (
-                summary.global_summary.map(item => {
-                  const btData = bottleTypes.find(bt => bt.id === item.bottle_type_id);
+                summary.global_summary.map((item) => {
+                  const btData = bottleTypes.find(
+                    (bt) => bt.id === item.bottle_type_id,
+                  );
                   return (
-                    <div key={item.bottle_type_id} className="p-3 border border-silver/50 rounded-xl space-y-2 bg-silver/5">
+                    <div
+                      key={item.bottle_type_id}
+                      className="p-3 border border-silver/50 rounded-xl space-y-2 bg-silver/5"
+                    >
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-charcoal">{item.bottle_type_name}</span>
+                        <span className="text-xs font-black text-charcoal">
+                          {item.bottle_type_name}
+                        </span>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-md">
                             {item.total_with_customers} units outstanding
@@ -730,9 +777,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                 <Pencil className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => handleDeleteBottleType(btData.id, btData.name)}
-                                disabled={isDeletingId === btData.id}
-                                className="p-1 rounded-lg hover:bg-rose-500/10 text-charcoal/40 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-40"
+                                onClick={() => handleDeleteClick(btData)}
+                                className="p-1 rounded-lg hover:bg-rose-500/10 text-charcoal/40 hover:text-rose-600 transition-colors cursor-pointer"
                                 title="Delete container type"
                               >
                                 <Trash2 className="w-3 h-3" />
@@ -743,16 +789,28 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-silver/40 text-[10px]">
                         <div>
-                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Dispatched</span>
-                          <span className="text-charcoal font-black">{item.total_dispatched_today}</span>
+                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">
+                            Dispatched
+                          </span>
+                          <span className="text-charcoal font-black">
+                            {item.total_dispatched_today}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">Returned</span>
-                          <span className="text-emerald-600 font-black">{item.total_returned_today}</span>
+                          <span className="text-charcoal/40 block font-bold uppercase tracking-wider">
+                            Returned
+                          </span>
+                          <span className="text-emerald-600 font-black">
+                            {item.total_returned_today}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-rose-600/60 block font-bold uppercase tracking-wider">Broken</span>
-                          <span className="text-rose-600 font-black">{item.total_lost_broken}</span>
+                          <span className="text-rose-600/60 block font-bold uppercase tracking-wider">
+                            Broken
+                          </span>
+                          <span className="text-rose-600 font-black">
+                            {item.total_lost_broken}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -763,20 +821,24 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           </div>
 
           <div className="mt-6 pt-4 border-t border-silver/40 flex items-center justify-between text-[11px] text-charcoal/50 font-medium">
-            <span>Date: {summary?.date || new Date().toISOString().split("T")[0]}</span>
+            <span>
+              Date: {summary?.date || new Date().toISOString().split("T")[0]}
+            </span>
             <span className="text-primary font-bold">Synced Live</span>
           </div>
         </div>
 
         {/* Right Side: Driver Deliveries Breakdown desk */}
-        <div className="bg-white p-6 rounded-2xl border border-silver/60 shadow-xs xl:col-span-2 space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-silver/60 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-charcoal flex items-center gap-2">
-                <Truck className="w-4 h-4 text-amber-600" /> Driver Deliveries & Reconciliations
+                <Truck className="w-4 h-4 text-amber-600" /> Driver Deliveries &
+                Reconciliations
               </h3>
               <p className="text-[11px] text-charcoal/50 mt-0.5">
-                Inspect how many bottles drivers took out, handed over, and brought back today.
+                Inspect how many bottles drivers took out, handed over, and
+                brought back today.
               </p>
             </div>
             {/* Search Input */}
@@ -787,7 +849,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
               <input
                 type="text"
                 value={driverSearch}
-                onChange={e => setDriverSearch(e.target.value)}
+                onChange={(e) => setDriverSearch(e.target.value)}
                 placeholder="Search driver, route, or vehicle..."
                 className="w-full text-xs font-medium pl-9 pr-4 py-2 border border-silver rounded-xl bg-silver/10 hover:bg-white focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-charcoal/30"
               />
@@ -802,11 +864,13 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                 No active driver trips scheduled for this date.
               </div>
             ) : (
-              filteredDrivers.map(route => {
+              filteredDrivers.map((route) => {
                 const isExpanded = !!expandedDrivers[route.route_id];
                 const isRouteCompleted = route.route_status === "completed";
-                const isRouteActive = route.route_status === "in_progress" || route.route_status === "in_transit";
-                
+                const isRouteActive =
+                  route.route_status === "in_progress" ||
+                  route.route_status === "in_transit";
+
                 return (
                   <div
                     key={route.route_id}
@@ -822,13 +886,15 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                         <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 text-primary font-black text-xs flex items-center justify-center">
                           {route.driver_name
                             .split(" ")
-                            .map(n => n[0])
+                            .map((n) => n[0])
                             .join("")
                             .toUpperCase()}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-charcoal">{route.driver_name}</span>
+                            <span className="text-xs font-black text-charcoal">
+                              {route.driver_name}
+                            </span>
                             <span className="text-[10px] font-bold text-charcoal/40 bg-silver/30 px-2 py-0.5 rounded-md">
                               {route.vehicle_plate}
                             </span>
@@ -852,8 +918,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                             isRouteCompleted
                               ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                               : isRouteActive
-                              ? "bg-amber-50 text-amber-700 border-amber-100 animate-pulse"
-                              : "bg-silver/40 text-charcoal/60 border-silver/60"
+                                ? "bg-amber-50 text-amber-700 border-amber-100 animate-pulse"
+                                : "bg-silver/40 text-charcoal/60 border-silver/60"
                           }`}
                         >
                           {route.route_status_display}
@@ -879,10 +945,15 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                               <thead>
                                 <tr className="border-b border-silver/60 text-[9px] font-black uppercase text-charcoal/40">
                                   <th className="py-2">Bottle Type</th>
-                                  <th className="py-2 text-right">Took (Full)</th>
+                                  <th className="py-2 text-right">
+                                    Took (Full)
+                                  </th>
                                   <th className="py-2 text-right">Delivered</th>
-                                  <th className="py-2 text-right">Returned (Empty)</th>
+                                  <th className="py-2 text-right">
+                                    Returned (Empty)
+                                  </th>
                                   <th className="py-2 text-right">Broken</th>
+<<<<<<< HEAD
                                   <th className="py-2 text-right text-blue-700 bg-blue-50/50">In Transit</th>
                                 </tr>
                               </thead>
@@ -895,6 +966,35 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                     <td className="py-2.5 text-right text-blue-600">{bottle.returned}</td>
                                     <td className="py-2.5 text-right text-rose-600">{bottle.broken}</td>
                                     <td className="py-2.5 text-right text-blue-800 bg-blue-50/30 font-black">
+=======
+                                  <th className="py-2 text-right text-amber-700 bg-amber-50/50">
+                                    Outstanding (Full)
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-silver/40 text-[11px] font-semibold text-charcoal/80">
+                                {route.bottles.map((bottle) => (
+                                  <tr
+                                    key={bottle.bottle_type_id}
+                                    className="hover:bg-silver/10 transition-colors"
+                                  >
+                                    <td className="py-2.5 font-bold">
+                                      {bottle.bottle_type_name}
+                                    </td>
+                                    <td className="py-2.5 text-right">
+                                      {bottle.dispatched}
+                                    </td>
+                                    <td className="py-2.5 text-right text-emerald-600">
+                                      {bottle.delivered}
+                                    </td>
+                                    <td className="py-2.5 text-right text-blue-600">
+                                      {bottle.returned}
+                                    </td>
+                                    <td className="py-2.5 text-right text-rose-600">
+                                      {bottle.broken}
+                                    </td>
+                                    <td className="py-2.5 text-right text-amber-800 bg-amber-50/30 font-black">
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
                                       {bottle.remaining_full}
                                     </td>
                                   </tr>
@@ -908,27 +1008,36 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                         <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[11px]">
                           <div>
                             <div className="font-bold text-charcoal flex items-center gap-1.5">
-                              <Warehouse className="w-3.5 h-3.5 text-primary" /> Driver Home Warehouse Association:
+                              <Warehouse className="w-3.5 h-3.5 text-primary" />{" "}
+                              Driver Home Warehouse Association:
                             </div>
                             <p className="text-charcoal/40 font-medium mt-0.5">
-                              Reassigning a driver permanently filters their dispatches to their designated warehouse.
+                              Reassigning a driver permanently filters their
+                              dispatches to their designated warehouse.
                             </p>
                           </div>
-                          
+
                           <div className="flex items-center gap-1.5 shrink-0 ml-4">
                             <select
                               value={route.driver_warehouse_id || "none"}
                               disabled={isUpdatingDriverId === route.driver_id}
                               onChange={(e) => {
                                 if (route.driver_id) {
-                                  handleReassignDriverWarehouse(route.driver_id, e.target.value);
+                                  handleReassignDriverWarehouse(
+                                    route.driver_id,
+                                    e.target.value,
+                                  );
                                 }
                               }}
                               className="px-3 py-1.5 bg-silver/10 hover:bg-silver/20 border border-silver/60 rounded-lg text-xs font-bold text-charcoal outline-none cursor-pointer transition-colors"
                             >
-                              <option value="none">No Warehouse Assigned</option>
+                              <option value="none">
+                                No Warehouse Assigned
+                              </option>
                               {warehouses.map((w) => (
-                                <option key={w.id} value={w.id}>{w.name}</option>
+                                <option key={w.id} value={w.id}>
+                                  {w.name}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -937,7 +1046,9 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                         {/* Reconciliation summary text box */}
                         <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[10px]">
                           <div>
-                            <div className="font-bold text-charcoal">Reconciliation Summary:</div>
+                            <div className="font-bold text-charcoal">
+                              Reconciliation Summary:
+                            </div>
                             <p className="text-charcoal/40 font-medium mt-0.5">
                               {isRouteCompleted
                                 ? "Route completed. Please verify that outstanding full bottles and empty bottles have been checked into the warehouse."
@@ -946,7 +1057,8 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                           </div>
                           {isRouteCompleted ? (
                             <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-black shrink-0 ml-4">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Reconciled
+                              <CheckCircle2 className="w-3.5 h-3.5" />{" "}
+                              Reconciled
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 text-[10px] text-amber-600 font-black shrink-0 ml-4 animate-pulse">
@@ -964,108 +1076,64 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         </div>
       </div>
 
-      {/* Create Container Type Overlay Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-silver/60 shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-primary to-primary/90 text-white p-5 flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-base tracking-tight">{editingId ? "Edit Container Type" : "Add Container Type"}</h3>
-                <p className="text-[10px] text-white/70 font-medium mt-0.5">{editingId ? "Update the container type details" : "Create a new glass bottle variant for asset tracking"}</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Save Container Type Overlay Modal */}
+      <SaveBottleTypeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        editingId={editingId}
+        editingItem={editingItem}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
+        setNotification={setNotification}
+      />
 
-            {/* Notifications */}
-            {success && (
-              <div className="mx-5 mt-5 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold animate-in fade-in duration-200">
-                {success}
-              </div>
+      {/* Delete Container Type Overlay Modal */}
+      <DeleteBottleTypeModal
+        deletingContainer={deletingContainer}
+        onClose={() => setDeletingContainer(null)}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
+        setNotification={setNotification}
+      />
+
+      {/* Dynamic Modern Toast Notification Banner */}
+      {notification && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3.5 px-5 py-4.5 rounded-2xl shadow-xl border animate-in slide-in-from-bottom-10 duration-300 max-w-sm ${
+            notification.type === "success"
+              ? "bg-emerald-50 border-emerald-500/20 text-emerald-800"
+              : "bg-rose-50 border-rose-500/20 text-rose-800"
+          }`}
+        >
+          <div
+            className={`p-2 rounded-xl shrink-0 ${
+              notification.type === "success"
+                ? "bg-emerald-500/10 text-emerald-600"
+                : "bg-rose-500/10 text-rose-600"
+            }`}
+          >
+            {notification.type === "success" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600" />
             )}
-            {error && (
-              <div className="mx-5 mt-5 p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold animate-in fade-in duration-200">
-                {error}
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleSubmitBottleType} className="p-5 space-y-4">
-              <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
-                  Container Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. 1 Liter Glass Bottle"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
-                    Volume (ml) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 1000"
-                    value={volumeMl}
-                    onChange={(e) => setVolumeMl(e.target.value)}
-                    className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-charcoal/70 mb-1">
-                    Refundable Deposit (₹) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="e.g. 50.00"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    className="w-full px-3 py-2 bg-silver/20 rounded-xl border border-silver/60 text-xs text-charcoal font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-silver/40 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-silver/20 rounded-xl text-xs font-bold text-charcoal/70 hover:bg-silver/40 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-black shadow-sm hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Creating...
-                    </>
-                  ) : (
-                    <>{editingId ? "Update Container Type" : "Create Container Type"}</>
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-black text-sm tracking-tight">
+              {notification.title}
+            </h4>
+            <p className="text-[11px] font-semibold opacity-85 mt-1 whitespace-pre-line leading-relaxed">
+              {notification.message}
+            </p>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="ml-2 text-[10px] font-black uppercase tracking-wider opacity-45 hover:opacity-100 transition-opacity cursor-pointer border border-charcoal/10 rounded-md px-1.5 py-0.5 bg-charcoal/5"
+          >
+            Dismiss
+          </button>
         </div>
       )}
     </div>

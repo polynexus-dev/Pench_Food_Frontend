@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Product, RawMaterial, Warehouse, CreateWarehousePayload } from "../components/types";
+import type { Product, RawMaterial, Warehouse, CreateWarehousePayload, BottleType, BottleTrackingSummaryResponse } from "../components/types";
 
 /**
  * Inventory API Service
@@ -125,5 +125,71 @@ export const inventoryApi = {
     const response = await axiosInstance.post(`/erp/inventory/warehouses/${id}/adjust-stock/`, data);
     return response.data;
   },
+
+  /**
+   * Fetch all bottle types
+   */
+  getBottleTypes: async (): Promise<BottleType[]> => {
+    const response = await axiosInstance.get<BottleType[]>("/erp/inventory/bottle-types/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Create a new bottle type
+   */
+  createBottleType: async (payload: Omit<BottleType, "id">): Promise<BottleType> => {
+    const response = await axiosInstance.post<BottleType>("/erp/inventory/bottle-types/", payload);
+    return response.data;
+  },
+
+  /**
+   * Update an existing bottle type
+   */
+  updateBottleType: async (id: string, payload: Partial<BottleType>): Promise<BottleType> => {
+    const response = await axiosInstance.put<BottleType>(`/erp/inventory/bottle-types/${id}/`, payload);
+    return response.data;
+  },
+
+  /**
+   * Delete a bottle type
+   */
+  deleteBottleType: async (id: string): Promise<any> => {
+    const response = await axiosInstance.delete(`/erp/inventory/bottle-types/${id}/`);
+    return response.data;
+  },
+
+  /**
+   * Reassign driver to a warehouse
+   */
+  reassignDriverWarehouse: async (driverId: string, warehouseId: string | null): Promise<any> => {
+    const response = await axiosInstance.patch(`/erp/routing/drivers/${driverId}/`, {
+      warehouse: warehouseId
+    });
+    return response.data;
+  },
+
+  /**
+   * Fetch returnable bottle tracking summary
+   */
+  getBottleSummary: async (date?: string, warehouseId?: string): Promise<BottleTrackingSummaryResponse> => {
+    let url = "/erp/inventory/bottle-transactions/summary/";
+    const params = new URLSearchParams();
+    if (date) params.append("date", date);
+    if (warehouseId && warehouseId !== "all") params.append("warehouse", warehouseId);
+    
+    const queryString = params.toString();
+    if (queryString) url += `?${queryString}`;
+
+    const response = await axiosInstance.get<BottleTrackingSummaryResponse>(url);
+    return response.data;
+  },
+
+  /**
+   * Fetch current inventory stock levels
+   */
+  getStock: async (): Promise<any[]> => {
+    const response = await axiosInstance.get<any[]>("/erp/inventory/stock/");
+    return Array.isArray(response.data) ? response.data : [];
+  }
 };
 
