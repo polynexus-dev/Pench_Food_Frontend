@@ -4,6 +4,7 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import type {
   Product,
   BottleTrackingSummaryResponse,
+  BottleTrackingHistoryEntry,
 } from "../components/types";
 import InventoryDashboardTab from "../components/InventoryDashboardTab";
 import InventoryManageTab from "../components/InventoryManageTab";
@@ -40,6 +41,9 @@ const InventoryPage: React.FC = () => {
     new Date().toISOString().split("T")[0]
   );
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("all");
+
+  // 7-day historical trend data
+  const [bottleHistory, setBottleHistory] = useState<BottleTrackingHistoryEntry[]>([]);
 
   // Optimization simulation state for enhanced dynamic appeal inside dashboard
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
@@ -104,6 +108,49 @@ const InventoryPage: React.FC = () => {
     }
   };
 
+  const fetchBottleHistory = async (warehouseId = selectedWarehouseId) => {
+    try {
+      const today = new Date();
+      const dates: string[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().split("T")[0]);
+      }
+
+      const results = await Promise.all(
+        dates.map(async (date) => {
+          try {
+            let url = "/erp/inventory/bottle-transactions/summary/";
+            const params = new URLSearchParams();
+            params.append("date", date);
+            if (warehouseId && warehouseId !== "all") params.append("warehouse", warehouseId);
+            const qs = params.toString();
+            if (qs) url += `?${qs}`;
+            const response = await axiosInstance.get<BottleTrackingSummaryResponse>(url);
+            const data = response.data;
+            const totals = (data.global_summary || []).reduce(
+              (acc, item) => {
+                acc.dispatched += item.total_dispatched_today;
+                acc.returned += item.total_returned_today;
+                acc.with_customers += item.total_with_customers;
+                acc.lost_broken += item.total_lost_broken;
+                return acc;
+              },
+              { dispatched: 0, returned: 0, with_customers: 0, lost_broken: 0 }
+            );
+            return { date, ...totals } as BottleTrackingHistoryEntry;
+          } catch {
+            return { date, dispatched: 0, returned: 0, with_customers: 0, lost_broken: 0 } as BottleTrackingHistoryEntry;
+          }
+        })
+      );
+      setBottleHistory(results);
+    } catch (err) {
+      console.error("Failed to fetch bottle history:", err);
+    }
+  };
+
   useEffect(() => {
     fetchInventory();
   }, [tenant]);
@@ -111,6 +158,7 @@ const InventoryPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === "bottles") {
       fetchBottleSummary(false, selectedBottleDate, selectedWarehouseId);
+      fetchBottleHistory(selectedWarehouseId);
     }
   }, [activeTab, tenant, selectedBottleDate, selectedWarehouseId]);
 
@@ -330,6 +378,7 @@ const InventoryPage: React.FC = () => {
           selectedWarehouseId={selectedWarehouseId}
           onWarehouseChange={setSelectedWarehouseId}
           onRefresh={() => fetchBottleSummary(true, selectedBottleDate, selectedWarehouseId)}
+          history={bottleHistory}
         />
       )}
     </div>

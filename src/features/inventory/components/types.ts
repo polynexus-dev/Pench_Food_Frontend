@@ -89,3 +89,11 @@ export interface CreateWarehousePayload {
   };
 }
 
+export interface BottleTrackingHistoryEntry {
+  date: string;
+  dispatched: number;
+  returned: number;
+  with_customers: number;
+  lost_broken: number;
+}
+
