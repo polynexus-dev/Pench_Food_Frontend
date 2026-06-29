@@ -38,9 +38,7 @@ const InventoryPage: React.FC = () => {
   const [bottleSummary, setBottleSummary] =
     useState<BottleTrackingSummaryResponse | null>(null);
   const [isBottleLoading, setIsBottleLoading] = useState<boolean>(false);
-  const [selectedBottleDate, setSelectedBottleDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedBottleDate, setSelectedBottleDate] = useState<string>("all");
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>("all");
 
   // 7-day historical trend data
@@ -93,6 +91,9 @@ const InventoryPage: React.FC = () => {
     try {
       const data = await inventoryApi.getBottleSummary(date, warehouseId);
       setBottleSummary(data);
+      if (date === "all" && data?.history_trend) {
+        setBottleHistory(data.history_trend);
+      }
     } catch (err) {
       console.error("Failed to fetch returnable containers summary desk:", err);
       setBottleSummary(null);
@@ -151,7 +152,9 @@ const InventoryPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === "bottles") {
       fetchBottleSummary(false, selectedBottleDate, selectedWarehouseId);
-      fetchBottleHistory(selectedWarehouseId);
+      if (selectedBottleDate !== "all") {
+        fetchBottleHistory(selectedWarehouseId);
+      }
     }
   }, [activeTab, tenant, selectedBottleDate, selectedWarehouseId]);
 

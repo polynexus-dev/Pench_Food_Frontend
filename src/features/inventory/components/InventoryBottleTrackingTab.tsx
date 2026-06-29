@@ -234,6 +234,11 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   }, [history]);
 
   const formatDateLabel = (dateStr: string) => {
+    if (dateStr.length === 7 && dateStr.includes("-")) {
+      const [year, month] = dateStr.split("-");
+      const d = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    }
     const d = new Date(dateStr + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -322,16 +327,25 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           {/* Date Picker */}
           <div className="flex flex-col gap-1 w-full sm:w-auto">
             <span className="text-[9px] font-black uppercase tracking-wider text-charcoal/40">
-              Select Audit Date
+              {selectedDate === "all" ? "Audit Range: Month-Wise" : "Select Audit Date"}
             </span>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
+            <div className="relative flex items-center">
+              <Calendar className="absolute left-3 w-3.5 h-3.5 text-charcoal/40 pointer-events-none" />
               <input
                 type="date"
-                value={selectedDate}
-                onChange={(e) => onDateChange(e.target.value)}
-                className="w-full sm:w-auto pl-9 pr-4 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
+                value={selectedDate === "all" ? "" : selectedDate}
+                onChange={(e) => onDateChange(e.target.value || "all")}
+                className="w-full sm:w-auto pl-9 pr-12 py-2 border border-silver/60 rounded-xl text-xs font-bold text-charcoal bg-silver/10 hover:bg-white focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
               />
+              {selectedDate !== "all" && (
+                <button
+                  onClick={() => onDateChange("all")}
+                  className="absolute right-3 text-[10px] font-black text-primary hover:text-primary/80 transition-colors cursor-pointer border border-primary/20 rounded-md px-1.5 py-0.5 bg-primary/5"
+                  title="Clear date filter to show all-time monthly summary"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -346,8 +360,12 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             <Activity className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">Asset Lifecycle Pipeline</h3>
-            <p className="text-[10px] text-charcoal/40 font-medium">Real-time bottle flow from dispatch to collection</p>
+            <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">
+              {selectedDate === "all" ? "All-Time Asset Lifecycle Pipeline" : "Asset Lifecycle Pipeline"}
+            </h3>
+            <p className="text-[10px] text-charcoal/40 font-medium">
+              {selectedDate === "all" ? "Aggregated bottle flow from all transactions" : "Real-time bottle flow from dispatch to collection"}
+            </p>
           </div>
         </div>
 
@@ -359,10 +377,14 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                 <div className="w-8 h-8 bg-amber-500/15 rounded-xl flex items-center justify-center">
                   <Package className="w-4 h-4 text-amber-600" />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/70">Dispatched</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/70">
+                  {selectedDate === "all" ? "Total Dispatched" : "Dispatched"}
+                </span>
               </div>
               <div className="text-3xl font-black text-amber-700 tracking-tight">{totals.dispatched}</div>
-              <div className="text-[10px] text-amber-600/60 font-semibold mt-1">Loaded on riders today</div>
+              <div className="text-[10px] text-amber-600/60 font-semibold mt-1">
+                {selectedDate === "all" ? "Cumulative dispatched volume" : "Loaded on riders today"}
+              </div>
             </div>
           </div>
 
@@ -384,14 +406,18 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                   <Truck className="w-4 h-4 text-blue-600" />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">In Transit</span>
-                {inTransit > 0 && (
+                {inTransit > 0 && selectedDate !== "all" && (
                   <span className="ml-auto flex items-center gap-1 text-[9px] font-bold text-blue-600 animate-pulse">
                     <CircleDot className="w-2.5 h-2.5" /> Live
                   </span>
                 )}
               </div>
-              <div className="text-3xl font-black text-blue-700 tracking-tight">{inTransit}</div>
-              <div className="text-[10px] text-blue-600/60 font-semibold mt-1">On active routes now</div>
+              <div className="text-3xl font-black text-blue-700 tracking-tight">
+                {selectedDate === "all" ? 0 : inTransit}
+              </div>
+              <div className="text-[10px] text-blue-600/60 font-semibold mt-1">
+                {selectedDate === "all" ? "No active transit (All-Time)" : "On active routes now"}
+              </div>
             </div>
           </div>
 
@@ -455,7 +481,9 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         {/* Collection Rate Bar */}
         <div className="mt-5 pt-4 border-t border-silver/30">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40">Today's Collection Rate</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40">
+              {selectedDate === "all" ? "Overall Collection Rate" : "Today's Collection Rate"}
+            </span>
             <span className={`text-xs font-black ${collectionRate >= 80 ? 'text-emerald-600' : collectionRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
               {collectionRate}%
             </span>
@@ -471,7 +499,11 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             />
           </div>
           <div className="flex items-center justify-between mt-1.5 text-[9px] text-charcoal/35 font-medium">
-            <span>{totals.returned} of {totals.dispatched} dispatched bottles returned</span>
+            <span>
+              {selectedDate === "all"
+                ? `${totals.returned} of ${totals.dispatched} dispatched bottles returned all-time`
+                : `${totals.returned} of ${totals.dispatched} dispatched bottles returned today`}
+            </span>
             <span className="flex items-center gap-1">
               {collectionRate >= 80 ? (
                 <><TrendingUp className="w-3 h-3 text-emerald-500" /> Excellent</>
@@ -496,8 +528,14 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                 <BarChart3 className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">7-Day Asset Movement Trend</h3>
-                <p className="text-[10px] text-charcoal/40 font-medium">Dispatched vs returned bottles over the last week</p>
+                <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">
+                  {selectedDate === "all" ? "Month-Wise Asset Movement Trend" : "7-Day Asset Movement Trend"}
+                </h3>
+                <p className="text-[10px] text-charcoal/40 font-medium">
+                  {selectedDate === "all"
+                    ? "Dispatched vs returned bottles grouped by month of all time"
+                    : "Dispatched vs returned bottles over the last week"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -608,13 +646,13 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
                 <span className="text-charcoal/50 font-bold">
-                  Total Dispatched (7d): <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.dispatched, 0)}</span>
+                  {selectedDate === "all" ? "Total Dispatched (All-Time)" : "Total Dispatched (7d)"}: <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.dispatched, 0)}</span>
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-500" />
                 <span className="text-charcoal/50 font-bold">
-                  Total Returned (7d): <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.returned, 0)}</span>
+                  {selectedDate === "all" ? "Total Returned (All-Time)" : "Total Returned (7d)"}: <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.returned, 0)}</span>
                 </span>
               </div>
             </div>
@@ -623,7 +661,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                 const totalDisp = history.reduce((s, h) => s + h.dispatched, 0);
                 const totalRet = history.reduce((s, h) => s + h.returned, 0);
                 const weekRate = totalDisp > 0 ? Math.round((totalRet / totalDisp) * 100) : 0;
-                return <span>Weekly Collection Rate: <span className={`font-black ${weekRate >= 80 ? 'text-emerald-600' : weekRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{weekRate}%</span></span>;
+                return <span>{selectedDate === "all" ? "Overall Collection Rate" : "Weekly Collection Rate"}: <span className={`font-black ${weekRate >= 80 ? 'text-emerald-600' : weekRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{weekRate}%</span></span>;
               })()}
             </div>
           </div>
@@ -661,18 +699,18 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             <Bike className="w-24 h-24 text-amber-600" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">
-            Dispatched Today
+            {selectedDate === "all" ? "Total Dispatched" : "Dispatched Today"}
           </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-amber-600 tracking-tight">
               {totals.dispatched}
             </span>
             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md">
-              Rider bags (Bike)
+              {selectedDate === "all" ? "All-Time" : "Rider bags (Bike)"}
             </span>
           </div>
           <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
-            Active delivery volume today
+            {selectedDate === "all" ? "Cumulative dispatched volume" : "Active delivery volume today"}
           </div>
         </div>
 
@@ -682,18 +720,18 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             <ArrowRightLeft className="w-24 h-24 text-emerald-600" />
           </div>
           <span className="text-[11px] font-black uppercase tracking-widest text-charcoal/40 block">
-            Collected Returns
+            {selectedDate === "all" ? "Total Collected" : "Collected Returns"}
           </span>
           <div className="flex items-baseline gap-2 mt-2">
             <span className="text-3xl font-black text-emerald-600 tracking-tight">
               {totals.returned}
             </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
-              Empty Back
+              {selectedDate === "all" ? "All-Time" : "Empty Back"}
             </span>
           </div>
           <div className="mt-2 text-[10px] text-charcoal/40 font-medium">
-            Empties collected on route
+            {selectedDate === "all" ? "Cumulative collected empties" : "Empties collected on route"}
           </div>
         </div>
 
@@ -813,7 +851,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
 
           <div className="mt-6 pt-4 border-t border-silver/40 flex items-center justify-between text-[11px] text-charcoal/50 font-medium">
             <span>
-              Date: {summary?.date || new Date().toISOString().split("T")[0]}
+              {selectedDate === "all" ? "All-Time Aggregated Summary" : `Date: ${summary?.date || new Date().toISOString().split("T")[0]}`}
             </span>
             <span className="text-primary font-bold">Synced Live</span>
           </div>
@@ -824,12 +862,12 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-charcoal flex items-center gap-2">
-                <Truck className="w-4 h-4 text-amber-600" /> Driver Deliveries &
-                Reconciliations
+                <Truck className="w-4 h-4 text-amber-600" /> {selectedDate === "all" ? "Driver Performance Summary (All-Time)" : "Driver Deliveries & Reconciliations"}
               </h3>
               <p className="text-[11px] text-charcoal/50 mt-0.5">
-                Inspect how many bottles drivers took out, handed over, and
-                brought back today.
+                {selectedDate === "all"
+                  ? "Inspect all-time aggregated dispatch, delivery, and return statistics per driver."
+                  : "Inspect how many bottles drivers took out, handed over, and brought back today."}
               </p>
             </div>
             {/* Search Input */}
@@ -852,7 +890,9 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
             {filteredDrivers.length === 0 ? (
               <div className="p-8 text-center text-xs font-bold border border-dashed border-silver/60 rounded-xl text-charcoal/40 flex flex-col items-center gap-2">
                 <AlertCircle className="w-6 h-6 text-charcoal/30" />
-                No active driver trips scheduled for this date.
+                {selectedDate === "all"
+                  ? "No driver trip history found."
+                  : "No active driver trips scheduled for this date."}
               </div>
             ) : (
               filteredDrivers.map((route) => {
@@ -1005,28 +1045,30 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                         </div>
 
                         {/* Reconciliation summary text box */}
-                        <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[10px]">
-                          <div>
-                            <div className="font-bold text-charcoal">
-                              Reconciliation Summary:
+                        {selectedDate !== "all" && (
+                          <div className="mt-4 p-3 rounded-xl border border-silver/50 bg-white flex items-center justify-between text-[10px]">
+                            <div>
+                              <div className="font-bold text-charcoal">
+                                Reconciliation Summary:
+                              </div>
+                              <p className="text-charcoal/40 font-medium mt-0.5">
+                                {isRouteCompleted
+                                  ? "Route completed. Please verify that outstanding full bottles and empty bottles have been checked into the warehouse."
+                                  : "Route in progress. Live tracking updates are active as the driver records customer transactions."}
+                              </p>
                             </div>
-                            <p className="text-charcoal/40 font-medium mt-0.5">
-                              {isRouteCompleted
-                                ? "Route completed. Please verify that outstanding full bottles and empty bottles have been checked into the warehouse."
-                                : "Route in progress. Live tracking updates are active as the driver records customer transactions."}
-                            </p>
+                            {isRouteCompleted ? (
+                              <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-black shrink-0 ml-4">
+                                <CheckCircle2 className="w-3.5 h-3.5" />{" "}
+                                Reconciled
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] text-amber-600 font-black shrink-0 ml-4 animate-pulse">
+                                ● On Road
+                              </span>
+                            )}
                           </div>
-                          {isRouteCompleted ? (
-                            <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-black shrink-0 ml-4">
-                              <CheckCircle2 className="w-3.5 h-3.5" />{" "}
-                              Reconciled
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[10px] text-amber-600 font-black shrink-0 ml-4 animate-pulse">
-                              ● On Road
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>

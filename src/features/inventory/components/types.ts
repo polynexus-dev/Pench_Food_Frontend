@@ -58,6 +58,7 @@ export interface BottleTrackingSummaryResponse {
   date: string;
   global_summary: BottleGlobalSummary[];
   driver_breakdown: DriverBottleBreakdown[];
+  history_trend?: BottleTrackingHistoryEntry[];
 }
 
 export interface WarehouseDriver {
