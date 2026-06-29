@@ -15,12 +15,25 @@ import {
   Warehouse,
   Pencil,
   Trash2,
+<<<<<<< HEAD
+  TrendingUp,
+  TrendingDown,
+  Package,
+  ArrowRight,
+  BarChart3,
+  Activity,
+  CircleDot,
+} from "lucide-react";
+import type { BottleTrackingSummaryResponse, BottleTrackingHistoryEntry } from "./types";
+import axiosInstance from "../../../api/axiosInstance";
+=======
 } from "lucide-react";
 import type { BottleTrackingSummaryResponse, BottleType } from "./types";
 import { inventoryApi } from "../api/inventoryApi";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import { SaveBottleTypeModal } from "./modals/SaveBottleTypeModal";
 import DeleteBottleTypeModal from "./modals/DeleteBottleTypeModal";
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 
 interface InventoryBottleTrackingTabProps {
   summary: BottleTrackingSummaryResponse | null;
@@ -30,6 +43,7 @@ interface InventoryBottleTrackingTabProps {
   selectedWarehouseId: string;
   onWarehouseChange: (id: string) => void;
   onRefresh?: () => void;
+  history?: BottleTrackingHistoryEntry[];
 }
 
 const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
@@ -40,6 +54,10 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   selectedWarehouseId,
   onWarehouseChange,
   onRefresh,
+<<<<<<< HEAD
+  history = [],
+=======
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
 }) => {
   // Container creation state
   const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>(
@@ -183,6 +201,23 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
     );
   }, [summary]);
 
+  // Compute in-transit (bottles loaded on active routes but not yet delivered)
+  const inTransit = React.useMemo(() => {
+    if (!summary || !summary.driver_breakdown) return 0;
+    return summary.driver_breakdown.reduce((total, route) => {
+      // Only count routes that are still active (not completed)
+      const isActive = route.route_status === "in_progress" || route.route_status === "in_transit" || route.route_status === "pending" || route.route_status === "optimized";
+      if (!isActive) return total;
+      return total + route.bottles.reduce((sum, b) => sum + b.remaining_full, 0);
+    }, 0);
+  }, [summary]);
+
+  // Collection rate
+  const collectionRate = React.useMemo(() => {
+    if (totals.dispatched === 0) return 0;
+    return Math.round((totals.returned / totals.dispatched) * 100);
+  }, [totals]);
+
   // Filter today's active driver list based on search queries
   const filteredDrivers = React.useMemo(() => {
     if (!summary || !summary.driver_breakdown) return [];
@@ -199,6 +234,23 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
           .includes(driverSearch.toLowerCase().trim()),
     );
   }, [summary, driverSearch]);
+
+  // 7-day trend chart helpers
+  const chartMax = React.useMemo(() => {
+    if (history.length === 0) return 10;
+    const max = Math.max(...history.map(h => Math.max(h.dispatched, h.returned)));
+    return max > 0 ? max : 10;
+  }, [history]);
+
+  const formatDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Yesterday";
+    return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric" });
+  };
 
   if (isLoading) {
     return (
@@ -294,7 +346,302 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
         </div>
       </div>
 
-      {/* 1. Real-Time Aggregate Counters Grid */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* NEW SECTION 1: Asset Lifecycle Pipeline Visualization                  */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-gradient-to-br from-white via-white to-primary/[0.03] p-6 rounded-2xl border border-silver/50 shadow-xs">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="p-1.5 bg-primary/10 rounded-lg">
+            <Activity className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">Asset Lifecycle Pipeline</h3>
+            <p className="text-[10px] text-charcoal/40 font-medium">Real-time bottle flow from dispatch to collection</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-0 lg:gap-0">
+          {/* Stage 1: Dispatched */}
+          <div className="flex-1 relative group">
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/60 rounded-2xl p-5 transition-all hover:shadow-md hover:border-amber-300/80 hover:scale-[1.02]">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-amber-500/15 rounded-xl flex items-center justify-center">
+                  <Package className="w-4 h-4 text-amber-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/70">Dispatched</span>
+              </div>
+              <div className="text-3xl font-black text-amber-700 tracking-tight">{totals.dispatched}</div>
+              <div className="text-[10px] text-amber-600/60 font-semibold mt-1">Loaded on riders today</div>
+            </div>
+          </div>
+
+          {/* Arrow connector */}
+          <div className="hidden lg:flex items-center justify-center w-10 shrink-0">
+            <div className="flex flex-col items-center gap-0.5">
+              <ArrowRight className="w-5 h-5 text-charcoal/20" />
+            </div>
+          </div>
+          <div className="flex lg:hidden items-center justify-center h-6 shrink-0">
+            <div className="w-px h-full bg-charcoal/15"></div>
+          </div>
+
+          {/* Stage 2: In Transit */}
+          <div className="flex-1 relative group">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/60 rounded-2xl p-5 transition-all hover:shadow-md hover:border-blue-300/80 hover:scale-[1.02]">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-blue-500/15 rounded-xl flex items-center justify-center">
+                  <Truck className="w-4 h-4 text-blue-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600/70">In Transit</span>
+                {inTransit > 0 && (
+                  <span className="ml-auto flex items-center gap-1 text-[9px] font-bold text-blue-600 animate-pulse">
+                    <CircleDot className="w-2.5 h-2.5" /> Live
+                  </span>
+                )}
+              </div>
+              <div className="text-3xl font-black text-blue-700 tracking-tight">{inTransit}</div>
+              <div className="text-[10px] text-blue-600/60 font-semibold mt-1">On active routes now</div>
+            </div>
+          </div>
+
+          {/* Arrow connector */}
+          <div className="hidden lg:flex items-center justify-center w-10 shrink-0">
+            <ArrowRight className="w-5 h-5 text-charcoal/20" />
+          </div>
+          <div className="flex lg:hidden items-center justify-center h-6 shrink-0">
+            <div className="w-px h-full bg-charcoal/15"></div>
+          </div>
+
+          {/* Stage 3: With Customers */}
+          <div className="flex-1 relative group">
+            <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-2xl p-5 transition-all hover:shadow-md hover:border-primary/40 hover:scale-[1.02]">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">With Customers</span>
+              </div>
+              <div className="text-3xl font-black text-charcoal tracking-tight">{totals.customers}</div>
+              <div className="text-[10px] text-charcoal/40 font-semibold mt-1">Pending return collection</div>
+            </div>
+          </div>
+
+          {/* Arrow connector */}
+          <div className="hidden lg:flex items-center justify-center w-10 shrink-0">
+            <ArrowRight className="w-5 h-5 text-charcoal/20" />
+          </div>
+          <div className="flex lg:hidden items-center justify-center h-6 shrink-0">
+            <div className="w-px h-full bg-charcoal/15"></div>
+          </div>
+
+          {/* Stage 4: Returned / Lost split */}
+          <div className="flex-1 space-y-2">
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/60 rounded-2xl p-4 transition-all hover:shadow-md hover:border-emerald-300/80 hover:scale-[1.02] group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center">
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Returned</span>
+                </div>
+                <span className="text-2xl font-black text-emerald-700 tracking-tight">{totals.returned}</span>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-rose-50 to-rose-100/50 border border-rose-200/60 rounded-2xl p-4 transition-all hover:shadow-md hover:border-rose-300/80 hover:scale-[1.02] group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-rose-500/15 rounded-lg flex items-center justify-center">
+                    <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-rose-600/70">Lost</span>
+                </div>
+                <span className="text-2xl font-black text-rose-700 tracking-tight">{totals.broken}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Collection Rate Bar */}
+        <div className="mt-5 pt-4 border-t border-silver/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40">Today's Collection Rate</span>
+            <span className={`text-xs font-black ${collectionRate >= 80 ? 'text-emerald-600' : collectionRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>
+              {collectionRate}%
+            </span>
+          </div>
+          <div className="w-full h-2 bg-silver/30 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                collectionRate >= 80 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' :
+                collectionRate >= 50 ? 'bg-gradient-to-r from-amber-400 to-amber-500' :
+                'bg-gradient-to-r from-rose-400 to-rose-500'
+              }`}
+              style={{ width: `${Math.min(collectionRate, 100)}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1.5 text-[9px] text-charcoal/35 font-medium">
+            <span>{totals.returned} of {totals.dispatched} dispatched bottles returned</span>
+            <span className="flex items-center gap-1">
+              {collectionRate >= 80 ? (
+                <><TrendingUp className="w-3 h-3 text-emerald-500" /> Excellent</>
+              ) : collectionRate >= 50 ? (
+                <><TrendingUp className="w-3 h-3 text-amber-500" /> Average</>
+              ) : (
+                <><TrendingDown className="w-3 h-3 text-rose-500" /> Needs Attention</>
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* NEW SECTION 2: 7-Day Trend Timeline Chart                             */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {history.length > 0 && (
+        <div className="bg-white p-6 rounded-2xl border border-silver/50 shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary/10 rounded-lg">
+                <BarChart3 className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-charcoal">7-Day Asset Movement Trend</h3>
+                <p className="text-[10px] text-charcoal/40 font-medium">Dispatched vs returned bottles over the last week</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-amber-400"></div>
+                <span className="text-[10px] font-bold text-charcoal/50">Dispatched</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-emerald-400"></div>
+                <span className="text-[10px] font-bold text-charcoal/50">Returned</span>
+              </div>
+            </div>
+          </div>
+
+          {/* SVG Bar Chart */}
+          <div className="relative">
+            <svg viewBox="0 0 700 200" className="w-full h-48" preserveAspectRatio="xMidYMid meet">
+              {/* Grid lines */}
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+                <g key={i}>
+                  <line
+                    x1="40" y1={180 - ratio * 160} x2="690" y2={180 - ratio * 160}
+                    stroke="#e5e5e5" strokeWidth="1" strokeDasharray={i === 0 ? "0" : "4,4"}
+                  />
+                  <text x="35" y={184 - ratio * 160} textAnchor="end" className="fill-charcoal/30" style={{ fontSize: '10px', fontWeight: 700 }}>
+                    {Math.round(chartMax * ratio)}
+                  </text>
+                </g>
+              ))}
+
+              {/* Bars */}
+              {history.map((entry, i) => {
+                const barGroupWidth = 650 / history.length;
+                const barWidth = barGroupWidth * 0.3;
+                const x = 50 + i * barGroupWidth + barGroupWidth * 0.15;
+                const dispatchedHeight = chartMax > 0 ? (entry.dispatched / chartMax) * 160 : 0;
+                const returnedHeight = chartMax > 0 ? (entry.returned / chartMax) * 160 : 0;
+
+                return (
+                  <g key={entry.date}>
+                    {/* Dispatched bar */}
+                    <rect
+                      x={x}
+                      y={180 - dispatchedHeight}
+                      width={barWidth}
+                      height={dispatchedHeight}
+                      rx="4"
+                      className="fill-amber-400/80 hover:fill-amber-500 transition-colors"
+                    >
+                      <title>Dispatched: {entry.dispatched} on {entry.date}</title>
+                    </rect>
+                    {/* Dispatched value */}
+                    {entry.dispatched > 0 && (
+                      <text
+                        x={x + barWidth / 2}
+                        y={175 - dispatchedHeight}
+                        textAnchor="middle"
+                        className="fill-amber-700"
+                        style={{ fontSize: '9px', fontWeight: 800 }}
+                      >
+                        {entry.dispatched}
+                      </text>
+                    )}
+
+                    {/* Returned bar */}
+                    <rect
+                      x={x + barWidth + 4}
+                      y={180 - returnedHeight}
+                      width={barWidth}
+                      height={returnedHeight}
+                      rx="4"
+                      className="fill-emerald-400/80 hover:fill-emerald-500 transition-colors"
+                    >
+                      <title>Returned: {entry.returned} on {entry.date}</title>
+                    </rect>
+                    {/* Returned value */}
+                    {entry.returned > 0 && (
+                      <text
+                        x={x + barWidth + 4 + barWidth / 2}
+                        y={175 - returnedHeight}
+                        textAnchor="middle"
+                        className="fill-emerald-700"
+                        style={{ fontSize: '9px', fontWeight: 800 }}
+                      >
+                        {entry.returned}
+                      </text>
+                    )}
+
+                    {/* Date label */}
+                    <text
+                      x={x + barWidth + 2}
+                      y="198"
+                      textAnchor="middle"
+                      className="fill-charcoal/40"
+                      style={{ fontSize: '9px', fontWeight: 700 }}
+                    >
+                      {formatDateLabel(entry.date)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {/* Bottom summary row */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-silver/30 text-[10px]">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-charcoal/50 font-bold">
+                  Total Dispatched (7d): <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.dispatched, 0)}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="text-charcoal/50 font-bold">
+                  Total Returned (7d): <span className="text-charcoal font-black">{history.reduce((s, h) => s + h.returned, 0)}</span>
+                </span>
+              </div>
+            </div>
+            <div className="text-charcoal/40 font-bold">
+              {(() => {
+                const totalDisp = history.reduce((s, h) => s + h.dispatched, 0);
+                const totalRet = history.reduce((s, h) => s + h.returned, 0);
+                const weekRate = totalDisp > 0 ? Math.round((totalRet / totalDisp) * 100) : 0;
+                return <span>Weekly Collection Rate: <span className={`font-black ${weekRate >= 80 ? 'text-emerald-600' : weekRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{weekRate}%</span></span>;
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ORIGINAL SECTION: Real-Time Aggregate Counters Grid                    */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Outstanding With Customers */}
         <div className="bg-white p-5 rounded-2xl border border-silver/50 shadow-xs relative overflow-hidden group hover:border-primary/40 transition-colors">
@@ -559,6 +906,12 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                       </div>
 
                       <div className="flex items-center gap-3">
+                        {/* In-Transit Badge for active routes */}
+                        {isRouteActive && route.bottles.reduce((s, b) => s + b.remaining_full, 0) > 0 && (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md border bg-blue-50 text-blue-700 border-blue-100 animate-pulse">
+                            🚚 {route.bottles.reduce((s, b) => s + b.remaining_full, 0)} in transit
+                          </span>
+                        )}
                         {/* Status Badge */}
                         <span
                           className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${
@@ -600,6 +953,20 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                     Returned (Empty)
                                   </th>
                                   <th className="py-2 text-right">Broken</th>
+<<<<<<< HEAD
+                                  <th className="py-2 text-right text-blue-700 bg-blue-50/50">In Transit</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-silver/40 text-[11px] font-semibold text-charcoal/80">
+                                {route.bottles.map(bottle => (
+                                  <tr key={bottle.bottle_type_id} className="hover:bg-silver/10 transition-colors">
+                                    <td className="py-2.5 font-bold">{bottle.bottle_type_name}</td>
+                                    <td className="py-2.5 text-right">{bottle.dispatched}</td>
+                                    <td className="py-2.5 text-right text-emerald-600">{bottle.delivered}</td>
+                                    <td className="py-2.5 text-right text-blue-600">{bottle.returned}</td>
+                                    <td className="py-2.5 text-right text-rose-600">{bottle.broken}</td>
+                                    <td className="py-2.5 text-right text-blue-800 bg-blue-50/30 font-black">
+=======
                                   <th className="py-2 text-right text-amber-700 bg-amber-50/50">
                                     Outstanding (Full)
                                   </th>
@@ -627,6 +994,7 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
                                       {bottle.broken}
                                     </td>
                                     <td className="py-2.5 text-right text-amber-800 bg-amber-50/30 font-black">
+>>>>>>> 31b1f9291ed9aed09bafbb2cbc4ae419dbd1c616
                                       {bottle.remaining_full}
                                     </td>
                                   </tr>
