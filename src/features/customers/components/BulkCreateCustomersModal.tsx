@@ -570,8 +570,10 @@ export const BulkCreateCustomersModal: React.FC<
             cust.name === c.name.trim()
         );
         const customerId = createdCustomer?.id || "";
+        if (!customerId) {
+          return [];
+        }
         const qty = parseFloat(c.quantity || "1") || 1;
-
         const baseSub = {
           customer: customerId,
           frequency: c.subscription || "daily",
