@@ -867,11 +867,6 @@ export const BulkCreateCustomersModal: React.FC<
     );
   }
 
-  // Statistics
-  const errorCount = parsedCustomers.filter((c) => !!c.error).length;
-  const warningCount = parsedCustomers.filter((c) => !!c.warning).length;
-  const validCount = parsedCustomers.length - errorCount;
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
