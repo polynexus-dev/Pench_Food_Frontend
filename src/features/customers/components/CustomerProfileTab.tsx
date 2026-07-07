@@ -1443,7 +1443,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                           </td>
                           <td className="py-4">
                             <div className="flex flex-wrap gap-1.5 max-w-[320px]">
-                              {order.items.map((it) => (
+                              {(order.items || []).map((it) => (
                                 <span
                                   key={it.id}
                                   className="px-2 py-0.5 bg-silver/10 border border-silver/30 rounded-lg text-[9px] font-bold text-charcoal/60 whitespace-nowrap"

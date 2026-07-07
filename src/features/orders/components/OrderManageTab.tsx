@@ -105,7 +105,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   const availableProducts = useMemo(() => {
     const products = new Set<string>();
     orders.forEach((order: Order) => {
-      order.items.forEach((item: OrderItem) => {
+      (order.items || []).forEach((item: OrderItem) => {
         if (item.product_name) {
           products.add(item.product_name);
         }
@@ -173,7 +173,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
         return false;
       }
       if (selectedProduct !== "all") {
-        const hasProduct = order.items.some((item: OrderItem) => item.product_name === selectedProduct);
+        const hasProduct = (order.items || []).some((item: OrderItem) => item.product_name === selectedProduct);
         if (!hasProduct) return false;
       }
       if (selectedZone !== "all" && order.zone_name !== selectedZone) {
@@ -441,7 +441,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                         <p className="text-sm font-black text-charcoal">#{order.id.split('-')[0].toUpperCase()}</p>
                         <p className="text-[9px] text-charcoal/40 font-bold mt-1 uppercase flex items-center gap-1">
                           <ShoppingBag className="w-2.5 h-2.5 text-primary/40" />
-                          {order.items.length} Product{order.items.length !== 1 ? 's' : ''}
+                          {(order.items || []).length} Product{(order.items || []).length !== 1 ? 's' : ''}
                         </p>
                       </td>
                       <td className="px-6 py-4">
@@ -521,7 +521,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-silver/20 text-xs font-bold text-charcoal/70">
-                                      {order.items.map((it: OrderItem) => (
+                                      {(order.items || []).map((it: OrderItem) => (
                                         <tr key={it.id}>
                                           <td className="py-2.5 text-charcoal font-black">{it.product_name}</td>
                                           <td className="py-2.5 text-center text-primary font-black">x{it.quantity}</td>
