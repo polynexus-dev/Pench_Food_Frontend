@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
-import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload } from "lucide-react";
+import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload, Loader2 } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
@@ -37,6 +37,10 @@ const CustomerPage: React.FC = () => {
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  // Profile Lazy-Loading State
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(false);
 
   const setNotification = (val: { title?: string; message: string; type: "success" | "error" } | null) => {
     _setNotification(val);
@@ -81,13 +85,31 @@ const CustomerPage: React.FC = () => {
     }
   }, [tenant]);
 
+  // Handle switching to profile details tab
+  const handleViewProfile = async (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setActiveTab("profile");
+    setIsLoadingProfile(true);
+    setSelectedCustomer(null);
+    try {
+      const fullCust = await customerApi.getCustomerById(customerId);
+      setSelectedCustomer(fullCust);
+    } catch (err) {
+      console.error("Failed to load customer profile details:", err);
+      // Fallback to the list version
+      const fallback = customers.find(c => c.id === customerId);
+      if (fallback) setSelectedCustomer(fallback);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
   useEffect(() => {
     const custId = searchParams.get("viewProfile");
     if (custId && customers.length > 0) {
       const exists = customers.some(c => c.id === custId);
       if (exists) {
-        setSelectedCustomerId(custId);
-        setActiveTab("profile");
+        handleViewProfile(custId);
         // Clear query parameter to avoid locking view on refresh
         setSearchParams({}, { replace: true });
       }
@@ -246,15 +268,7 @@ const CustomerPage: React.FC = () => {
     }, 800);
   };
 
-  // Handle switching to profile details tab
-  const handleViewProfile = (customerId: string) => {
-    setSelectedCustomerId(customerId);
-    setActiveTab("profile");
-  };
 
-  const selectedCustomer = useMemo(() => {
-    return customers.find(c => c.id === selectedCustomerId) || null;
-  }, [customers, selectedCustomerId]);
 
   return (
     <div className="max-w-8xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-2">
@@ -432,7 +446,7 @@ const CustomerPage: React.FC = () => {
           </button>
         )}
 
-        {selectedCustomerId && selectedCustomer && (
+        {selectedCustomerId && (
           <button
             onClick={() => setActiveTab("profile")}
             className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
@@ -444,7 +458,7 @@ const CustomerPage: React.FC = () => {
             <UserCircle
               className={`w-4 h-4 ${activeTab === "profile" ? "text-primary" : "text-charcoal/40"}`}
             />
-            Profile: {selectedCustomer.name}
+            {isLoadingProfile ? "Profile: Loading..." : `Profile: ${selectedCustomer?.name || ""}`}
             {activeTab === "profile" && (
               <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
             )}
@@ -486,19 +500,30 @@ const CustomerPage: React.FC = () => {
         />
       )}
 
-      {activeTab === "profile" && selectedCustomer && (
-        <CustomerProfileTab
-          customer={selectedCustomer}
-          onBack={() => {
-            setActiveTab("dashboard");
-            setSelectedCustomerId(null);
-          }}
-          onUpdateCustomer={(updatedCustomer) => {
-            setCustomers((prev) =>
-              prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
-            );
-          }}
-        />
+      {activeTab === "profile" && (
+        isLoadingProfile ? (
+          <div className="flex items-center justify-center p-20 bg-white rounded-3xl border border-silver/50 shadow-sm mt-8">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-xs text-charcoal/40 font-bold uppercase tracking-wider">Fetching Profile Details...</p>
+            </div>
+          </div>
+        ) : selectedCustomer ? (
+          <CustomerProfileTab
+            customer={selectedCustomer}
+            onBack={() => {
+              setActiveTab("dashboard");
+              setSelectedCustomerId(null);
+              setSelectedCustomer(null);
+            }}
+            onUpdateCustomer={(updatedCustomer) => {
+              setSelectedCustomer(updatedCustomer);
+              setCustomers((prev) =>
+                prev.map((c) => (c.id === updatedCustomer.id ? updatedCustomer : c))
+              );
+            }}
+          />
+        ) : null
       )}
 
       {activeTab === "customer-qr" && (
