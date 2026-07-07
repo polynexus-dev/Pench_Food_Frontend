@@ -534,7 +534,17 @@ export const BulkCreateCustomersModal: React.FC<
         return item;
       });
 
-      const createdCustomers = await customerApi.bulkCreateCustomers(payload);
+      const resData = await customerApi.bulkCreateCustomers(payload);
+
+      let createdCustomers: any[] = [];
+      let skippedRecords: any[] = [];
+
+      if (Array.isArray(resData)) {
+        createdCustomers = resData;
+      } else if (resData && typeof resData === "object") {
+        createdCustomers = resData.imported || [];
+        skippedRecords = resData.skipped || [];
+      }
 
       // Construct and send the subscription payloads in array
       const tomorrow = new Date();
@@ -546,12 +556,12 @@ export const BulkCreateCustomersModal: React.FC<
           return [];
         }
 
-        const createdCustomer =
-          createdCustomers[index] ||
-          createdCustomers.find(
-            (cust) =>
-              cust.name === c.name.trim() || cust.email === c.email.trim(),
-          );
+        const createdCustomer = createdCustomers.find(
+          (cust) =>
+            (c.email && cust.email === c.email.trim()) ||
+            (c.phone && cust.phone === c.phone.trim()) ||
+            cust.name === c.name.trim()
+        );
         const customerId = createdCustomer?.id || "";
         const qty = parseFloat(c.quantity || "1") || 1;
 
@@ -614,6 +624,15 @@ export const BulkCreateCustomersModal: React.FC<
 
       if (subscriptionPayload.length > 0) {
         await customerApi.createSubscription(subscriptionPayload);
+      }
+
+      if (skippedRecords.length > 0) {
+        const skippedSummary = skippedRecords
+          .map((r) => `Row ${r.row} (${r.name || "N/A"}): ${r.reason}`)
+          .join("\n");
+        alert(
+          `Import Summary:\n- Successfully imported: ${createdCustomers.length}\n- Skipped/Duplicates: ${skippedRecords.length}\n\nSkipped Rows Details:\n${skippedSummary}`
+        );
       }
 
       onSuccess();

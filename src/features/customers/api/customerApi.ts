@@ -50,9 +50,9 @@ export const customerApi = {
   /**
    * Create multiple customers in a single batch request
    */
-  bulkCreateCustomers: async (customersData: Partial<Customer>[]): Promise<Customer[]> => {
-    const response = await axiosInstance.post<Customer[]>("/erp/customers/", customersData);
-    return Array.isArray(response.data) ? response.data : [];
+  bulkCreateCustomers: async (customersData: Partial<Customer>[]): Promise<any> => {
+    const response = await axiosInstance.post("/erp/customers/", customersData);
+    return response.data;
   },
 
   /**
