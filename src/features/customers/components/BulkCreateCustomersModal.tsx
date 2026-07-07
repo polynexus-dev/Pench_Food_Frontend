@@ -11,6 +11,7 @@ import {
   MapPin,
   Loader2,
   Plus,
+  Download,
 } from "lucide-react";
 import { customerApi } from "../api/customerApi";
 import { companyApi, type Company } from "../../../api/companyApi";
@@ -58,6 +59,12 @@ export const BulkCreateCustomersModal: React.FC<
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterMode, setFilterMode] = useState<"all" | "ready" | "errors" | "warnings">("all");
+  const [importResult, setImportResult] = useState<{
+    importedCount: number;
+    skippedCount: number;
+    imported: any[];
+    skipped: any[];
+  } | null>(null);
 
   // Load companies & products
   useEffect(() => {
@@ -627,16 +634,17 @@ export const BulkCreateCustomersModal: React.FC<
       }
 
       if (skippedRecords.length > 0) {
-        const skippedSummary = skippedRecords
-          .map((r) => `Row ${r.row} (${r.name || "N/A"}): ${r.reason}`)
-          .join("\n");
-        alert(
-          `Import Summary:\n- Successfully imported: ${createdCustomers.length}\n- Skipped/Duplicates: ${skippedRecords.length}\n\nSkipped Rows Details:\n${skippedSummary}`
-        );
+        setImportResult({
+          importedCount: createdCustomers.length,
+          skippedCount: skippedRecords.length,
+          imported: createdCustomers,
+          skipped: skippedRecords,
+        });
+        onSuccess();
+      } else {
+        onSuccess();
+        onClose();
       }
-
-      onSuccess();
-      onClose();
     } catch (err: any) {
       console.error("Bulk creation failed:", err);
       const serverErr = err.response?.data;
@@ -684,6 +692,180 @@ export const BulkCreateCustomersModal: React.FC<
       setIsSubmitting(false);
     }
   };
+
+  // Statistics
+  const errorCount = parsedCustomers.filter((c) => !!c.error).length;
+  const warningCount = parsedCustomers.filter((c) => !!c.warning).length;
+  const validCount = parsedCustomers.length - errorCount;
+
+  if (importResult) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
+          {/* Header */}
+          <div className="px-8 py-5.5 bg-gradient-to-r from-primary to-sage text-white flex justify-between items-center shrink-0 text-left">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/20 rounded-xl">
+                <CheckCircle2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold leading-none">
+                  Import Summary
+                </h2>
+                <p className="text-[10px] uppercase tracking-wider text-white/80 font-black mt-1">
+                  Scoping: {tenant?.toUpperCase()}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setImportResult(null);
+                setParsedCustomers([]);
+                setInputText("");
+                onClose();
+              }}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-8 overflow-y-auto flex-1 space-y-6 custom-scrollbar text-left">
+            {/* Success & Skip Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4 animate-in slide-in-from-bottom duration-300">
+                <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-emerald-800">
+                    {importResult.importedCount}
+                  </div>
+                  <div className="text-xs font-bold text-emerald-700/80 uppercase tracking-wider">
+                    Customers Imported Successfully
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-4 animate-in slide-in-from-bottom duration-300 delay-75">
+                <div className="p-3 bg-amber-500/10 text-amber-600 rounded-xl">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-2xl font-black text-amber-800">
+                    {importResult.skippedCount}
+                  </div>
+                  <div className="text-xs font-bold text-amber-700/80 uppercase tracking-wider">
+                    Records Skipped / Duplicates
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Skipped Details Table */}
+            {importResult.skippedCount > 0 && (
+              <div className="space-y-3 flex flex-col flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-charcoal/50 uppercase tracking-wider">
+                    Skipped/Failed Records Details ({importResult.skippedCount})
+                  </h4>
+                  <button
+                    onClick={() => {
+                      // Generate and download CSV
+                      const headers = ["Row Number", "Name", "Phone", "Email", "Reason"];
+                      const rows = importResult.skipped.map((r) => [
+                        r.row,
+                        r.name || "",
+                        r.phone || "",
+                        r.email || "",
+                        r.reason || ""
+                      ]);
+                      const csvContent =
+                        "data:text/csv;charset=utf-8," +
+                        [headers.join(","), ...rows.map((e) => e.map(val => `"${val}"`).join(","))].join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", "skipped_import_records.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="text-xs font-black text-primary hover:underline flex items-center gap-1.5 cursor-pointer select-none"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download Skipped Records (CSV)
+                  </button>
+                </div>
+
+                <div className="border border-silver/50 rounded-2xl shadow-inner bg-silver/5 max-h-[300px] overflow-y-auto custom-scrollbar">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#F5F7F8] border-b border-silver/45 sticky top-0 z-10">
+                        <th className="py-3 px-4 font-black text-charcoal/50 text-[10px] uppercase tracking-wider w-[80px]">
+                          Row #
+                        </th>
+                        <th className="py-3 px-4 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[150px]">
+                          Name
+                        </th>
+                        <th className="py-3 px-4 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[120px]">
+                          Phone
+                        </th>
+                        <th className="py-3 px-4 font-black text-charcoal/50 text-[10px] uppercase tracking-wider min-w-[150px]">
+                          Email
+                        </th>
+                        <th className="py-3 px-4 font-black text-charcoal/50 text-[10px] uppercase tracking-wider">
+                          Reason for Skipping
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.skipped.map((r, index) => (
+                        <tr key={index} className="border-b border-silver/30 bg-white hover:bg-silver/5">
+                          <td className="py-2.5 px-4 font-bold text-charcoal/40 text-center">
+                            {r.row}
+                          </td>
+                          <td className="py-2.5 px-4 font-semibold text-charcoal">
+                            {r.name || "-"}
+                          </td>
+                          <td className="py-2.5 px-4 font-mono text-charcoal">
+                            {r.phone || "-"}
+                          </td>
+                          <td className="py-2.5 px-4 font-semibold text-charcoal">
+                            {r.email || "-"}
+                          </td>
+                          <td className="py-2.5 px-4 font-bold text-amber-700 bg-amber-50/10">
+                            {r.reason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="px-8 py-5.5 bg-silver/10 border-t border-silver/40 flex items-center justify-end gap-3 shrink-0">
+            <button
+              onClick={() => {
+                setImportResult(null);
+                setParsedCustomers([]);
+                setInputText("");
+                onClose();
+              }}
+              type="button"
+              className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all cursor-pointer"
+            >
+              Done / Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Statistics
   const errorCount = parsedCustomers.filter((c) => !!c.error).length;
