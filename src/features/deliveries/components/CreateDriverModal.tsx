@@ -141,7 +141,6 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
-              required
               placeholder="9010276379"
             />
           </div>
