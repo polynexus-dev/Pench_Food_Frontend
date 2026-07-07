@@ -71,6 +71,13 @@ export const customerApi = {
   },
 
   /**
+   * Bulk delete customers
+   */
+  bulkDeleteCustomers: async (ids: string[]): Promise<void> => {
+    await axiosInstance.post("/erp/customers/bulk-delete/", { ids });
+  },
+
+  /**
    * Toggle customer active status
    */
   toggleStatus: async (id: string, isActive: boolean): Promise<Customer> => {

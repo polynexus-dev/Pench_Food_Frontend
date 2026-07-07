@@ -438,6 +438,7 @@ const CustomerPage: React.FC = () => {
           customers={customers}
           isLoading={isLoading}
           onViewDetails={handleViewProfile}
+          onRefresh={() => fetchCustomers(true)}
         />
       )}
 

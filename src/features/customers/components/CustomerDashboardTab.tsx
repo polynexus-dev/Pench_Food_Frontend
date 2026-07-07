@@ -1,19 +1,36 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users } from "lucide-react";
+import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2 } from "lucide-react";
 import type { Customer } from "./types";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import { driverApi } from "../../drivers/api/driverApi";
 import axiosInstance from "../../../api/axiosInstance";
+import { customerApi } from "../api/customerApi";
 
 interface CustomerDashboardTabProps {
   customers: Customer[];
   isLoading: boolean;
   onViewDetails: (customerId: string) => void;
+  onRefresh: () => void;
 }
 
-const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails }) => {
+const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails, onRefresh }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Selection States
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [deleteConfirmIds, setDeleteConfirmIds] = useState<string[] | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Close active dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveDropdownId(null);
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => window.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   // Filter States
   const [selectedZone, setSelectedZone] = useState<string>("");
@@ -146,6 +163,15 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
             <Filter className="w-4 h-4" />
             Filters
           </button>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirmIds(selectedIds)}
+              className="flex items-center gap-2 px-5 py-4 bg-rose-600 text-white rounded-2xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/10 font-bold text-sm outline-none focus:outline-none cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
           <div className="bg-primary/5 px-5 py-4 rounded-2xl border border-primary/10 flex items-center gap-3">
             <span className="text-xs font-black text-primary uppercase tracking-widest">
               Active Members
@@ -245,73 +271,117 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCustomers.map((customer) => (
-            <div
-              key={customer.id}
-              className="bg-white rounded-3xl border border-silver/50 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all group overflow-hidden flex flex-col"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center font-black text-2xl text-primary border border-primary/5 group-hover:scale-105 transition-transform duration-300">
-                    {customer.name.charAt(0)}
+          {filteredCustomers.map((customer) => {
+            const isSelected = selectedIds.includes(customer.id);
+            return (
+              <div
+                key={customer.id}
+                className={`bg-white rounded-3xl border shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all group overflow-hidden flex flex-col relative ${
+                  isSelected ? 'border-primary bg-primary/[0.02]' : 'border-silver/50'
+                }`}
+              >
+                <div className="p-6 relative">
+                  {/* Grid Checkbox overlay */}
+                  <div className="absolute top-6 left-6 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        setSelectedIds(prev =>
+                          prev.includes(customer.id)
+                            ? prev.filter(id => id !== customer.id)
+                            : [...prev, customer.id]
+                        );
+                      }}
+                      className="w-4 h-4 rounded border-silver/60 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                    />
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        customer.is_active
-                          ? "bg-sage/10 text-primary border border-primary/10"
-                          : "bg-red-50 text-red-500 border border-red-100"
-                      }`}
-                    >
-                      {customer.is_active ? "Active" : "Inactive"}
-                    </span>
-                    <button className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/30 rounded-lg transition-all">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                  <div className="flex justify-between items-start mb-6 pl-8">
+                    <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center font-black text-2xl text-primary border border-primary/5 group-hover:scale-105 transition-transform duration-300">
+                      {customer.name.charAt(0)}
+                    </div>
+                    <div className="flex flex-col items-end gap-2 relative">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          customer.is_active
+                            ? "bg-sage/10 text-primary border border-primary/10"
+                            : "bg-red-50 text-red-500 border border-red-100"
+                        }`}
+                      >
+                        {customer.is_active ? "Active" : "Inactive"}
+                      </span>
+                      <div className="relative inline-block text-left">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(activeDropdownId === customer.id ? null : customer.id);
+                          }}
+                          className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/30 rounded-lg transition-all cursor-pointer"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        {activeDropdownId === customer.id && (
+                          <div className="absolute right-0 mt-2 w-40 bg-white border border-silver/50 rounded-2xl shadow-xl z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100 text-left">
+                            <button
+                              onClick={() => onViewDetails(customer.id)}
+                              className="w-full text-left px-4 py-2.5 text-xs font-bold text-charcoal/70 hover:bg-silver/10 transition-colors"
+                            >
+                              View Profile
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmIds([customer.id])}
+                              className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                            >
+                              Delete Customer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight mb-1">
+                    {customer.name}
+                  </h3>
+                  <p className="text-xs text-charcoal/40 font-bold uppercase tracking-wider mb-6">
+                    {customer.company || "Private Customer"}
+                  </p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
+                      <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
+                        <Mail className="w-3.5 h-3.5" />
+                      </div>
+                      {customer.email}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
+                      <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
+                        <Phone className="w-3.5 h-3.5" />
+                      </div>
+                      {customer.phone}
+                    </div>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight mb-1">
-                  {customer.name}
-                </h3>
-                <p className="text-xs text-charcoal/40 font-bold uppercase tracking-wider mb-6">
-                  {customer.company || "Private Customer"}
-                </p>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
-                    <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
-                      <Mail className="w-3.5 h-3.5" />
-                    </div>
-                    {customer.email}
+                <div className="mt-auto p-4 bg-silver/5 border-t border-silver/30 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] text-charcoal/40 font-bold uppercase">
+                    <Calendar className="w-3 h-3" />
+                    Joined{" "}
+                    {new Date(customer.created_at).toLocaleDateString("en-IN", {
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
-                    <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
-                      <Phone className="w-3.5 h-3.5" />
-                    </div>
-                    {customer.phone}
-                  </div>
+                  <button 
+                    onClick={() => onViewDetails(customer.id)}
+                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
+                  >
+                    View Profile &rarr;
+                  </button>
                 </div>
               </div>
-
-              <div className="mt-auto p-4 bg-silver/5 border-t border-silver/30 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] text-charcoal/40 font-bold uppercase">
-                  <Calendar className="w-3 h-3" />
-                  Joined{" "}
-                  {new Date(customer.created_at).toLocaleDateString("en-IN", {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </div>
-                <button 
-                  onClick={() => onViewDetails(customer.id)}
-                  className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
-                >
-                  View Profile &rarr;
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-3xl border border-silver/50 shadow-sm overflow-hidden">
@@ -319,6 +389,20 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
             <table className="w-full text-left">
               <thead className="bg-silver/10 text-[10px] uppercase tracking-[0.2em] text-charcoal/40 font-black border-b border-silver/30">
                 <tr>
+                  <th className="px-6 py-5 w-[50px] text-center">
+                    <input
+                      type="checkbox"
+                      checked={filteredCustomers.length > 0 && selectedIds.length === filteredCustomers.length}
+                      onChange={() => {
+                        if (selectedIds.length === filteredCustomers.length) {
+                          setSelectedIds([]);
+                        } else {
+                          setSelectedIds(filteredCustomers.map(c => c.id));
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-silver/60 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                    />
+                  </th>
                   <th className="px-8 py-5">Customer</th>
                   <th className="px-6 py-5">Contact Details</th>
                   <th className="px-6 py-5">Status</th>
@@ -327,50 +411,94 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-silver/30">
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-primary/5 transition-colors group">
-                    <td className="px-8 py-5 cursor-pointer" onClick={() => onViewDetails(customer.id)}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-cream rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/5">
-                          {customer.name.charAt(0)}
+                {filteredCustomers.map((customer) => {
+                  const isSelected = selectedIds.includes(customer.id);
+                  return (
+                    <tr 
+                      key={customer.id} 
+                      className={`hover:bg-primary/5 transition-colors group ${isSelected ? 'bg-primary/5' : ''}`}
+                    >
+                      <td className="px-6 py-5 text-center w-[50px]">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedIds(prev =>
+                              prev.includes(customer.id)
+                                ? prev.filter(id => id !== customer.id)
+                                : [...prev, customer.id]
+                            );
+                          }}
+                          className="w-4 h-4 rounded border-silver/60 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-8 py-5 cursor-pointer" onClick={() => onViewDetails(customer.id)}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-cream rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/5">
+                            {customer.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-charcoal group-hover:text-primary transition-colors">{customer.name}</p>
+                            <p className="text-[10px] text-charcoal/40 font-bold uppercase">{customer.company || 'Private'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-charcoal group-hover:text-primary transition-colors">{customer.name}</p>
-                          <p className="text-[10px] text-charcoal/40 font-bold uppercase">{customer.company || 'Private'}</p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
+                            <Mail className="w-3 h-3 text-primary/40" /> {customer.email}
+                          </p>
+                          <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
+                            <Phone className="w-3 h-3 text-primary/40" /> {customer.phone}
+                          </p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
-                          <Mail className="w-3 h-3 text-primary/40" /> {customer.email}
-                        </p>
-                        <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
-                          <Phone className="w-3 h-3 text-primary/40" /> {customer.phone}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        customer.is_active ? 'bg-sage/10 text-primary border-primary/10' : 'bg-red-50 text-red-500 border-red-100'
-                      }`}>
-                        {customer.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-xs font-bold text-charcoal/40 uppercase">
-                      {new Date(customer.created_at).toLocaleDateString("en-IN", {
-                        day: '2-digit',
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button className="p-2 text-charcoal/20 hover:text-primary hover:bg-white rounded-xl transition-all shadow-none hover:shadow-sm">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          customer.is_active ? 'bg-sage/10 text-primary border-primary/10' : 'bg-red-50 text-red-500 border-red-100'
+                        }`}>
+                          {customer.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-xs font-bold text-charcoal/40 uppercase">
+                        {new Date(customer.created_at).toLocaleDateString("en-IN", {
+                          day: '2-digit',
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-6 py-5 text-right relative">
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDropdownId(activeDropdownId === customer.id ? null : customer.id);
+                            }}
+                            className="p-2 text-charcoal/20 hover:text-primary hover:bg-white rounded-xl transition-all shadow-none hover:shadow-sm cursor-pointer"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {activeDropdownId === customer.id && (
+                            <div className="absolute right-0 mt-2 w-40 bg-white border border-silver/50 rounded-2xl shadow-xl z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100 text-left">
+                              <button
+                                onClick={() => onViewDetails(customer.id)}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-charcoal/70 hover:bg-silver/10 transition-colors"
+                              >
+                                View Profile
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmIds([customer.id])}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                              >
+                                Delete Customer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -388,6 +516,69 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
           <p className="text-charcoal/40">
             Try searching for a different name or phone number.
           </p>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmIds !== null && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 animate-in zoom-in-95 duration-300 text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-charcoal">
+                Confirm Permanent Deletion
+              </h3>
+            </div>
+            <p className="text-sm text-charcoal/70 mb-6">
+              Are you sure you want to permanently delete{" "}
+              <strong>{deleteConfirmIds.length}</strong> selected customer(s)?
+              This action <strong>cannot be undone</strong> and will permanently delete all associated data (subscriptions, order history, balances, etc.).
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmIds(null)}
+                disabled={isDeleting}
+                className="px-5 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    if (deleteConfirmIds.length === 1) {
+                      await customerApi.deleteCustomer(deleteConfirmIds[0]);
+                    } else {
+                      await customerApi.bulkDeleteCustomers(deleteConfirmIds);
+                    }
+                    setSelectedIds(prev => prev.filter(id => !deleteConfirmIds.includes(id)));
+                    setDeleteConfirmIds(null);
+                    onRefresh();
+                  } catch (err) {
+                    console.error("Failed to delete customers:", err);
+                    alert("Failed to delete customer(s). Please try again.");
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Permanently"
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
