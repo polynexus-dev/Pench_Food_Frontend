@@ -57,6 +57,7 @@ export const BulkCreateCustomersModal: React.FC<
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "ready" | "errors" | "warnings">("all");
 
   // Load companies & products
   useEffect(() => {
@@ -96,6 +97,7 @@ export const BulkCreateCustomersModal: React.FC<
       setDefaultCompany("");
       setParsedCustomers([]);
       setSubmitError(null);
+      setFilterMode("all");
     }
   }, [isOpen]);
 
@@ -781,30 +783,69 @@ export const BulkCreateCustomersModal: React.FC<
                     onClick={() => {
                       setParsedCustomers([]);
                       setInputText("");
+                      setFilterMode("all");
                     }}
                     className="text-[10px] font-black text-primary hover:underline"
                   >
                     Clear All & Restart
                   </button>
+                  {filterMode !== "all" && (
+                    <span className="text-[10px] font-bold text-charcoal/30 select-none">|</span>
+                  )}
+                  {filterMode !== "all" && (
+                    <button
+                      onClick={() => setFilterMode("all")}
+                      className="text-[10px] font-black text-primary hover:underline"
+                    >
+                      Show All Records
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {validCount > 0 && (
-                    <span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase rounded-full border border-emerald-500/10">
+                    <button
+                      type="button"
+                      onClick={() => setFilterMode(filterMode === "ready" ? "all" : "ready")}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase rounded-full border transition-all cursor-pointer select-none ${
+                        filterMode === "ready"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-500/10 hover:bg-emerald-100/70"
+                      }`}
+                      title="Filter by Ready rows"
+                    >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       {validCount} Ready
-                    </span>
+                    </button>
                   )}
                   {errorCount > 0 && (
-                    <span className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 text-[10px] font-black uppercase rounded-full border border-rose-500/10 animate-pulse">
+                    <button
+                      type="button"
+                      onClick={() => setFilterMode(filterMode === "errors" ? "all" : "errors")}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase rounded-full border transition-all cursor-pointer select-none ${
+                        filterMode === "errors"
+                          ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                          : "bg-rose-50 text-rose-700 border-rose-500/10 hover:bg-rose-100/70 animate-pulse"
+                      }`}
+                      title="Filter by Error rows"
+                    >
                       <AlertTriangle className="w-3.5 h-3.5" />
                       {errorCount} Fix Errors
-                    </span>
+                    </button>
                   )}
                   {warningCount > 0 && (
-                    <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-black uppercase rounded-full border border-amber-500/10">
+                    <button
+                      type="button"
+                      onClick={() => setFilterMode(filterMode === "warnings" ? "all" : "warnings")}
+                      className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase rounded-full border transition-all cursor-pointer select-none ${
+                        filterMode === "warnings"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                          : "bg-amber-50 text-amber-700 border-amber-500/10 hover:bg-amber-100/70"
+                      }`}
+                      title="Filter by Warning rows"
+                    >
                       <AlertTriangle className="w-3.5 h-3.5" />
                       {warningCount} Warnings
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -848,7 +889,14 @@ export const BulkCreateCustomersModal: React.FC<
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedCustomers.map((c) => {
+                    {parsedCustomers
+                      .filter((c) => {
+                        if (filterMode === "errors") return !!c.error;
+                        if (filterMode === "warnings") return !!c.warning;
+                        if (filterMode === "ready") return !c.error;
+                        return true;
+                      })
+                      .map((c) => {
                       const hasErr = !!c.error;
                       const hasWarn = !!c.warning;
                       const qtyVal = parseFloat(c.quantity || "1");
