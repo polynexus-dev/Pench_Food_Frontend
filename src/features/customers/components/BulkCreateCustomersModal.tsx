@@ -104,16 +104,11 @@ export const BulkCreateCustomersModal: React.FC<
   const normalizeFrequency = (freq: string): string => {
     const val = freq.trim().toLowerCase();
     if (
-      ["daily", "alternate", "weekdays", "weekends", "custom"].includes(val)
+      ["daily", "alternate", "weekdays", "weekends", "custom", "none"].includes(val)
     ) {
       return val;
     }
-    if (val.includes("daily") || val.includes("day")) return "daily";
-    if (val.includes("alt")) return "alternate";
-    if (val.includes("weekday")) return "weekdays";
-    if (val.includes("weekend")) return "weekends";
-    if (val.includes("custom")) return "custom";
-    return "daily";
+    return "none";
   };
 
   // Simple CSV/TSV parser
@@ -316,7 +311,7 @@ export const BulkCreateCustomersModal: React.FC<
         address,
         latitude,
         longitude,
-        subscription: subscription ? normalizeFrequency(subscription) : "daily",
+        subscription: subscription ? normalizeFrequency(subscription) : "none",
         quantity: quantity || "1",
         productId: foundProductId,
         specialInstructions: instructions,
@@ -357,7 +352,7 @@ export const BulkCreateCustomersModal: React.FC<
       }
 
       if (!copy.error) {
-        if (!copy.productId) {
+        if (copy.subscription !== "none" && !copy.productId) {
           copy.error = "Product selection is required.";
         }
       }
@@ -365,19 +360,21 @@ export const BulkCreateCustomersModal: React.FC<
       if (!copy.error) {
         const freq = copy.subscription?.trim().toLowerCase() || "";
         if (
-          !["daily", "alternate", "weekdays", "weekends", "custom"].includes(
+          !["daily", "alternate", "weekdays", "weekends", "custom", "none"].includes(
             freq,
           )
         ) {
           copy.error =
-            "Subscription frequency must be 'daily', 'alternate', 'weekdays', 'weekends', or 'custom'.";
+            "Subscription frequency must be 'daily', 'alternate', 'weekdays', 'weekends', 'custom', or 'none'.";
         }
       }
 
       if (!copy.error) {
-        const qtyVal = parseFloat(copy.quantity || "");
-        if (isNaN(qtyVal) || qtyVal <= 0) {
-          copy.error = "Quantity must be a positive number.";
+        if (copy.subscription !== "none") {
+          const qtyVal = parseFloat(copy.quantity || "");
+          if (isNaN(qtyVal) || qtyVal <= 0) {
+            copy.error = "Quantity must be a positive number.";
+          }
         }
       }
 
@@ -537,6 +534,10 @@ export const BulkCreateCustomersModal: React.FC<
       const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
       const subscriptionPayload = parsedCustomers.flatMap((c, index) => {
+        if (!c.subscription || c.subscription === "none") {
+          return [];
+        }
+
         const createdCustomer =
           createdCustomers[index] ||
           createdCustomers.find(
@@ -603,7 +604,9 @@ export const BulkCreateCustomersModal: React.FC<
         return subs;
       });
 
-      await customerApi.createSubscription(subscriptionPayload);
+      if (subscriptionPayload.length > 0) {
+        await customerApi.createSubscription(subscriptionPayload);
+      }
 
       onSuccess();
       onClose();
@@ -850,7 +853,7 @@ export const BulkCreateCustomersModal: React.FC<
                       const hasWarn = !!c.warning;
                       const qtyVal = parseFloat(c.quantity || "1");
                       const hasMultipleSubs =
-                        Math.floor(qtyVal) > 0 && qtyVal % 1 > 0;
+                        c.subscription !== "none" && Math.floor(qtyVal) > 0 && qtyVal % 1 > 0;
 
                       return (
                         <React.Fragment key={c.id}>
@@ -949,7 +952,7 @@ export const BulkCreateCustomersModal: React.FC<
                                   )
                                 }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
-                                  hasErr && !c.productId
+                                  c.subscription !== "none" && hasErr && !c.productId
                                     ? "border-rose-400 bg-rose-50/50"
                                     : ""
                                 }`}
@@ -963,7 +966,7 @@ export const BulkCreateCustomersModal: React.FC<
                                   </option>
                                 ))}
                               </select>
-                              {hasErr && !c.productId && (
+                              {c.subscription !== "none" && hasErr && !c.productId && (
                                 <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
                                   Product is required
                                 </div>
@@ -971,7 +974,7 @@ export const BulkCreateCustomersModal: React.FC<
                             </td>
                             <td className="p-1 px-3 text-center">
                               <select
-                                value={c.subscription || "daily"}
+                                value={c.subscription || "none"}
                                 onChange={(e) =>
                                   handleCellChange(
                                     c.id,
@@ -988,11 +991,13 @@ export const BulkCreateCustomersModal: React.FC<
                                       "weekdays",
                                       "weekends",
                                       "custom",
+                                      "none",
                                     ].includes(c.subscription))
                                     ? "border-rose-400 bg-rose-50/50"
                                     : ""
                                 }`}
                               >
+                                <option value="none">No Subscription</option>
                                 <option value="daily">Daily</option>
                                 <option value="alternate">Alternate</option>
                                 <option value="weekdays">Weekdays</option>
@@ -1015,6 +1020,7 @@ export const BulkCreateCustomersModal: React.FC<
                                   )
                                 }
                                 className={`w-full p-2 text-center bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-bold placeholder:text-charcoal/20 ${
+                                  c.subscription !== "none" &&
                                   hasErr &&
                                   (!c.quantity ||
                                     parseFloat(c.quantity) <= 0 ||
@@ -1023,7 +1029,8 @@ export const BulkCreateCustomersModal: React.FC<
                                     : ""
                                 }`}
                               />
-                              {hasErr &&
+                              {c.subscription !== "none" &&
+                                hasErr &&
                                 (!c.quantity ||
                                   parseFloat(c.quantity) <= 0 ||
                                   isNaN(parseFloat(c.quantity))) && (

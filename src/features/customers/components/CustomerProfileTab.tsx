@@ -2183,15 +2183,27 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   </p>
                                 </div>
 
-                                <div className="pt-2">
-                                  <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
-                                    Total Liabilities Outstanding
-                                  </span>
-                                  <span
-                                    className={`text-sm font-black ${liability > 0 ? "text-primary" : "text-charcoal/40"}`}
-                                  >
-                                    ₹{liability.toFixed(2)}
-                                  </span>
+                                <div className="pt-2 flex flex-col gap-1.5">
+                                  <div>
+                                    <span className="text-[8px] font-black text-charcoal/30 uppercase tracking-widest block">
+                                      Total Liabilities Outstanding
+                                    </span>
+                                    <span
+                                      className={`text-sm font-black ${liability > 0 ? "text-primary" : "text-charcoal/40"}`}
+                                    >
+                                      ₹{liability.toFixed(2)}
+                                    </span>
+                                  </div>
+                                  {bal.broken_balance > 0 && (
+                                    <div>
+                                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest block">
+                                        Broken / Lost / Damaged
+                                      </span>
+                                      <span className="text-xs font-black text-rose-500">
+                                        {bal.broken_balance} units
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 

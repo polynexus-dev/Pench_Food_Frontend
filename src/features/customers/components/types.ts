@@ -143,6 +143,7 @@ export interface CustomerBottleBalance {
   bottle_type: string;
   bottle_type_name: string;
   balance: number;
+  broken_balance: number;
 }
 
 export interface BottleTransaction {
