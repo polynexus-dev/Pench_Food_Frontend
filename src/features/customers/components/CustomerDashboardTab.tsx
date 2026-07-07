@@ -11,9 +11,10 @@ interface CustomerDashboardTabProps {
   isLoading: boolean;
   onViewDetails: (customerId: string) => void;
   onRefresh: () => void;
+  mode?: "subscribed" | "leads";
 }
 
-const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails, onRefresh }) => {
+const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails, onRefresh, mode }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -73,7 +74,16 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
+    const baseCustomers = customers.filter((customer) => {
+      const activeSubs = customer.dashboard?.active_subscriptions || 0;
+      if (mode === "leads") {
+        return activeSubs === 0;
+      }
+      // default: show only active subscribed customers
+      return activeSubs > 0;
+    });
+
+    return baseCustomers.filter((customer) => {
       // 1. Search text filter
       const matchesSearch =
         customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,7 +130,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
 
       return true;
     });
-  }, [customers, searchQuery, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances]);
+  }, [customers, searchQuery, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances, mode]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -174,10 +184,12 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
           )}
           <div className="bg-primary/5 px-5 py-4 rounded-2xl border border-primary/10 flex items-center gap-3">
             <span className="text-xs font-black text-primary uppercase tracking-widest">
-              Active Members
+              {mode === "leads" ? "Total Leads" : "Active Subscribers"}
             </span>
             <span className="text-lg font-black text-primary leading-none">
-              {customers.filter((c) => c.is_active).length}
+              {mode === "leads"
+                ? customers.filter((c) => (c.dashboard?.active_subscriptions || 0) === 0).length
+                : customers.filter((c) => (c.dashboard?.active_subscriptions || 0) > 0).length}
             </span>
           </div>
         </div>

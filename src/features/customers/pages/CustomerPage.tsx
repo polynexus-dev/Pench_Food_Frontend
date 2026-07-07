@@ -20,7 +20,7 @@ const CustomerPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<"dashboard" | "detail" | "profile" | "customer-qr" | "trial-approvals">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "leads" | "detail" | "profile" | "customer-qr" | "trial-approvals">("dashboard");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   // Data State
@@ -352,6 +352,26 @@ const CustomerPage: React.FC = () => {
 
         <button
           onClick={() => {
+            setActiveTab("leads");
+            setSelectedCustomerId(null);
+          }}
+          className={`pb-3 font-bold text-sm transition-all relative cursor-pointer flex items-center gap-2 ${
+            activeTab === "leads"
+              ? "text-primary font-black"
+              : "text-charcoal/50 hover:text-charcoal"
+          }`}
+        >
+          <Users
+            className={`w-4 h-4 ${activeTab === "leads" ? "text-primary" : "text-charcoal/40"}`}
+          />
+          Leads / Non-Subscribed
+          {activeTab === "leads" && (
+            <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs"></div>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
             setActiveTab("detail");
             setSelectedCustomerId(null);
           }}
@@ -439,6 +459,17 @@ const CustomerPage: React.FC = () => {
           isLoading={isLoading}
           onViewDetails={handleViewProfile}
           onRefresh={() => fetchCustomers(true)}
+          mode="subscribed"
+        />
+      )}
+
+      {activeTab === "leads" && (
+        <CustomerDashboardTab
+          customers={customers}
+          isLoading={isLoading}
+          onViewDetails={handleViewProfile}
+          onRefresh={() => fetchCustomers(true)}
+          mode="leads"
         />
       )}
 
