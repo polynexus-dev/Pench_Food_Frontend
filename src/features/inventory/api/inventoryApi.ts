@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Product, RawMaterial, Warehouse, CreateWarehousePayload, BottleType, BottleTrackingSummaryResponse } from "../components/types";
+import type { Product, RawMaterial, Warehouse, CreateWarehousePayload, BottleType, BottleTrackingSummaryResponse, CustomerBottleBalance } from "../components/types";
 
 /**
  * Inventory API Service
@@ -189,6 +189,20 @@ export const inventoryApi = {
    */
   getStock: async (): Promise<any[]> => {
     const response = await axiosInstance.get<any[]>("/erp/inventory/stock/");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Fetch customer bottle balances
+   */
+  getCustomerBottleBalances: async (customerId?: string, bottleTypeId?: string): Promise<CustomerBottleBalance[]> => {
+    let url = "/erp/inventory/bottle-balances/";
+    const params = new URLSearchParams();
+    if (customerId) params.append("customer", customerId);
+    if (bottleTypeId) params.append("bottle_type", bottleTypeId);
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+    const response = await axiosInstance.get<CustomerBottleBalance[]>(url);
     return Array.isArray(response.data) ? response.data : [];
   }
 };

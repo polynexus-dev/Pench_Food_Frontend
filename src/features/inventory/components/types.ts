@@ -58,6 +58,7 @@ export interface BottleTrackingSummaryResponse {
   date: string;
   global_summary: BottleGlobalSummary[];
   driver_breakdown: DriverBottleBreakdown[];
+  history_trend?: BottleTrackingHistoryEntry[];
 }
 
 export interface WarehouseDriver {
@@ -89,6 +90,14 @@ export interface CreateWarehousePayload {
   };
 }
 
+export interface BottleTrackingHistoryEntry {
+  date: string;
+  dispatched: number;
+  returned: number;
+  with_customers: number;
+  lost_broken: number;
+}
+
 export interface BottleType {
   id: string;
   name: string;
@@ -97,4 +106,11 @@ export interface BottleType {
   is_active: boolean;
 }
 
-
+export interface CustomerBottleBalance {
+  id: string;
+  customer: string;
+  customer_name: string;
+  bottle_type: string;
+  bottle_type_name: string;
+  balance: number;
+}
