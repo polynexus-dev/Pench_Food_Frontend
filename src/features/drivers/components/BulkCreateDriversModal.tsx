@@ -381,42 +381,47 @@ export const BulkCreateDriversModal: React.FC<BulkCreateDriversModalProps> = ({
         return item;
       });
 
-      await driverApi.bulkRegisterDrivers(payload);
+      const result = await driverApi.bulkRegisterDrivers(payload);
+      const skippedRows: { index: number; errors: Record<string, string[]> }[] =
+        result?.skipped || [];
+      const createdCount: number = result?.created_count ?? payload.length;
 
-      onSuccess();
-      onClose();
+      if (skippedRows.length === 0) {
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      // Keep only the rows the backend skipped (e.g. duplicates) so the
+      // user can fix or drop them; remove the ones that were created.
+      const skippedByIndex = new Map(skippedRows.map((s) => [s.index, s.errors]));
+      const remaining: ParsedDriver[] = [];
+      parsedDrivers.forEach((d, idx) => {
+        const rowErrors = skippedByIndex.get(idx);
+        if (!rowErrors) return; // was created successfully
+        const firstKey = Object.keys(rowErrors)[0];
+        const firstMsg = Array.isArray(rowErrors[firstKey])
+          ? rowErrors[firstKey][0]
+          : String(rowErrors[firstKey]);
+        remaining.push({ ...d, error: `${firstKey.toUpperCase()}: ${firstMsg}`, warning: undefined });
+      });
+
+      setParsedDrivers(remaining);
+      setSubmitError(
+        `${createdCount} rider(s) created. ${skippedRows.length} skipped (already exist or invalid) — fix or remove them below and import again.`,
+      );
+
+      if (createdCount > 0) {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error("Bulk rider creation failed:", err);
       const serverErr = err.response?.data;
-      if (Array.isArray(serverErr)) {
-        const firstErrorEntry = serverErr.find(
-          (e: any) => e && typeof e === "object" && Object.keys(e).length > 0,
-        );
-        if (firstErrorEntry) {
-          const firstKey = Object.keys(firstErrorEntry)[0];
-          const errorMsg = Array.isArray(firstErrorEntry[firstKey])
-            ? firstErrorEntry[firstKey][0]
-            : firstErrorEntry[firstKey];
-          setSubmitError(`Row Validation Failed -> ${firstKey.toUpperCase()}: ${errorMsg}`);
-        } else {
-          setSubmitError("Bulk import failed. Please check formatting and duplicates.");
-        }
-      } else if (serverErr && typeof serverErr === "object") {
-        const firstKey = Object.keys(serverErr)[0];
-        const errorMsg = Array.isArray(serverErr[firstKey])
-          ? serverErr[firstKey][0]
-          : typeof serverErr[firstKey] === "string"
-            ? serverErr[firstKey]
-            : "Invalid field values.";
-        setSubmitError(
-          `Row Validation Failed -> ${firstKey.toUpperCase()}: ${errorMsg}`,
-        );
-      } else {
-        setSubmitError(
-          serverErr?.detail ||
-            "Bulk import failed. Please check formatting and duplicates.",
-        );
-      }
+      setSubmitError(
+        serverErr?.detail ||
+          (typeof serverErr === "string" ? serverErr : null) ||
+          "Bulk import failed. Please check your connection and try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
