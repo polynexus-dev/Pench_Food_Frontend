@@ -154,13 +154,12 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ isOpen, onClose, 
             />
 
             <CustomInput
-              label="Phone Number"
+              label="Phone Number (Optional)"
               icon={Phone}
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleInputChange}
-              required
               placeholder="9010276379"
             />
           </div>
