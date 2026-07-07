@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw, Building2 } from "lucide-react";
+import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw, Building2, Trash2, Lock, Unlock, Loader2 } from "lucide-react";
 import { driverApi } from "../api/driverApi";
 import type { Driver } from "../components/types";
 import CreateDriverModal from "../components/CreateDriverModal";
@@ -17,6 +17,24 @@ const DriverPage: React.FC = () => {
   // Profile View State
   const [activeTab, setActiveTab] = useState<"directory" | "profile">("directory");
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+
+  // Actions Dropdown & Modal States
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ id: string; name: string; targetActive: boolean } | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  // Close active dropdown on click outside
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setActiveDropdownId(null);
+    };
+    window.addEventListener("click", handleOutsideClick);
+    return () => {
+      window.removeEventListener("click", handleOutsideClick);
+    };
+  }, []);
+
 
   const fetchDrivers = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -157,16 +175,70 @@ const DriverPage: React.FC = () => {
                 <div className="flex justify-between items-start mb-6">
                   <div className="w-14 h-14 bg-cream rounded-2xl flex items-center justify-center border border-primary/5 group-hover:scale-105 transition-transform duration-300 relative">
                     <ShieldCheck className="w-8 h-8 text-primary/40" />
-                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${driver.is_available ? 'bg-green-500 ring-2 ring-green-500/20' : 'bg-red-500 ring-2 ring-red-500/20'}`}></div>
+                    {driver.is_active === false ? (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-amber-500 ring-2 ring-amber-500/20 flex items-center justify-center text-[8px] text-white font-bold" title="Frozen Account">F</div>
+                    ) : (
+                      <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${driver.is_available ? 'bg-green-500 ring-2 ring-green-500/20' : 'bg-red-500 ring-2 ring-red-500/20'}`}></div>
+                    )}
                   </div>
-                  <button className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/30 rounded-lg transition-all outline-none focus:outline-none" onClick={(e) => { e.stopPropagation(); }}>
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      className="p-1.5 text-charcoal/20 hover:text-charcoal hover:bg-silver/30 rounded-lg transition-all outline-none focus:outline-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveDropdownId(activeDropdownId === driver.id ? null : driver.id);
+                      }}
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                    {activeDropdownId === driver.id && (
+                      <div className="absolute right-0 mt-1 w-44 bg-white border border-silver/40 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
+                            handleViewProfile(driver);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-charcoal hover:bg-silver/10 transition-colors"
+                        >
+                          View Profile
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
+                            setStatusConfirm({ id: driver.id, name: driver.full_name, targetActive: !driver.is_active });
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${driver.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                        >
+                          {driver.is_active ? 'Freeze Account' : 'Activate Account'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
+                            setDeleteConfirmId(driver.id);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          Delete Permanently
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight mb-4">
-                  {driver.full_name}
-                </h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight">
+                    {driver.full_name}
+                  </h3>
+                  {driver.is_active === false && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                      Frozen
+                    </span>
+                  )}
+                </div>
+
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-silver/10 rounded-2xl">
@@ -240,7 +312,14 @@ const DriverPage: React.FC = () => {
                           {driver.full_name.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-charcoal">{driver.full_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-charcoal">{driver.full_name}</p>
+                            {driver.is_active === false && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                Frozen
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-charcoal/40 font-bold uppercase">ID: #{driver.user}</span>
                             {driver.warehouse_name && (
@@ -287,9 +366,50 @@ const DriverPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button className="p-2 text-charcoal/20 hover:text-primary hover:bg-white rounded-xl transition-all shadow-none hover:shadow-sm outline-none focus:outline-none" onClick={() => handleViewProfile(driver)}>
-                        View Profile
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button className="px-4 py-2 text-xs font-bold text-primary hover:bg-primary/5 rounded-xl transition-all outline-none focus:outline-none" onClick={() => handleViewProfile(driver)}>
+                          View Profile
+                        </button>
+                        <div className="relative">
+                          <button
+                            className="p-2 text-charcoal/20 hover:text-charcoal hover:bg-silver/10 rounded-xl transition-all outline-none focus:outline-none"
+                            onClick={() => setActiveDropdownId(activeDropdownId === driver.id ? null : driver.id)}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          {activeDropdownId === driver.id && (
+                            <div className="absolute right-0 mt-1 w-44 bg-white border border-silver/40 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownId(null);
+                                  handleViewProfile(driver);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-charcoal hover:bg-silver/10 transition-colors"
+                              >
+                                View Profile
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownId(null);
+                                  setStatusConfirm({ id: driver.id, name: driver.full_name, targetActive: !driver.is_active });
+                                }}
+                                className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${driver.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                              >
+                                {driver.is_active ? 'Freeze Account' : 'Activate Account'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownId(null);
+                                  setDeleteConfirmId(driver.id);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                              >
+                                Delete Permanently
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -314,6 +434,128 @@ const DriverPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchDrivers}
       />
+
+      {/* Freeze/Unfreeze Confirmation Modal */}
+      {statusConfirm !== null && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 animate-in zoom-in-95 duration-300 text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`p-3 rounded-2xl ${statusConfirm.targetActive ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                {statusConfirm.targetActive ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+              </div>
+              <h3 className="text-lg font-black text-charcoal">
+                {statusConfirm.targetActive ? 'Activate Account' : 'Freeze Account'}
+              </h3>
+            </div>
+            <p className="text-sm text-charcoal/70 mb-6">
+              Are you sure you want to {statusConfirm.targetActive ? 'activate' : 'freeze/block'} the rider account for <strong>{statusConfirm.name}</strong>? 
+              {statusConfirm.targetActive 
+                ? ' This will restore their access to the mobile delivery app.' 
+                : ' This will immediately suspend their access to the mobile delivery app and prevent them from completing any new delivery routes.'}
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setStatusConfirm(null)}
+                disabled={isProcessing}
+                className="px-5 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsProcessing(true);
+                  try {
+                    await driverApi.updateDriver(statusConfirm.id, { is_active: statusConfirm.targetActive });
+                    setDrivers(prev => prev.map(d => d.id === statusConfirm.id ? { ...d, is_active: statusConfirm.targetActive } : d));
+                    setStatusConfirm(null);
+                  } catch (err) {
+                    console.error("Failed to update rider status:", err);
+                    alert("Failed to update rider status. Please try again.");
+                  } finally {
+                    setIsProcessing(false);
+                  }
+                }}
+                disabled={isProcessing}
+                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer disabled:opacity-50 ${
+                  statusConfirm.targetActive 
+                    ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700' 
+                    : 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700'
+                }`}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  statusConfirm.targetActive ? 'Activate' : 'Freeze'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId !== null && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 animate-in zoom-in-95 duration-300 text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-charcoal">
+                Confirm Permanent Deletion
+              </h3>
+            </div>
+            <p className="text-sm text-charcoal/70 mb-6">
+              Are you sure you want to permanently delete this rider profile and their linked user account?
+              This action <strong>cannot be undone</strong>. If this rider is already assigned to active routes or zones, the system will prevent deletion.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isProcessing}
+                className="px-5 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsProcessing(true);
+                  try {
+                    await driverApi.deleteDriver(deleteConfirmId);
+                    setDrivers(prev => prev.filter(d => d.id !== deleteConfirmId));
+                    setDeleteConfirmId(null);
+                  } catch (err: any) {
+                    console.error("Failed to delete driver:", err);
+                    const errMsg = err.response?.data?.detail || "Please check if they have routes assigned.";
+                    alert(`Failed to delete rider: ${errMsg}`);
+                  } finally {
+                    setIsProcessing(false);
+                  }
+                }}
+                disabled={isProcessing}
+                className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Permanently"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

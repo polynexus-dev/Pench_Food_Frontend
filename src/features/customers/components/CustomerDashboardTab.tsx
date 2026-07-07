@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2 } from "lucide-react";
+import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2, User } from "lucide-react";
 import type { Customer } from "./types";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import { driverApi } from "../../drivers/api/driverApi";
@@ -372,6 +372,14 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                       </div>
                       {customer.phone}
                     </div>
+                    {customer.username && (
+                      <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
+                        <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-mono text-xs">@{customer.username}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -451,7 +459,10 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                           </div>
                           <div>
                             <p className="text-sm font-black text-charcoal group-hover:text-primary transition-colors">{customer.name}</p>
-                            <p className="text-[10px] text-charcoal/40 font-bold uppercase">{customer.company || 'Private'}</p>
+                            <p className="text-[10px] text-charcoal/40 font-bold uppercase">
+                              {customer.company || 'Private Customer'}
+                              {customer.username && ` • @${customer.username}`}
+                            </p>
                           </div>
                         </div>
                       </td>

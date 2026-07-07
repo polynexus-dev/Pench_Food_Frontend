@@ -38,6 +38,7 @@ export interface Customer {
   zone_name?: string | null;
   is_new?: boolean;
   trial_approved?: boolean;
+  username?: string | null;
 }
 
 

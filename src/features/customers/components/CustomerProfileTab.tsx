@@ -32,6 +32,7 @@ import {
   X,
   Loader2,
   FileText,
+  Edit,
 } from "lucide-react";
 import type {
   Customer,
@@ -69,6 +70,62 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+
+  // Customer Details Edit States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCompany, setEditCompany] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editZone, setEditZone] = useState("");
+  const [isEditSubmitLoading, setIsEditSubmitLoading] = useState(false);
+
+  const handleOpenEditModal = () => {
+    setEditName(customer.name || "");
+    setEditCompany(customer.company || "");
+    setEditEmail(customer.email || "");
+    setEditPhone(customer.phone || "");
+    setEditAddress(customer.address || "");
+    setEditNotes(customer.notes || "");
+    setEditZone(customer.zone || "");
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsEditSubmitLoading(true);
+    try {
+      const payload: any = {
+        name: editName.trim(),
+        company: editCompany.trim(),
+        email: editEmail.trim() || null,
+        phone: editPhone.trim(),
+        address: editAddress.trim(),
+        notes: editNotes.trim(),
+        zone: editZone || null,
+      };
+      const updated = await customerApi.updateCustomer(customer.id, payload);
+      onUpdateCustomer({
+        ...customer,
+        ...updated,
+      });
+      setIsEditModalOpen(false);
+    } catch (error: any) {
+      console.error("Failed to update customer:", error);
+      const serverErr = error.response?.data;
+      let errMsg = "Failed to update customer details. Please try again.";
+      if (serverErr && typeof serverErr === "object") {
+        errMsg = Object.entries(serverErr)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`)
+          .join("\n");
+      }
+      alert(errMsg);
+    } finally {
+      setIsEditSubmitLoading(false);
+    }
+  };
 
   // Avatar QR Code Flip Modal State
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -1060,6 +1117,12 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
             {/* Quick action buttons */}
             <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={handleOpenEditModal}
+                className="flex items-center gap-2 px-5 py-3 border border-silver/50 bg-white hover:bg-silver/10 text-charcoal text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs"
+              >
+                <Edit className="w-4 h-4 text-primary" /> Edit Details
+              </button>
               <button
                 onClick={handleToggleStatus}
                 disabled={isStatusUpdating}
@@ -3790,8 +3853,163 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Edit Customer Details Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 animate-in zoom-in-95 duration-300 text-left">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-silver/30 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                  <Edit className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-black text-charcoal">
+                  Edit Customer Details
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1.5 hover:bg-silver/10 text-charcoal/40 hover:text-charcoal rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                    Customer Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompany}
+                    onChange={(e) => setEditCompany(e.target.value)}
+                    placeholder="e.g. Acme Corp"
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="e.g. 9876543210"
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="e.g. john@example.com"
+                    className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                  Assigned Zone
+                </label>
+                <select
+                  value={editZone}
+                  onChange={(e) => setEditZone(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                >
+                  <option value="">Unassigned</option>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                  Delivery Address
+                </label>
+                <textarea
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  rows={2}
+                  placeholder="Street address, city, state..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block ml-1">
+                  Notes
+                </label>
+                <textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Special instructions or customer preferences..."
+                  className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-3 border-t border-silver/30 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isEditSubmitLoading}
+                  className="px-4 py-2.5 border border-silver/50 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditSubmitLoading}
+                  className="px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/95 transition-all active:scale-95 cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isEditSubmitLoading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default CustomerProfileTab;
+

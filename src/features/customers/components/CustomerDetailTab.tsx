@@ -129,6 +129,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
   }, [selectedCustomerId, selectedCustomer, isManualPan, customers]);
 
   const mapRef = React.useRef<HTMLDivElement>(null);
+  const hasMovedDuringDragRef = React.useRef(false);
   const [mapContainerNode, setMapContainerNode] = useState<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
@@ -223,6 +224,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     setIsDragging(true);
+    hasMovedDuringDragRef.current = false;
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
@@ -232,6 +234,11 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
+    
+    if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+      hasMovedDuringDragRef.current = true;
+    }
+    
     setDragStart({ x: e.clientX, y: e.clientY });
 
     const getTileCount = (z: number) => Math.pow(2, z);
@@ -337,6 +344,11 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onClick={(e) => {
+            if (!hasMovedDuringDragRef.current) {
+              setSelectedCustomerId(null);
+            }
+          }}
         >
           {/* Tiles */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
@@ -376,7 +388,8 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                   <g
                     key={c.id}
                     className="cursor-pointer pointer-events-auto transition-all"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedCustomerId(c.id);
                       setIsManualPan(false);
                     }}

@@ -38,6 +38,14 @@ export const driverApi = {
   },
 
   /**
+   * Delete a driver permanently
+   */
+  deleteDriver: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/ems/drivers/${id}/`);
+  },
+
+
+  /**
    * Fetch all zones
    */
   getZones: async (): Promise<Zone[]> => {
