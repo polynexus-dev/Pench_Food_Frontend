@@ -513,7 +513,13 @@ export const BulkCreateCustomersModal: React.FC<
         }
 
         if (emailVal) item.email = emailVal;
-        if (c.phone && c.phone.trim()) item.phone = c.phone.trim();
+        if (c.phone && c.phone.trim()) {
+          item.phone = c.phone.trim();
+        } else {
+          const randomStr = Math.random().toString(36).substring(2, 7);
+          const timestamp = Math.floor(Date.now() / 1000) % 100000;
+          item.phone = `N/A-${randomStr}-${timestamp}`;
+        }
         item.company = c.company.trim() || defaultCompany || "";
         if (c.address && c.address.trim()) item.address = c.address.trim();
 
@@ -615,6 +621,30 @@ export const BulkCreateCustomersModal: React.FC<
     } catch (err: any) {
       console.error("Bulk creation failed:", err);
       const serverErr = err.response?.data;
+      if (Array.isArray(serverErr)) {
+        let errorFound = false;
+        const updated = parsedCustomers.map((c, index) => {
+          const rowError = serverErr[index];
+          if (rowError && typeof rowError === "object" && Object.keys(rowError).length > 0) {
+            const firstFieldName = Object.keys(rowError)[0];
+            const firstFieldErrors = rowError[firstFieldName];
+            const msg = Array.isArray(firstFieldErrors) ? firstFieldErrors[0] : String(firstFieldErrors);
+            errorFound = true;
+            return {
+              ...c,
+              error: `${firstFieldName.toUpperCase()}: ${msg}`,
+            };
+          }
+          return c;
+        });
+        if (errorFound) {
+          setParsedCustomers(updated);
+          setSubmitError("Some customer records failed backend validation. Errors have been highlighted below.");
+          setFilterMode("errors");
+          return;
+        }
+      }
+
       if (serverErr && typeof serverErr === "object") {
         const firstKey = Object.keys(serverErr)[0];
         const errorMsg = Array.isArray(serverErr[firstKey])
@@ -944,8 +974,17 @@ export const BulkCreateCustomersModal: React.FC<
                                     e.target.value,
                                   )
                                 }
-                                className="w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold"
+                                className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
+                                  hasErr && c.error?.toLowerCase().includes("phone")
+                                    ? "border-rose-400 bg-rose-50/50"
+                                    : ""
+                                }`}
                               />
+                              {hasErr && c.error?.toLowerCase().includes("phone") && (
+                                <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
+                                  {c.error}
+                                </div>
+                              )}
                             </td>
                             <td className="p-1 px-2 text-center">
                               <input
@@ -1100,15 +1139,15 @@ export const BulkCreateCustomersModal: React.FC<
                                 }
                                 className={`w-full p-2 bg-transparent outline-none border border-transparent rounded-lg focus:bg-white focus:border-silver/80 text-charcoal font-semibold ${
                                   hasErr &&
-                                  c.email.trim() &&
-                                  !c.email.includes("@")
+                                  ((c.email.trim() && !c.email.includes("@")) ||
+                                    c.error?.toLowerCase().includes("email"))
                                     ? "border-rose-400 bg-rose-50/50"
                                     : ""
                                 }`}
                               />
                               {hasErr &&
-                                c.email.trim() &&
-                                !c.email.includes("@") && (
+                                ((c.email.trim() && !c.email.includes("@")) ||
+                                  c.error?.toLowerCase().includes("email")) && (
                                   <div className="text-[10px] text-rose-500 font-bold px-2 mt-0.5">
                                     {c.error}
                                   </div>
