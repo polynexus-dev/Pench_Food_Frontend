@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
-    allowedHosts: ["pench.polynexus.in", "pench.dev.polynexus.in"],
+    allowedHosts: ["pench.polynexus.in", "pench.dev.polynexus.in", "shop.penchfoods.com"],
   },
 });
