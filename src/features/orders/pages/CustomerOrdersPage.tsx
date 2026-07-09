@@ -124,7 +124,7 @@ const CustomerOrdersPage = () => {
                           })}
                         </td>
                         <td className="py-4 text-xs text-charcoal/80">
-                          {order.items.map((it) => `${it.product_name} (${it.quantity})`).join(", ")}
+                          {(order.items || []).map((it) => `${it.product_name} (${it.quantity})`).join(", ")}
                         </td>
                         <td className="py-4 text-xs font-bold text-charcoal">₹{order.total}</td>
                         <td className="py-4">

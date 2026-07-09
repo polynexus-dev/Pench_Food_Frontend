@@ -857,7 +857,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                           </div>
 
                           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                            {order.items.map((item) => (
+                            {(order.items || []).map((item) => (
                               <div
                                 key={item.id}
                                 className="px-2 py-1 bg-silver/5 rounded-lg border border-silver/30 text-[9px] font-bold text-charcoal/60 whitespace-nowrap"
@@ -868,7 +868,7 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
                                 </span>
                               </div>
                             ))}
-                            {order.items.length === 0 && (
+                            {(order.items || []).length === 0 && (
                               <span className="text-[9px] font-medium text-charcoal/30 italic">
                                 No items listed
                               </span>

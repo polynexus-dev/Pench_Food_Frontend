@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw, Building2, Trash2, Lock, Unlock, Loader2 } from "lucide-react";
+import { Search, ShieldCheck, MoreVertical, Hash, Truck, Package, Activity, CheckCircle2, XCircle, LayoutGrid, List as ListIcon, Plus, Users, RefreshCw, Building2, Trash2, Lock, Unlock, Loader2, Upload } from "lucide-react";
 import { driverApi } from "../api/driverApi";
 import type { Driver } from "../components/types";
 import CreateDriverModal from "../components/CreateDriverModal";
+import { BulkCreateDriversModal } from "../components/BulkCreateDriversModal";
 import DriverProfileTab from "../components/DriverProfileTab";
 import { useAuthStore } from "../../../store/useAuthStore";
 
@@ -13,6 +14,7 @@ const DriverPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   // Profile View State
   const [activeTab, setActiveTab] = useState<"directory" | "profile">("directory");
@@ -149,6 +151,14 @@ const DriverPage: React.FC = () => {
               <ListIcon className="w-5 h-5" />
             </button>
           </div>
+
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white border border-silver/60 text-charcoal rounded-2xl font-bold shadow-xs hover:bg-silver/10 transition-all active:scale-95 whitespace-nowrap outline-none focus:outline-none"
+          >
+            <Upload className="w-4.5 h-4.5 text-primary" />
+            Upload Excel
+          </button>
 
           <button
             onClick={() => setIsModalOpen(true)}
@@ -556,6 +566,11 @@ const DriverPage: React.FC = () => {
         </div>
       )}
 
+      <BulkCreateDriversModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSuccess={fetchDrivers}
+      />
     </div>
   );
 };

@@ -59,5 +59,13 @@ export const driverApi = {
   registerDriver: async (payload: any): Promise<any> => {
     const response = await axiosInstance.post("/accounts/register/", [payload]);
     return response.data;
+  },
+
+  /**
+   * Register multiple rider / driver user accounts in one request (bulk Excel import)
+   */
+  bulkRegisterDrivers: async (payloads: any[]): Promise<any> => {
+    const response = await axiosInstance.post("/accounts/register/", payloads);
+    return response.data;
   }
 };

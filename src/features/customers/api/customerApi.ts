@@ -32,6 +32,14 @@ export const customerApi = {
   },
 
   /**
+   * Approve multiple trial customers at once
+   */
+  bulkApproveCustomers: async (ids: string[]): Promise<{ message: string; approved_customers: any[] }> => {
+    const response = await axiosInstance.post<{ message: string; approved_customers: any[] }>("/erp/customers/bulk-approve/", { ids });
+    return response.data;
+  },
+
+  /**
    * Fetch a single customer by ID
    */
   getCustomerById: async (id: string): Promise<Customer> => {
