@@ -79,7 +79,9 @@ axiosInstance.interceptors.response.use(
       // If the refresh request itself fails, logout and redirect
       if (originalRequest.url?.includes("/accounts/login/refresh/")) {
         useAuthStore.getState().logout();
-        window.location.href = "/login";
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
         return Promise.reject(error);
       }
 
@@ -103,7 +105,9 @@ axiosInstance.interceptors.response.use(
       const { refreshToken, tenant, user } = useAuthStore.getState();
       if (!refreshToken) {
         useAuthStore.getState().logout();
-        window.location.href = "/login";
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
         return Promise.reject(error);
       }
 
@@ -124,7 +128,9 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         useAuthStore.getState().logout();
-        window.location.href = "/login";
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
