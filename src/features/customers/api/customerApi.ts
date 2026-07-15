@@ -26,16 +26,38 @@ export const customerApi = {
   /**
    * Approve a trial customer
    */
-  approveCustomer: async (id: string): Promise<Customer> => {
-    const response = await axiosInstance.post<Customer>(`/erp/customers/${id}/approve/`);
+  approveCustomer: async (
+    id: string,
+    productId: string,
+    deliveryDate: string,
+    quantity: number = 1
+  ): Promise<Customer> => {
+    const response = await axiosInstance.post<Customer>(`/erp/customers/${id}/approve/`, {
+      product_id: productId,
+      delivery_date: deliveryDate,
+      quantity,
+    });
     return response.data;
   },
 
   /**
    * Approve multiple trial customers at once
    */
-  bulkApproveCustomers: async (ids: string[]): Promise<{ message: string; approved_customers: any[] }> => {
-    const response = await axiosInstance.post<{ message: string; approved_customers: any[] }>("/erp/customers/bulk-approve/", { ids });
+  bulkApproveCustomers: async (
+    ids: string[],
+    productId: string,
+    deliveryDate: string,
+    quantity: number = 1
+  ): Promise<{ message: string; approved_customers: any[] }> => {
+    const response = await axiosInstance.post<{ message: string; approved_customers: any[] }>(
+      "/erp/customers/bulk-approve/",
+      {
+        ids,
+        product_id: productId,
+        delivery_date: deliveryDate,
+        quantity,
+      }
+    );
     return response.data;
   },
 

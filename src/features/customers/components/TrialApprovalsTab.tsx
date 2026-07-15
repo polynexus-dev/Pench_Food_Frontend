@@ -4,6 +4,15 @@ import { Check, UserCheck, Search, ShieldAlert, Sparkles, Loader2 } from "lucide
 import type { Customer } from "./types";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  unit_price: string;
+  unit: string;
+  is_active: boolean;
+}
+
 interface TrialApprovalsTabProps {
   onViewProfile: (customerId: string) => void;
 }
@@ -16,6 +25,16 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkApproving, setIsBulkApproving] = useState<boolean>(false);
   const addNotification = useNotificationStore((state) => state.addNotification);
+
+  // Modal & trial delivery inputs state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [modalCustomer, setModalCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [modalIsBulk, setModalIsBulk] = useState<boolean>(false);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
+  const [quantity, setQuantity] = useState<number>(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const fetchNewCustomers = async () => {
     setIsLoading(true);
@@ -34,33 +53,120 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const data = await customerApi.getProducts();
+      const activeProducts = data.filter((p: any) => p.is_active);
+      setProducts(activeProducts);
+      if (activeProducts.length > 0) {
+        setSelectedProductId(activeProducts[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to load products:", err);
+    }
+  };
+
   useEffect(() => {
     fetchNewCustomers();
+    fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleApprove = async (customerId: string, customerName: string) => {
-    setApprovingId(customerId);
-    try {
-      await customerApi.approveCustomer(customerId);
+  // Automatically default date to tomorrow when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setDeliveryDate(tomorrow.toISOString().split("T")[0]);
+    }
+  }, [isModalOpen]);
+
+  const handleApproveClick = (customerId: string, customerName: string) => {
+    setModalCustomer({ id: customerId, name: customerName });
+    setModalIsBulk(false);
+    setQuantity(1);
+    if (products.length > 0 && !selectedProductId) {
+      setSelectedProductId(products[0].id);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleBulkApproveClick = () => {
+    if (selectedIds.length === 0) return;
+    setModalCustomer(null);
+    setModalIsBulk(true);
+    setQuantity(1);
+    if (products.length > 0 && !selectedProductId) {
+      setSelectedProductId(products[0].id);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmApproval = async () => {
+    if (!selectedProductId || !deliveryDate || quantity <= 0) {
       addNotification({
-        title: "Trial Approved! 🎉",
-        message: `Customer "${customerName}" has been approved for a trial run. Welcoming push notification sent.`,
-        type: "success"
-      });
-      // Remove from list and selection
-      setNewCustomers((prev) => prev.filter((c) => c.id !== customerId));
-      setSelectedIds((prev) => prev.filter((id) => id !== customerId));
-    } catch (err: any) {
-      console.error("Failed to approve trial customer:", err);
-      addNotification({
-        title: "Approval Failed ⚠️",
-        message: err?.response?.data?.detail || `Could not approve trial for ${customerName}.`,
+        title: "Validation Error ⚠️",
+        message: "Please fill in all fields correctly.",
         type: "error"
       });
-    } finally {
-      setApprovingId(null);
+      return;
     }
+
+    setIsSubmitting(true);
+    if (modalIsBulk) {
+      setIsBulkApproving(true);
+      try {
+        const result = await customerApi.bulkApproveCustomers(
+          selectedIds,
+          selectedProductId,
+          deliveryDate,
+          quantity
+        );
+        addNotification({
+          title: "Trials Approved! 🎉",
+          message: `Successfully approved ${result.approved_customers.length} trial customers. Welcoming notifications sent.`,
+          type: "success",
+        });
+        const approvedIds = result.approved_customers.map((c) => c.id);
+        setNewCustomers((prev) => prev.filter((c) => !approvedIds.includes(c.id)));
+        setSelectedIds((prev) => prev.filter((id) => !approvedIds.includes(id)));
+        setIsModalOpen(false);
+      } catch (err: any) {
+        console.error("Failed to bulk approve trial customers:", err);
+        addNotification({
+          title: "Bulk Approval Failed ⚠️",
+          message: err?.response?.data?.detail || "Could not bulk approve trial customers.",
+          type: "error",
+        });
+      } finally {
+        setIsBulkApproving(false);
+      }
+    } else if (modalCustomer) {
+      const { id: customerId, name: customerName } = modalCustomer;
+      setApprovingId(customerId);
+      try {
+        await customerApi.approveCustomer(customerId, selectedProductId, deliveryDate, quantity);
+        addNotification({
+          title: "Trial Approved! 🎉",
+          message: `Customer "${customerName}" has been approved for a trial run. Welcoming push notification sent.`,
+          type: "success"
+        });
+        // Remove from list and selection
+        setNewCustomers((prev) => prev.filter((c) => c.id !== customerId));
+        setSelectedIds((prev) => prev.filter((id) => id !== customerId));
+        setIsModalOpen(false);
+      } catch (err: any) {
+        console.error("Failed to approve trial customer:", err);
+        addNotification({
+          title: "Approval Failed ⚠️",
+          message: err?.response?.data?.detail || `Could not approve trial for ${customerName}.`,
+          type: "error"
+        });
+      } finally {
+        setApprovingId(null);
+      }
+    }
+    setIsSubmitting(false);
   };
 
   const handleToggleSelect = (customerId: string) => {
@@ -79,31 +185,6 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
       setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
     } else {
       setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
-    }
-  };
-
-  const handleBulkApprove = async () => {
-    if (selectedIds.length === 0) return;
-    setIsBulkApproving(true);
-    try {
-      const result = await customerApi.bulkApproveCustomers(selectedIds);
-      addNotification({
-        title: "Trials Approved! 🎉",
-        message: `Successfully approved ${result.approved_customers.length} trial customers. Welcoming notifications sent.`,
-        type: "success",
-      });
-      const approvedIds = result.approved_customers.map((c) => c.id);
-      setNewCustomers((prev) => prev.filter((c) => !approvedIds.includes(c.id)));
-      setSelectedIds((prev) => prev.filter((id) => !approvedIds.includes(id)));
-    } catch (err: any) {
-      console.error("Failed to bulk approve trial customers:", err);
-      addNotification({
-        title: "Bulk Approval Failed ⚠️",
-        message: err?.response?.data?.detail || "Could not bulk approve trial customers.",
-        type: "error",
-      });
-    } finally {
-      setIsBulkApproving(false);
     }
   };
 
@@ -153,7 +234,7 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
         <div className="flex items-center gap-3 self-end sm:self-auto">
           {selectedIds.length > 0 ? (
             <button
-              onClick={handleBulkApprove}
+              onClick={handleBulkApproveClick}
               disabled={isBulkApproving}
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/10 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -255,7 +336,7 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
                   View Profile
                 </button>
                 <button
-                  onClick={() => handleApprove(customer.id, customer.name)}
+                  onClick={() => handleApproveClick(customer.id, customer.name)}
                   disabled={approvingId !== null || isBulkApproving}
                   className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/10 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
@@ -269,6 +350,90 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Trial Details Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl border border-silver/60 shadow-2xl max-w-md w-full p-6 space-y-6 animate-in fade-in zoom-in duration-200">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-charcoal flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Setup Trial Delivery
+              </h3>
+              <p className="text-xs text-charcoal/50">
+                {modalIsBulk
+                  ? `Specify the product and delivery date for the ${selectedIds.length} selected trial customers.`
+                  : `Specify the product and delivery date for approving ${modalCustomer?.name}'s trial.`}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Product selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-charcoal/70">Select Product</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className="w-full px-3 py-2 bg-silver/10 border border-silver/60 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-charcoal"
+                >
+                  <option value="" disabled>-- Select a Product --</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} (₹{product.unit_price} / {product.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Delivery Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-charcoal/70">Delivery Date</label>
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-silver/10 border border-silver/60 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-charcoal"
+                />
+              </div>
+
+              {/* Quantity */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-charcoal/70">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3 py-2 bg-silver/10 border border-silver/60 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-charcoal"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 py-2.5 border border-silver/60 hover:bg-silver/10 rounded-xl text-xs font-bold text-charcoal transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApproval}
+                disabled={isSubmitting || products.length === 0}
+                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/10 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <UserCheck className="w-3.5 h-3.5" />
+                )}
+                Confirm & Approve
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
