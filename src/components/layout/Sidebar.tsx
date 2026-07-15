@@ -290,6 +290,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent"></span>
             </span>
           </div>
+          <a
+            href="https://polynexus.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[8px] font-bold text-white/25 hover:text-accent transition-all duration-300 mt-2 tracking-widest uppercase hover:underline cursor-pointer"
+          >
+            Polynexus Technologies
+          </a>
         </div>
       </div>
     </aside>

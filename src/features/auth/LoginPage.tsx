@@ -424,8 +424,19 @@ const LoginPage: React.FC<LoginPageProps> = () => {
       </div>
 
       {/* Decorative Copyright Footer */}
-      <div className="text-center py-6 text-charcoal/40 text-xs font-bold border-t border-[#E3E3E3]/50 bg-white">
-        &copy; 2026 Pench Foods Pvt. Ltd. All rights reserved.
+      <div className="text-center py-6 text-charcoal/50 text-xs font-bold border-t border-[#E3E3E3]/50 bg-white space-y-1">
+        <div>&copy; 2026 Pench Foods Pvt. Ltd. All rights reserved.</div>
+        <div className="text-[10px] font-semibold text-charcoal/40 uppercase tracking-widest">
+          Developed &amp; Powered by{" "}
+          <a
+            href="https://polynexus.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#01522D] transition-colors underline font-bold"
+          >
+            Polynexus Technologies
+          </a>
+        </div>
       </div>
     </div>
   );
