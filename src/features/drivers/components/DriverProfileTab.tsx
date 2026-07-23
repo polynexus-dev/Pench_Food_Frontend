@@ -18,6 +18,8 @@ import {
   Users,
   Search,
   Building2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
@@ -41,6 +43,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   onUpdateDriver,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers">("basic");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
@@ -473,6 +476,10 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                           <span className="font-bold text-charcoal">{driver.full_name}</span>
                         </div>
                         <div className="flex justify-between items-center text-xs">
+                          <span className="text-charcoal/40 font-bold">Username</span>
+                          <span className="font-bold text-charcoal font-mono">{driver.username || "Not specified"}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
                           <span className="text-charcoal/40 font-bold">User Link ID</span>
                           <span className="font-bold text-charcoal font-mono">#{driver.user}</span>
                         </div>
@@ -483,6 +490,35 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-charcoal/40 font-bold">Phone Number</span>
                           <span className="font-bold text-charcoal">{driver.phone || "Not specified"}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-charcoal/40 font-bold">Password</span>
+                          <div className="flex items-center gap-2 max-w-[200px]">
+                            <span
+                              className="font-bold text-charcoal font-mono text-[10px] truncate max-w-[120px]"
+                              title={showPassword ? (driver.password || "N/A") : "••••••••"}
+                            >
+                              {showPassword ? (driver.password || "N/A") : "••••••••"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="p-1 text-[10px] font-semibold text-primary hover:text-primary-dark transition-colors flex items-center gap-1 bg-primary/10 hover:bg-primary/20 rounded px-2 py-0.5"
+                              title={showPassword ? "Hide Password" : "Show Password"}
+                            >
+                              {showPassword ? (
+                                <>
+                                  <EyeOff className="w-3 h-3" />
+                                  <span>Hide</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-3 h-3" />
+                                  <span>Show</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                         {driver.rating && (
                           <div className="flex justify-between items-center text-xs">
