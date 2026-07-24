@@ -66,6 +66,8 @@ export interface Route {
   is_locked?: boolean;
   route_geometry: any;
   stops: Stop[];
+  stops_count?: number;
+  total_stops?: number;
   status: "pending" | "started" | "in_progress" | "in_transit" | "completed" | "stopped" | "active";
   dispatch_bottles_1L?: number;
   dispatch_bottles_500ml?: number;

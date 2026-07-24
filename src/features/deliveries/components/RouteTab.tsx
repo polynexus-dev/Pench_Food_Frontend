@@ -35,18 +35,23 @@ interface RouteTabProps {
 
 const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoading, onRefresh }) => {
   const routes = useMemo(() => {
-    return rawRoutes.map(route => ({
-      ...route,
-      stops: (route.stops || []).map(stop => {
-        const lat = typeof stop.latitude === "number" ? stop.latitude : parseFloat(stop.latitude as any);
-        const lng = typeof stop.longitude === "number" ? stop.longitude : parseFloat(stop.longitude as any);
-        return {
-          ...stop,
-          latitude: isNaN(lat) || lat === null || lat === undefined ? 21.1458 : lat,
-          longitude: isNaN(lng) || lng === null || lng === undefined ? 79.0882 : lng,
-        };
-      })
-    }));
+    return rawRoutes.map(route => {
+      const stopList = route.stops || [];
+      const calculatedCount = route.stops_count ?? route.total_stops ?? stopList.length;
+      return {
+        ...route,
+        stops_count: calculatedCount,
+        stops: stopList.map(stop => {
+          const lat = typeof stop.latitude === "number" ? stop.latitude : parseFloat(stop.latitude as any);
+          const lng = typeof stop.longitude === "number" ? stop.longitude : parseFloat(stop.longitude as any);
+          return {
+            ...stop,
+            latitude: isNaN(lat) || lat === null || lat === undefined ? 21.1458 : lat,
+            longitude: isNaN(lng) || lng === null || lng === undefined ? 79.0882 : lng,
+          };
+        })
+      };
+    });
   }, [rawRoutes]);
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -1022,7 +1027,7 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoadi
                        </span>
                     </div>
                     <div className="w-1 h-1 bg-charcoal opacity-20 rounded-full"></div>
-                    <span className="text-[10px] font-bold text-charcoal/60">{route.stops.length} Stops</span>
+                    <span className="text-[10px] font-bold text-charcoal/60">{route.stops_count ?? route.stops.length} Stops</span>
                   </div>
                   
                   {/* Bottle dispatch requirements */}
