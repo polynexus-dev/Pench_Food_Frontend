@@ -189,14 +189,22 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
   };
 
   // Filter list based on search
-  const filteredCustomers = newCustomers.filter((c) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(query) ||
-      c.email.toLowerCase().includes(query) ||
-      c.phone.toLowerCase().includes(query) ||
-      (c.zone_name && c.zone_name.toLowerCase().includes(query))
-    );
+  const filteredCustomers = (newCustomers || []).filter((c) => {
+    if (!c) return false;
+    const query = (searchQuery || "").toLowerCase().trim();
+    const digitQuery = (searchQuery || "").replace(/\D/g, "");
+
+    const nameMatch = c.name ? c.name.toLowerCase().includes(query) : false;
+    const emailMatch = c.email ? c.email.toLowerCase().includes(query) : false;
+
+    const rawPhone = c.phone ? String(c.phone) : "";
+    const cleanPhone = rawPhone.replace(/\D/g, "");
+    const phoneMatch =
+      rawPhone.toLowerCase().includes(query) ||
+      (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+
+    const zoneMatch = c.zone_name ? c.zone_name.toLowerCase().includes(query) : false;
+    return nameMatch || emailMatch || phoneMatch || zoneMatch;
   });
 
   return (

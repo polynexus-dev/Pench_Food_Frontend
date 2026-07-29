@@ -51,11 +51,21 @@ const CustomerDetailTab: React.FC<CustomerDetailTabProps> = ({
 
   // Filtered customers for the list
   const filteredCustomers = useMemo(() => {
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.phone.includes(searchQuery),
-    );
+    const searchLower = (searchQuery || "").toLowerCase().trim();
+    const digitQuery = (searchQuery || "").replace(/\D/g, "");
+    return (customers || []).filter((c) => {
+      if (!c) return false;
+      const nameMatch = c.name ? c.name.toLowerCase().includes(searchLower) : false;
+      const emailMatch = c.email ? c.email.toLowerCase().includes(searchLower) : false;
+
+      const rawPhone = c.phone ? String(c.phone) : "";
+      const cleanPhone = rawPhone.replace(/\D/g, "");
+      const phoneMatch =
+        rawPhone.toLowerCase().includes(searchLower) ||
+        (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+
+      return nameMatch || emailMatch || phoneMatch;
+    });
   }, [customers, searchQuery]);
 
   // Selected customer object

@@ -249,8 +249,10 @@ const InventoryBottleTrackingTab: React.FC<InventoryBottleTrackingTabProps> = ({
   }, [summary, driverSearch]);
 
   const filteredBalances = React.useMemo(() => {
-    return customerBalances.filter((cb) => {
-      const matchSearch = cb.customer_name.toLowerCase().includes(customerSearch.toLowerCase().trim());
+    const q = (customerSearch || "").toLowerCase().trim();
+    return (customerBalances || []).filter((cb) => {
+      if (!cb) return false;
+      const matchSearch = cb.customer_name ? cb.customer_name.toLowerCase().includes(q) : false;
       const matchType = selectedBalanceBottleType === "all" || cb.bottle_type === selectedBalanceBottleType;
       return matchSearch && matchType && cb.balance > 0;
     });

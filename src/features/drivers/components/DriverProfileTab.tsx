@@ -88,13 +88,16 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   }, [driver.zone]);
 
   const filteredCustomers = React.useMemo(() => {
-    return assignedCustomers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-        (c.company && c.company.toLowerCase().includes(customerSearchQuery.toLowerCase())) ||
-        (c.email && c.email.toLowerCase().includes(customerSearchQuery.toLowerCase())) ||
-        (c.address && c.address.toLowerCase().includes(customerSearchQuery.toLowerCase()))
-    );
+    const q = (customerSearchQuery || "").toLowerCase().trim();
+    return (assignedCustomers || []).filter((c) => {
+      if (!c) return false;
+      const nameMatch = c.name ? c.name.toLowerCase().includes(q) : false;
+      const companyMatch = c.company ? c.company.toLowerCase().includes(q) : false;
+      const emailMatch = c.email ? c.email.toLowerCase().includes(q) : false;
+      const addressMatch = c.address ? c.address.toLowerCase().includes(q) : false;
+      const phoneMatch = c.phone ? String(c.phone).includes(customerSearchQuery) : false;
+      return nameMatch || companyMatch || emailMatch || addressMatch || phoneMatch;
+    });
   }, [assignedCustomers, customerSearchQuery]);
 
   // Fetch zones on mount

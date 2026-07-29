@@ -23,14 +23,21 @@ const CustomerQrTab: React.FC<CustomerQrTabProps> = ({ customers, isLoading }) =
 
   // Filter customers based on search query
   const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
-      const searchLower = searchQuery.toLowerCase();
-      return (
-        customer.name.toLowerCase().includes(searchLower) ||
-        (customer.email && customer.email.toLowerCase().includes(searchLower)) ||
-        (customer.phone && customer.phone.includes(searchQuery)) ||
-        (customer.qr_code_id && customer.qr_code_id.toLowerCase().includes(searchLower))
-      );
+    const searchLower = (searchQuery || "").toLowerCase().trim();
+    const digitQuery = (searchQuery || "").replace(/\D/g, "");
+    return (customers || []).filter((customer) => {
+      if (!customer) return false;
+      const nameMatch = customer.name ? customer.name.toLowerCase().includes(searchLower) : false;
+      const emailMatch = customer.email ? customer.email.toLowerCase().includes(searchLower) : false;
+
+      const rawPhone = customer.phone ? String(customer.phone) : "";
+      const cleanPhone = rawPhone.replace(/\D/g, "");
+      const phoneMatch =
+        rawPhone.toLowerCase().includes(searchLower) ||
+        (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+
+      const qrMatch = customer.qr_code_id ? customer.qr_code_id.toLowerCase().includes(searchLower) : false;
+      return nameMatch || emailMatch || phoneMatch || qrMatch;
     });
   }, [customers, searchQuery]);
 

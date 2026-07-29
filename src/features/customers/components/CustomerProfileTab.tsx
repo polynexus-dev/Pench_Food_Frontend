@@ -2439,13 +2439,13 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                 <>
                   {/* Products Grid */}
                   {(() => {
-                    const filtered = productsList.filter(
-                      (p) =>
-                        p.name
-                          .toLowerCase()
-                          .includes(searchQuery.toLowerCase()) ||
-                        p.sku.toLowerCase().includes(searchQuery.toLowerCase()),
-                    );
+                    const q = (searchQuery || "").toLowerCase().trim();
+                    const filtered = (productsList || []).filter((p) => {
+                      if (!p) return false;
+                      const nameMatch = p.name ? p.name.toLowerCase().includes(q) : false;
+                      const skuMatch = p.sku ? p.sku.toLowerCase().includes(q) : false;
+                      return nameMatch || skuMatch;
+                    });
 
                     if (filtered.length === 0) {
                       return (

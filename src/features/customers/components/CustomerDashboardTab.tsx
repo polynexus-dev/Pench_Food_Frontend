@@ -74,7 +74,10 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    const baseCustomers = customers.filter((customer) => {
+    const searchLower = (searchQuery || "").toLowerCase().trim();
+
+    const baseCustomers = (customers || []).filter((customer) => {
+      if (!customer) return false;
       const activeSubs = customer.dashboard?.active_subscriptions || 0;
       if (mode === "leads") {
         return activeSubs === 0;
@@ -85,11 +88,26 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
 
     return baseCustomers.filter((customer) => {
       // 1. Search text filter
-      const matchesSearch =
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.phone.includes(searchQuery);
-      if (!matchesSearch) return false;
+      if (searchLower) {
+        const digitQuery = searchQuery.replace(/\D/g, "");
+
+        const nameMatch = customer.name ? customer.name.toLowerCase().includes(searchLower) : false;
+        const emailMatch = customer.email ? customer.email.toLowerCase().includes(searchLower) : false;
+
+        // Phone matching: raw string match OR digit-normalized match
+        const rawPhone = customer.phone ? String(customer.phone) : "";
+        const cleanPhone = rawPhone.replace(/\D/g, "");
+        const phoneMatch =
+          rawPhone.toLowerCase().includes(searchLower) ||
+          (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+
+        const usernameMatch = customer.username ? customer.username.toLowerCase().includes(searchLower) : false;
+        const companyMatch = customer.company ? customer.company.toLowerCase().includes(searchLower) : false;
+
+        if (!nameMatch && !emailMatch && !phoneMatch && !usernameMatch && !companyMatch) {
+          return false;
+        }
+      }
 
       // 2. Zone filter
       if (selectedZone && customer.zone !== selectedZone) {
@@ -114,13 +132,13 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
 
       // 5. Bottle Type filter
       if (selectedBottleType) {
-        const custBalances = bottleBalances.filter((b) => b.customer === customer.id);
+        const custBalances = bottleBalances.filter((b) => b && b.customer === customer.id);
         
         if (selectedBottleType === "1L") {
-          const has1L = custBalances.some((b) => b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
+          const has1L = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
           if (!has1L) return false;
         } else if (selectedBottleType === "500ml") {
-          const has500ml = custBalances.some((b) => b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
+          const has500ml = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
           if (!has500ml) return false;
         } else if (selectedBottleType === "none") {
           const hasAny = custBalances.some((b) => b.balance > 0);
@@ -310,7 +328,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                   </div>
                   <div className="flex justify-between items-start mb-6 pl-8">
                     <div className="w-16 h-16 bg-cream rounded-2xl flex items-center justify-center font-black text-2xl text-primary border border-primary/5 group-hover:scale-105 transition-transform duration-300">
-                      {customer.name.charAt(0)}
+                      {(customer.name || "?").charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col items-end gap-2 relative">
                       <span
@@ -353,7 +371,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                   </div>
 
                   <h3 className="text-lg font-black text-charcoal group-hover:text-primary transition-colors leading-tight mb-1">
-                    {customer.name}
+                    {customer.name || "Unnamed Customer"}
                   </h3>
                   <p className="text-xs text-charcoal/40 font-bold uppercase tracking-wider mb-6">
                     {customer.company || "Private Customer"}
@@ -364,13 +382,13 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                       <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
                         <Mail className="w-3.5 h-3.5" />
                       </div>
-                      {customer.email}
+                      {customer.email || "No email"}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
                       <div className="p-1.5 bg-silver/20 rounded-lg group-hover:bg-primary/5 transition-colors">
                         <Phone className="w-3.5 h-3.5" />
                       </div>
-                      {customer.phone}
+                      {customer.phone || "No phone"}
                     </div>
                     {customer.username && (
                       <div className="flex items-center gap-3 text-sm text-charcoal/60 font-medium">
@@ -387,10 +405,12 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                   <div className="flex items-center gap-1.5 text-[10px] text-charcoal/40 font-bold uppercase">
                     <Calendar className="w-3 h-3" />
                     Joined{" "}
-                    {new Date(customer.created_at).toLocaleDateString("en-IN", {
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {customer.created_at
+                      ? new Date(customer.created_at).toLocaleDateString("en-IN", {
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "N/A"}
                   </div>
                   <button 
                     onClick={() => onViewDetails(customer.id)}
@@ -455,10 +475,10 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                       <td className="px-8 py-5 cursor-pointer" onClick={() => onViewDetails(customer.id)}>
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-cream rounded-xl flex items-center justify-center font-black text-sm text-primary border border-primary/5">
-                            {customer.name.charAt(0)}
+                            {(customer.name || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-sm font-black text-charcoal group-hover:text-primary transition-colors">{customer.name}</p>
+                            <p className="text-sm font-black text-charcoal group-hover:text-primary transition-colors">{customer.name || "Unnamed Customer"}</p>
                             <p className="text-[10px] text-charcoal/40 font-bold uppercase">
                               {customer.company || 'Private Customer'}
                               {customer.username && ` • @${customer.username}`}
@@ -469,10 +489,10 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                       <td className="px-6 py-5">
                         <div className="space-y-1">
                           <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
-                            <Mail className="w-3 h-3 text-primary/40" /> {customer.email}
+                            <Mail className="w-3 h-3 text-primary/40" /> {customer.email || "No email"}
                           </p>
                           <p className="text-xs font-semibold text-charcoal/70 flex items-center gap-2">
-                            <Phone className="w-3 h-3 text-primary/40" /> {customer.phone}
+                            <Phone className="w-3 h-3 text-primary/40" /> {customer.phone || "No phone"}
                           </p>
                         </div>
                       </td>
@@ -484,11 +504,11 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                         </span>
                       </td>
                       <td className="px-6 py-5 text-xs font-bold text-charcoal/40 uppercase">
-                        {new Date(customer.created_at).toLocaleDateString("en-IN", {
+                        {customer.created_at ? new Date(customer.created_at).toLocaleDateString("en-IN", {
                           day: '2-digit',
                           month: "short",
                           year: "numeric",
-                        })}
+                        }) : "N/A"}
                       </td>
                       <td className="px-6 py-5 text-right relative">
                         <div className="relative inline-block text-left">
