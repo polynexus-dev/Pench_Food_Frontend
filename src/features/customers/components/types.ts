@@ -15,6 +15,25 @@ export interface CustomerProductPrice {
   custom_price: string;
 }
 
+export interface BottleBalanceItem {
+  bottle_type_id: string;
+  bottle_type_name: string;
+  volume_ml: number;
+  unreturned_balance: number;
+  broken_balance: number;
+  lost_balance: number;
+  deposit_amount: number;
+}
+
+export interface CustomerBottleBalancesSummary {
+  unreturned_1L: number;
+  unreturned_500ml: number;
+  total_unreturned: number;
+  total_broken: number;
+  total_lost: number;
+  by_type: BottleBalanceItem[];
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -39,6 +58,7 @@ export interface Customer {
   is_new?: boolean;
   trial_approved?: boolean;
   username?: string | null;
+  bottle_balances?: CustomerBottleBalancesSummary;
 }
 
 

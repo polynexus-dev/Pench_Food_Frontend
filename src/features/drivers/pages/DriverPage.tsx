@@ -5,6 +5,7 @@ import type { Driver } from "../components/types";
 import CreateDriverModal from "../components/CreateDriverModal";
 import { BulkCreateDriversModal } from "../components/BulkCreateDriversModal";
 import DriverProfileTab from "../components/DriverProfileTab";
+import { EditDriverModal } from "../components/EditDriverModal";
 import { useAuthStore } from "../../../store/useAuthStore";
 
 const DriverPage: React.FC = () => {
@@ -15,6 +16,7 @@ const DriverPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
 
   // Profile View State
   const [activeTab, setActiveTab] = useState<"directory" | "profile">("directory");
@@ -217,6 +219,16 @@ const DriverPage: React.FC = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveDropdownId(null);
+                            setEditingDriver(driver);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          Edit Rider & Credentials
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDropdownId(null);
                             setStatusConfirm({ id: driver.id, name: driver.full_name, targetActive: !driver.is_active });
                           }}
                           className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${driver.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
@@ -401,6 +413,15 @@ const DriverPage: React.FC = () => {
                               <button
                                 onClick={() => {
                                   setActiveDropdownId(null);
+                                  setEditingDriver(driver);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-xs font-bold text-primary hover:bg-primary/10 transition-colors"
+                              >
+                                Edit Rider & Credentials
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveDropdownId(null);
                                   setStatusConfirm({ id: driver.id, name: driver.full_name, targetActive: !driver.is_active });
                                 }}
                                 className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors ${driver.is_active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
@@ -571,6 +592,18 @@ const DriverPage: React.FC = () => {
         onClose={() => setIsBulkModalOpen(false)}
         onSuccess={fetchDrivers}
       />
+
+      {editingDriver && (
+        <EditDriverModal
+          isOpen={!!editingDriver}
+          driver={editingDriver}
+          onClose={() => setEditingDriver(null)}
+          onSuccess={(updated) => {
+            setDrivers((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+            setEditingDriver(null);
+          }}
+        />
+      )}
     </div>
   );
 };

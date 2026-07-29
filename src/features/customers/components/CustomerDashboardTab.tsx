@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2, User } from "lucide-react";
+import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2, User, Boxes } from "lucide-react";
 import type { Customer } from "./types";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import { driverApi } from "../../drivers/api/driverApi";
@@ -396,6 +396,14 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                           <User className="w-3.5 h-3.5" />
                         </div>
                         <span className="font-mono text-xs">@{customer.username}</span>
+                    {customer.bottle_balances && customer.bottle_balances.total_unreturned > 0 && (
+                      <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs mt-1">
+                        <Boxes className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-bold text-emerald-900 text-[11px]">
+                          {customer.bottle_balances.unreturned_1L > 0 && `${customer.bottle_balances.unreturned_1L}x 1L `}
+                          {customer.bottle_balances.unreturned_500ml > 0 && `${customer.bottle_balances.unreturned_500ml}x 500ml `}
+                          Unreturned
+                        </span>
                       </div>
                     )}
                   </div>
@@ -445,6 +453,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                   </th>
                   <th className="px-8 py-5">Customer</th>
                   <th className="px-6 py-5">Contact Details</th>
+                  <th className="px-6 py-5">Empty Containers</th>
                   <th className="px-6 py-5">Status</th>
                   <th className="px-6 py-5">Join Date</th>
                   <th className="px-6 py-5 text-right">Actions</th>
@@ -495,6 +504,22 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                             <Phone className="w-3 h-3 text-primary/40" /> {customer.phone || "No phone"}
                           </p>
                         </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        {customer.bottle_balances && customer.bottle_balances.total_unreturned > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-lg text-[11px] font-mono font-black border border-emerald-200 w-fit">
+                              <Boxes className="w-3 h-3 text-emerald-700" />
+                              {customer.bottle_balances.total_unreturned} empty units
+                            </span>
+                            <span className="text-[9px] font-bold text-charcoal/40">
+                              {customer.bottle_balances.unreturned_1L > 0 && `${customer.bottle_balances.unreturned_1L}x 1L `}
+                              {customer.bottle_balances.unreturned_500ml > 0 && `${customer.bottle_balances.unreturned_500ml}x 500ml`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold text-charcoal/30">0 Held</span>
+                        )}
                       </td>
                       <td className="px-6 py-5">
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${

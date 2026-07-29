@@ -20,8 +20,10 @@ import {
   Building2,
   Eye,
   EyeOff,
+  Edit,
 } from "lucide-react";
 import type { Driver } from "./types";
+import { EditDriverModal } from "./EditDriverModal";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
 import type { Route } from "../../deliveries/components/types";
 import axiosInstance from "../../../api/axiosInstance";
@@ -44,6 +46,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers">("basic");
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
@@ -470,9 +473,18 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Rider Profile Summary Card */}
                     <div className="p-6 bg-silver/5 rounded-2xl border border-silver/30">
-                      <h4 className="text-xs font-black text-charcoal uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <User className="w-4 h-4 text-primary" /> Rider Information
-                      </h4>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-xs font-black text-charcoal uppercase tracking-wider flex items-center gap-2">
+                          <User className="w-4 h-4 text-primary" /> Rider Information
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditModalOpen(true)}
+                          className="px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer outline-none"
+                        >
+                          <Edit className="w-3 h-3" /> Edit Details & Credentials
+                        </button>
+                      </div>
                       <div className="space-y-3.5">
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-charcoal/40 font-bold">Full Name</span>
@@ -796,6 +808,18 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
           </div>
         </div>
       </div>
+
+      {isEditModalOpen && (
+        <EditDriverModal
+          isOpen={isEditModalOpen}
+          driver={driver}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={(updated) => {
+            onUpdateDriver(updated);
+            setIsEditModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -62,6 +62,14 @@ export const driverApi = {
   },
 
   /**
+   * Update driver credentials (username / User ID and password)
+   */
+  resetCredentials: async (id: string, payload: { username?: string; password?: string }): Promise<any> => {
+    const response = await axiosInstance.post(`/ems/drivers/${id}/reset-credentials/`, payload);
+    return response.data;
+  },
+
+  /**
    * Register multiple rider / driver user accounts in one request (bulk Excel import)
    */
   bulkRegisterDrivers: async (payloads: any[]): Promise<any> => {

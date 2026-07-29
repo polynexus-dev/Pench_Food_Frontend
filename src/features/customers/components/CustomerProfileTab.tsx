@@ -34,6 +34,7 @@ import {
   FileText,
   Edit,
   Navigation,
+  Boxes,
 } from "lucide-react";
 import type {
   Customer,
@@ -84,6 +85,60 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [editLatitude, setEditLatitude] = useState<string>("");
   const [editLongitude, setEditLongitude] = useState<string>("");
   const [isEditSubmitLoading, setIsEditSubmitLoading] = useState(false);
+
+  // Bottle Collection / Transaction State
+  const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
+  const [collectBottleTypeId, setCollectBottleTypeId] = useState("");
+  const [collectTxnType, setCollectTxnType] = useState<"returned" | "broken" | "issued" | "lost">("returned");
+  const [collectQuantity, setCollectQuantity] = useState("1");
+  const [collectNotes, setCollectNotes] = useState("");
+  const [isCollectSubmitting, setIsCollectSubmitting] = useState(false);
+  const [availableBottleTypes, setAvailableBottleTypes] = useState<any[]>([]);
+
+  useEffect(() => {
+    inventoryApi.getBottleTypes().then((types) => {
+      setAvailableBottleTypes(types);
+      if (types.length > 0) {
+        setCollectBottleTypeId(types[0].id);
+      }
+    }).catch(console.error);
+  }, []);
+
+  const handleRecordBottleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!collectBottleTypeId) {
+      alert("Please select a bottle type.");
+      return;
+    }
+    const qty = parseInt(collectQuantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      alert("Please enter a valid quantity.");
+      return;
+    }
+
+    setIsCollectSubmitting(true);
+    try {
+      await inventoryApi.recordBottleTransaction({
+        customer: customer.id,
+        bottle_type: collectBottleTypeId,
+        transaction_type: collectTxnType,
+        quantity: qty,
+        notes: collectNotes.trim(),
+      });
+      setIsCollectModalOpen(false);
+      setCollectQuantity("1");
+      setCollectNotes("");
+
+      // Fetch fresh customer profile to update bottle balances
+      const updatedCust = await customerApi.getCustomerById(customer.id);
+      onUpdateCustomer(updatedCust);
+    } catch (err: any) {
+      console.error("Failed to record bottle transaction:", err);
+      alert("Failed to record transaction. Please try again.");
+    } finally {
+      setIsCollectSubmitting(false);
+    }
+  };
 
   const handleOpenEditModal = () => {
     setEditName(customer.name || "");
@@ -483,6 +538,10 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   useEffect(() => {
     if (activeSubTab === "subscriptions" || activeSubTab === "calendar") {
       fetchCustomerSubscriptions();
+    } else if (activeSubTab === "containers") {
+      fetchCustomerBottles();
+    } else if (activeSubTab === "payments") {
+      fetchCustomerBills();
     }
   }, [activeSubTab, customer.id]);
 
@@ -1351,10 +1410,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
             {
               id: "containers",
               label: "Containers Tracking",
-              count: bottleBalances.reduce(
-                (acc, b) => acc + (b.balance > 0 ? b.balance : 0),
-                0,
-              ),
+              count: customer.bottle_balances?.total_unreturned || 0,
               icon: Package,
             },
             {

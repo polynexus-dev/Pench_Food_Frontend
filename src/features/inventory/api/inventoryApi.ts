@@ -193,6 +193,20 @@ export const inventoryApi = {
   },
 
   /**
+   * Record bottle transaction (returned, broken, issued, lost)
+   */
+  recordBottleTransaction: async (payload: {
+    customer: string;
+    bottle_type: string;
+    transaction_type: "returned" | "broken" | "issued" | "lost";
+    quantity: number;
+    notes?: string;
+  }): Promise<any> => {
+    const response = await axiosInstance.post("/erp/inventory/bottle-transactions/", payload);
+    return response.data;
+  },
+
+  /**
    * Fetch customer bottle balances
    */
   getCustomerBottleBalances: async (customerId?: string, bottleTypeId?: string): Promise<CustomerBottleBalance[]> => {
