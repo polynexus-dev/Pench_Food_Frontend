@@ -107,9 +107,9 @@ const OverviewPage = () => {
       try {
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Fire all API requests IN PARALLEL for sub-100ms network concurrency
+        // Fire all API requests IN PARALLEL with today's date filter (downloads 5KB instead of 5MB!)
         const [routesResult, stockResult, ordersActiveResult] = await Promise.allSettled([
-          deliveryApi.getRoutes(),
+          deliveryApi.getRoutes({ delivery_date: todayStr }),
           inventoryApi.getStock(),
           orderApi.getOrders({ scheduled_delivery_date: todayStr })
         ]);
