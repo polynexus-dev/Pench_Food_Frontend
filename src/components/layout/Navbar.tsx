@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
@@ -223,6 +224,7 @@ const ALL_SEARCH_ITEMS: SearchModuleItem[] = [
 
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, user, tenant, setTenant, companyId } = useAuthStore();
   const { notifications, markAllAsRead, clearNotifications } = useNotificationStore();
   const { companies, fetchCompanies } = useCompanyStore();
@@ -241,6 +243,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
   const showSettings = !!user;
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Auto-close search modal when page/route changes
+  useEffect(() => {
+    setIsSearchOpen(false);
+  }, [location.pathname, location.search]);
 
   // Derive cities from the shared company store instead of fetching independently
   const activeCompanies = companies.filter((c) => c.is_active);
@@ -574,14 +581,14 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
         </div>
       </div>
 
-      {/* Operational Quick Search Command Palette Modal */}
-      {isSearchOpen && (
+      {/* Operational Quick Search Command Palette Modal (Rendered via React Portal) */}
+      {isSearchOpen && createPortal(
         <div 
-          className="fixed inset-0 z-[120] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-charcoal/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-charcoal/65 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
           onClick={() => setIsSearchOpen(false)}
         >
           <div 
-            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left max-h-[80vh]"
+            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left max-h-[80vh] cursor-default"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search Input Bar */}
@@ -701,11 +708,13 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               <span className="text-primary font-black uppercase tracking-wider">Pench Quick Search</span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
 };
 
 export default Navbar;
+
 
