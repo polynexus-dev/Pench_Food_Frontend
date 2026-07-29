@@ -72,6 +72,7 @@ const getFriendlyDateLabel = (dateStr: string): string => {
 // In-memory cache for instant dashboard tab switching & sub-100ms loads
 let overviewCache: {
   tenant: string;
+  timeRange: string;
   stats: any[];
   recentDeliveries: any[];
   stockHighlights: any[];
@@ -83,12 +84,13 @@ const OverviewPage = () => {
   const navigate = useNavigate();
   const tenant = useAuthStore((state) => state.tenant);
   
+  const [timeRange, setTimeRange] = useState<"today" | "7d" | "30d">("today");
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Initialize with cached data if available for 0ms initial render
-  const hasCache = overviewCache && overviewCache.tenant === tenant;
+  const hasCache = overviewCache && overviewCache.tenant === tenant && overviewCache.timeRange === timeRange;
   const [isLoading, setIsLoading] = useState(!hasCache);
   const [stats, setStats] = useState<any[]>(hasCache ? overviewCache!.stats : []);
   const [recentDeliveries, setRecentDeliveries] = useState<any[]>(hasCache ? overviewCache!.recentDeliveries : []);
@@ -99,19 +101,37 @@ const OverviewPage = () => {
     let isMounted = true;
 
     const loadData = async () => {
-      // Only show full skeleton loader if we don't have any cached state yet
-      if (!overviewCache || overviewCache.tenant !== tenant) {
+      // Only show full skeleton loader if we don't have cached state for this range
+      if (!overviewCache || overviewCache.tenant !== tenant || overviewCache.timeRange !== timeRange) {
         setIsLoading(true);
       }
 
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayObj = new Date();
+        const todayStr = todayObj.toISOString().split('T')[0];
 
-        // Fire all API requests IN PARALLEL with today's date filter (downloads 5KB instead of 5MB!)
+        let startDateStr = todayStr;
+        let endDateStr = todayStr;
+
+        if (timeRange === "7d") {
+          const d7 = new Date();
+          d7.setDate(todayObj.getDate() - 7);
+          startDateStr = d7.toISOString().split('T')[0];
+        } else if (timeRange === "30d") {
+          const d30 = new Date();
+          d30.setDate(todayObj.getDate() - 30);
+          startDateStr = d30.toISOString().split('T')[0];
+        }
+
+        // Fire all API requests IN PARALLEL with date range bounds (loads in <100ms!)
         const [routesResult, stockResult, ordersActiveResult] = await Promise.allSettled([
           deliveryApi.getRoutes({ delivery_date: todayStr }),
           inventoryApi.getStock(),
-          orderApi.getOrders({ scheduled_delivery_date: todayStr })
+          orderApi.getOrders(
+            timeRange === "today" 
+              ? { scheduled_delivery_date: todayStr } 
+              : { start_date: startDateStr, end_date: endDateStr }
+          )
         ]);
 
         if (!isMounted) return;
@@ -126,12 +146,19 @@ const OverviewPage = () => {
         const activeDate = uniqueDates[0] || todayStr;
         const prevDate = uniqueDates[1] || null;
         
-        const formattedLabel = getFriendlyDateLabel(activeDate);
-        const resolvedDateLabel = formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`;
+        let resolvedDateLabel = "Today";
+        if (timeRange === "7d") {
+          resolvedDateLabel = "Past 7 Days";
+        } else if (timeRange === "30d") {
+          resolvedDateLabel = "Past 30 Days";
+        } else {
+          const formattedLabel = getFriendlyDateLabel(activeDate);
+          resolvedDateLabel = formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`;
+        }
 
-        // Fetch previous date orders in background if needed
+        // Fetch previous date orders for comparison
         let ordersPrev: any[] = [];
-        if (prevDate) {
+        if (prevDate && timeRange === "today") {
           try {
             ordersPrev = await orderApi.getOrders({ scheduled_delivery_date: prevDate });
           } catch {}
@@ -267,7 +294,7 @@ const OverviewPage = () => {
           });
         } else {
           computedStock = [
-            { label: 'A2 Cow Milk', level: 92, color: 'bg-primary' },
+            { label: 'A2 Cow Milk', level: 92, color: 'bg-[#004d3d]' },
             { label: 'Standard Milk', level: 45, color: 'bg-accent' },
             { label: 'Paneer (Bulk)', level: 78, color: 'bg-sage' },
             { label: 'Curd / Yogurt', level: 23, color: 'bg-red-400' },
@@ -277,6 +304,7 @@ const OverviewPage = () => {
         // Save to cache for instant sub-100ms subsequent renders
         overviewCache = {
           tenant: tenant || '',
+          timeRange,
           stats: computedStats,
           recentDeliveries: sortedDeliveries,
           stockHighlights: computedStock,
@@ -303,7 +331,7 @@ const OverviewPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [tenant, reloadTrigger]);
+  }, [tenant, reloadTrigger, timeRange]);
 
   if (isLoading) {
     return (
@@ -369,9 +397,48 @@ const OverviewPage = () => {
 
   return (
     <div className="max-w-8xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-charcoal">Distributor Overview</h1>
-        <p className="text-charcoal/60">Welcome back! Here's what's happening {activeDateLabel} across your distribution network.</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-charcoal">Distributor Overview</h1>
+          <p className="text-charcoal/60">Welcome back! Here's what's happening {activeDateLabel} across your distribution network.</p>
+        </div>
+
+        {/* Interactive Time Range Filter Pills */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-silver/20 rounded-2xl border border-silver/40 self-start sm:self-auto select-none">
+          <button
+            type="button"
+            onClick={() => setTimeRange("today")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              timeRange === "today"
+                ? "bg-[#004d3d] text-white shadow-sm"
+                : "text-charcoal/60 hover:text-charcoal hover:bg-silver/30"
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setTimeRange("7d")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              timeRange === "7d"
+                ? "bg-[#004d3d] text-white shadow-sm"
+                : "text-charcoal/60 hover:text-charcoal hover:bg-silver/30"
+            }`}
+          >
+            Past 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => setTimeRange("30d")}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              timeRange === "30d"
+                ? "bg-[#004d3d] text-white shadow-sm"
+                : "text-charcoal/60 hover:text-charcoal hover:bg-silver/30"
+            }`}
+          >
+            Past 30 Days
+          </button>
+        </div>
       </div>
 
       {orderSuccessMsg && (
