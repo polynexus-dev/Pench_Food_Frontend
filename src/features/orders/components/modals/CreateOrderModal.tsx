@@ -7,6 +7,7 @@ import { useAuthStore } from "../../../../store/useAuthStore";
 import type { Product } from "../../../inventory/components/types";
 import type { Customer } from "../../../customers/components/types";
 import { CustomSelect } from "../../../../components/common/CustomSelect";
+import { LogoSpinner } from "../../../../components/common/LogoSpinner";
 
 interface CreateOrderModalProps {
   isOpen: boolean;
@@ -262,11 +263,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
         )}
 
         {loading ? (
-          <div className="py-12 flex flex-col justify-center items-center gap-3">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-xs text-charcoal/40 font-bold tracking-wider">
-              Loading POS catalog...
-            </span>
+          <div className="py-12 flex justify-center items-center">
+            <LogoSpinner size="lg" label="Loading POS catalog..." />
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

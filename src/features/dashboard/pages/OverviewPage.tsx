@@ -15,6 +15,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import CreateOrderModal from '../../orders/components/modals/CreateOrderModal';
+import { LogoSpinner } from '../../../components/common/LogoSpinner';
 
 const isMilkProduct = (name: string): boolean => {
   const lower = name.toLowerCase();
@@ -335,61 +336,12 @@ const OverviewPage = () => {
 
   if (isLoading) {
     return (
-      <div className="max-w-8xl mx-auto animate-pulse">
-        <div className="mb-8">
-          <div className="h-8 bg-silver/40 rounded-lg w-64 mb-2"></div>
-          <div className="h-4 bg-silver/30 rounded-lg w-96"></div>
-        </div>
-
-        {/* Stats Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-silver h-40 flex flex-col justify-between">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 bg-silver/30 rounded-xl"></div>
-                <div className="w-12 h-6 bg-silver/20 rounded-full"></div>
-              </div>
-              <div>
-                <div className="h-4 bg-silver/20 rounded-md w-24 mb-2"></div>
-                <div className="h-8 bg-silver/30 rounded-md w-32"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Table Skeleton */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-silver p-6 space-y-4">
-            <div className="flex justify-between items-center mb-6">
-              <div className="h-6 bg-silver/30 rounded-md w-40"></div>
-              <div className="h-4 bg-silver/20 rounded-md w-16"></div>
-            </div>
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex justify-between items-center py-3 border-b border-silver/40">
-                  <div className="w-20 h-4 bg-silver/20 rounded"></div>
-                  <div className="w-32 h-4 bg-silver/30 rounded"></div>
-                  <div className="w-24 h-4 bg-silver/20 rounded"></div>
-                  <div className="w-16 h-4 bg-silver/30 rounded"></div>
-                  <div className="w-16 h-6 bg-silver/20 rounded-full"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sidebar Skeleton */}
-          <div className="bg-white p-6 rounded-2xl border border-silver space-y-6">
-            <div className="h-6 bg-silver/30 rounded-md w-32 mb-4"></div>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex justify-between">
-                  <div className="w-20 h-4 bg-silver/20 rounded"></div>
-                  <div className="w-12 h-4 bg-silver/30 rounded"></div>
-                </div>
-                <div className="w-full bg-silver/20 rounded-full h-1.5"></div>
-              </div>
-            ))}
-          </div>
+      <div className="max-w-8xl mx-auto min-h-[65vh] flex flex-col justify-center items-center py-16 animate-in fade-in duration-300">
+        <div className="p-10 bg-white/90 backdrop-blur-md rounded-3xl border border-silver/60 shadow-xl flex flex-col items-center gap-4 max-w-sm text-center">
+          <LogoSpinner size="xl" label="Syncing Pench Foods Data..." />
+          <p className="text-xs text-charcoal/50 font-medium">
+            Fetching latest sales, inventory, and route analytics...
+          </p>
         </div>
       </div>
     );
