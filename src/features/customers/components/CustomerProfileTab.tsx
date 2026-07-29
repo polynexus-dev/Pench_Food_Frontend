@@ -33,6 +33,7 @@ import {
   Loader2,
   FileText,
   Edit,
+  Navigation,
 } from "lucide-react";
 import type {
   Customer,
@@ -80,6 +81,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [editAddress, setEditAddress] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editZone, setEditZone] = useState("");
+  const [editLatitude, setEditLatitude] = useState<string>("");
+  const [editLongitude, setEditLongitude] = useState<string>("");
   const [isEditSubmitLoading, setIsEditSubmitLoading] = useState(false);
 
   const handleOpenEditModal = () => {
@@ -90,6 +93,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     setEditAddress(customer.address || "");
     setEditNotes(customer.notes || "");
     setEditZone(customer.zone || "");
+    setEditLatitude(customer.latitude !== undefined && customer.latitude !== null ? String(customer.latitude) : "");
+    setEditLongitude(customer.longitude !== undefined && customer.longitude !== null ? String(customer.longitude) : "");
     setIsEditModalOpen(true);
   };
 
@@ -105,6 +110,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         address: editAddress.trim(),
         notes: editNotes.trim(),
         zone: editZone || null,
+        latitude: editLatitude.trim() !== "" ? parseFloat(editLatitude) : null,
+        longitude: editLongitude.trim() !== "" ? parseFloat(editLongitude) : null,
       };
       const updated = await customerApi.updateCustomer(customer.id, payload);
       onUpdateCustomer({
@@ -3950,6 +3957,62 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Geolocation Coordinates (Latitude & Longitude) */}
+              <div className="space-y-2 p-3.5 bg-silver/10 border border-silver/40 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-charcoal/60 uppercase tracking-wider flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                    Customer Geolocation Coordinates (Lat / Lng)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setEditLatitude(pos.coords.latitude.toFixed(6));
+                            setEditLongitude(pos.coords.longitude.toFixed(6));
+                          },
+                          (err) => {
+                            alert("Failed to fetch GPS location: " + err.message);
+                          }
+                        );
+                      } else {
+                        alert("Geolocation is not supported by your browser.");
+                      }
+                    }}
+                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Get Current GPS
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold text-charcoal/40 uppercase block ml-0.5">Latitude (Lat)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editLatitude}
+                      onChange={(e) => setEditLatitude(e.target.value)}
+                      placeholder="e.g. 21.145800"
+                      className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold text-charcoal/40 uppercase block ml-0.5">Longitude (Lng)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editLongitude}
+                      onChange={(e) => setEditLongitude(e.target.value)}
+                      placeholder="e.g. 79.088200"
+                      className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-bold text-xs"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1">
