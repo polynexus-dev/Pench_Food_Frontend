@@ -38,6 +38,14 @@ export const deliveryApi = {
   },
 
   /**
+   * Fetch details for a specific route including full stops and items
+   */
+  getRouteById: async (id: string): Promise<Route> => {
+    const response = await axiosInstance.get<Route>(`/erp/orders/routes/${id}/`);
+    return response.data;
+  },
+
+  /**
    * Bulk-assign pending orders to drivers by zone
    */
   assignPendingOrders: async (date?: string): Promise<{
