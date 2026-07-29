@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
+import { customerApi } from "../../features/customers/api/customerApi";
+import type { Customer } from "../../features/customers/components/types";
 import { 
   Bell, 
   Search, 
@@ -38,7 +40,7 @@ interface NavbarProps {
 interface SearchModuleItem {
   id: string;
   title: string;
-  category: "Module" | "Feature" | "Customer Portal";
+  category: "Module" | "Feature" | "Customer Portal" | "Customer";
   description: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -231,6 +233,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -245,19 +248,49 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const cities: City[] = activeCompany?.cities || [];
   const isLoadingCities = companies.length === 0;
 
-  // Filter searchable modules
+  // Fetch customers when quick search opens to support live customer search
+  useEffect(() => {
+    if (isSearchOpen && tenant) {
+      customerApi.getCustomers().then((data) => {
+        setCustomerList(data);
+      }).catch(() => {});
+    }
+  }, [isSearchOpen, tenant]);
+
+  // Combine module search items with live customer search results
   const filteredSearchItems = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return ALL_SEARCH_ITEMS;
 
-    return ALL_SEARCH_ITEMS.filter((item) => {
+    const matchedModules = ALL_SEARCH_ITEMS.filter((item) => {
       const matchTitle = item.title.toLowerCase().includes(q);
       const matchDesc = item.description.toLowerCase().includes(q);
       const matchCat = item.category.toLowerCase().includes(q);
       const matchKey = item.keywords.some((k) => k.toLowerCase().includes(q));
       return matchTitle || matchDesc || matchCat || matchKey;
     });
-  }, [searchQuery]);
+
+    const matchedCustomers: SearchModuleItem[] = customerList
+      .filter((c) => {
+        const nameMatch = (c.name || "").toLowerCase().includes(q);
+        const phoneMatch = (c.phone || "").includes(q);
+        const emailMatch = (c.email || "").toLowerCase().includes(q);
+        const addressMatch = (c.address || "").toLowerCase().includes(q);
+        return nameMatch || phoneMatch || emailMatch || addressMatch;
+      })
+      .slice(0, 6)
+      .map((c) => ({
+        id: `customer-${c.id}`,
+        title: c.name || "Customer Account",
+        category: "Customer" as const,
+        description: `Phone: ${c.phone || "N/A"} • ${c.address || "No address"}`,
+        path: `/customers?viewProfile=${c.id}`,
+        icon: User,
+        keywords: [c.name, c.phone, c.email].filter(Boolean) as string[],
+      }));
+
+    return [...matchedCustomers, ...matchedModules];
+  }, [searchQuery, customerList]);
 
   // Reset selected index when search query changes
   useEffect(() => {
@@ -544,11 +577,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
       {/* Operational Quick Search Command Palette Modal */}
       {isSearchOpen && (
         <div 
-          className="fixed inset-0 z-[120] flex items-start justify-center pt-2 sm:pt-4 px-4 bg-charcoal/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[120] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-charcoal/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setIsSearchOpen(false)}
         >
           <div 
-            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left mt-16 sm:mt-20"
+            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search Input Bar */}
@@ -560,7 +593,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search modules, features, or quick jump to any page..."
+                placeholder="Search modules, customers by name/phone, or quick jump..."
                 className="w-full bg-transparent border-none outline-none text-base font-bold text-charcoal placeholder:text-charcoal/30"
               />
               {searchQuery && (
@@ -580,12 +613,12 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             </div>
 
             {/* Search Results List */}
-            <div className="max-h-[380px] overflow-y-auto p-3 space-y-1 custom-scrollbar">
+            <div className="max-h-[400px] overflow-y-auto p-3 space-y-1 custom-scrollbar">
               {filteredSearchItems.length === 0 ? (
                 <div className="py-12 text-center text-charcoal/40 font-medium space-y-2">
                   <Search className="w-8 h-8 text-charcoal/20 mx-auto" />
-                  <p className="text-sm font-bold">No modules or features match "{searchQuery}"</p>
-                  <p className="text-xs">Try searching for customers, orders, logistics, finance, or tracking.</p>
+                  <p className="text-sm font-bold">No results match "{searchQuery}"</p>
+                  <p className="text-xs">Try searching for customer names, phone numbers, orders, logistics, or finance.</p>
                 </div>
               ) : (
                 filteredSearchItems.map((item, idx) => {
@@ -596,7 +629,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                       key={item.id}
                       onClick={() => handleSelectItem(item.path)}
                       onMouseEnter={() => setSelectedIndex(idx)}
-                      className={`w-full px-4 py-3.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer ${
+                      className={`w-full px-4 py-3 rounded-2xl flex items-center justify-between transition-all cursor-pointer ${
                         isSelected
                           ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.01]"
                           : "hover:bg-silver/10 text-charcoal"
@@ -619,7 +652,9 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                               className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
                                 isSelected
                                   ? "bg-white/20 text-white"
-                                  : "bg-silver/30 text-charcoal/60"
+                                  : item.category === "Customer" 
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-silver/30 text-charcoal/60"
                               }`}
                             >
                               {item.category}
@@ -673,3 +708,4 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 };
 
 export default Navbar;
+
