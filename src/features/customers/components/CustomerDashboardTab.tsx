@@ -396,6 +396,8 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                           <User className="w-3.5 h-3.5" />
                         </div>
                         <span className="font-mono text-xs">@{customer.username}</span>
+                      </div>
+                    )}
                     {customer.bottle_balances && customer.bottle_balances.total_unreturned > 0 && (
                       <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs mt-1">
                         <Boxes className="w-4 h-4 text-emerald-600 shrink-0" />
