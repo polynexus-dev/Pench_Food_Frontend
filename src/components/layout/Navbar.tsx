@@ -543,8 +543,14 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
       {/* Operational Quick Search Command Palette Modal */}
       {isSearchOpen && (
-        <div className="fixed inset-0 z-[120] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-charcoal/65 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left">
+        <div 
+          className="fixed inset-0 z-[120] flex items-start justify-center pt-2 sm:pt-4 px-4 bg-charcoal/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsSearchOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-silver/40 animate-in zoom-in-95 duration-200 flex flex-col text-left mt-16 sm:mt-20"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Search Input Bar */}
             <div className="relative border-b border-silver/30 px-6 py-4 flex items-center gap-3 bg-silver/5">
               <Search className="w-5 h-5 text-primary shrink-0" />

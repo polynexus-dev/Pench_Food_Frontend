@@ -105,6 +105,11 @@ const CustomerPage: React.FC = () => {
   };
 
   useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["dashboard", "leads", "detail", "profile", "customer-qr", "trial-approvals"].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+
     const custId = searchParams.get("viewProfile");
     if (custId && customers.length > 0) {
       const exists = customers.some(c => c.id === custId);
