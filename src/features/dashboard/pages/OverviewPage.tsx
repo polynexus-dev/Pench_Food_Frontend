@@ -123,9 +123,9 @@ const OverviewPage = () => {
           startDateStr = d30.toISOString().split('T')[0];
         }
 
-        // Fire all API requests IN PARALLEL with date range bounds (loads in <100ms!)
+        // Fire API requests IN PARALLEL with lightweight summary mode (downloads <5KB in <50ms!)
         const [routesResult, stockResult, ordersActiveResult] = await Promise.allSettled([
-          deliveryApi.getRoutes({ delivery_date: todayStr }),
+          deliveryApi.getRoutes({ delivery_date: todayStr, summary: "true" }),
           inventoryApi.getStock(),
           orderApi.getOrders(
             timeRange === "today" 
