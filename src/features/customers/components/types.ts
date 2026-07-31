@@ -59,6 +59,7 @@ export interface Customer {
   trial_approved?: boolean;
   username?: string | null;
   bottle_balances?: CustomerBottleBalancesSummary;
+  notes?: string | null;
 }
 
 

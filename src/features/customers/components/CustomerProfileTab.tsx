@@ -34,7 +34,6 @@ import {
   FileText,
   Edit,
   Navigation,
-  Boxes,
 } from "lucide-react";
 import type {
   Customer,
@@ -48,6 +47,7 @@ import type {
 } from "./types";
 import { customerApi } from "../api/customerApi";
 import { financeApi } from "../../finance/api/financeApi";
+import { inventoryApi } from "../../inventory/api/inventoryApi";
 import axiosInstance from "../../../api/axiosInstance";
 
 interface CustomerProfileTabProps {
@@ -86,59 +86,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [editLongitude, setEditLongitude] = useState<string>("");
   const [isEditSubmitLoading, setIsEditSubmitLoading] = useState(false);
 
-  // Bottle Collection / Transaction State
-  const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
-  const [collectBottleTypeId, setCollectBottleTypeId] = useState("");
-  const [collectTxnType, setCollectTxnType] = useState<"returned" | "broken" | "issued" | "lost">("returned");
-  const [collectQuantity, setCollectQuantity] = useState("1");
-  const [collectNotes, setCollectNotes] = useState("");
-  const [isCollectSubmitting, setIsCollectSubmitting] = useState(false);
-  const [availableBottleTypes, setAvailableBottleTypes] = useState<any[]>([]);
 
-  useEffect(() => {
-    inventoryApi.getBottleTypes().then((types) => {
-      setAvailableBottleTypes(types);
-      if (types.length > 0) {
-        setCollectBottleTypeId(types[0].id);
-      }
-    }).catch(console.error);
-  }, []);
-
-  const handleRecordBottleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!collectBottleTypeId) {
-      alert("Please select a bottle type.");
-      return;
-    }
-    const qty = parseInt(collectQuantity, 10);
-    if (isNaN(qty) || qty <= 0) {
-      alert("Please enter a valid quantity.");
-      return;
-    }
-
-    setIsCollectSubmitting(true);
-    try {
-      await inventoryApi.recordBottleTransaction({
-        customer: customer.id,
-        bottle_type: collectBottleTypeId,
-        transaction_type: collectTxnType,
-        quantity: qty,
-        notes: collectNotes.trim(),
-      });
-      setIsCollectModalOpen(false);
-      setCollectQuantity("1");
-      setCollectNotes("");
-
-      // Fetch fresh customer profile to update bottle balances
-      const updatedCust = await customerApi.getCustomerById(customer.id);
-      onUpdateCustomer(updatedCust);
-    } catch (err: any) {
-      console.error("Failed to record bottle transaction:", err);
-      alert("Failed to record transaction. Please try again.");
-    } finally {
-      setIsCollectSubmitting(false);
-    }
-  };
 
   const handleOpenEditModal = () => {
     setEditName(customer.name || "");
@@ -1853,7 +1801,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                           month: "long",
                           year: "numeric",
                         });
-                      } catch (e) {
+                      } catch {
                         // fallback
                       }
 
@@ -1959,7 +1907,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                       month: "long",
                                       year: "numeric",
                                     });
-                                  } catch (e) {
+                                  } catch {
                                     return selectedBill.billing_month;
                                   }
                                 })()}
@@ -2769,8 +2717,8 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       ))}
                       {dayBoxes.map((_, index) => {
                         const day = index + 1;
-                        let bg = "bg-silver/10 text-charcoal/30";
-                        let title = "Scheduled";
+                        let bg: string;
+                        let title: string;
 
                         const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                         const isPausedDay = subscriptions.some(
