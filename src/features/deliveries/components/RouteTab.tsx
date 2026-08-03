@@ -20,7 +20,8 @@ import {
   Plus,
   Minus,
   X,
-  Boxes
+  Boxes,
+  ShieldCheck
 } from "lucide-react";
 import type { Route, Stop, Driver, BottleType, Product } from "./types";
 import { deliveryApi } from "../api/deliveryApi";
@@ -1086,6 +1087,12 @@ const RouteTab: React.FC<RouteTabProps> = ({ routes: rawRoutes, drivers, isLoadi
                   </div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-black truncate flex-1 text-charcoal">{route.name}</h4>
+                    {route.is_secured && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 px-1.5 py-0.5 rounded-md" title="Secured Route">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        Secured
+                      </span>
+                    )}
                     {route.is_locked && (
                       <Lock className="w-3.5 h-3.5 text-primary" />
                     )}

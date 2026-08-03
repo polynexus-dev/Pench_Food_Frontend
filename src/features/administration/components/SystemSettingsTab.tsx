@@ -35,7 +35,8 @@ export const SystemSettingsTab: React.FC<SystemSettingsTabProps> = ({ setError }
     charge_bottle_penalty: false,
     bottle_penalty_amount: "0.00",
     company_upi_id: "",
-    company_upi_name: ""
+    company_upi_name: "",
+    is_secured: false
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -190,6 +191,32 @@ export const SystemSettingsTab: React.FC<SystemSettingsTabProps> = ({ setError }
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
                       config.auto_assign_orders ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Secured Route Mode Toggle */}
+              <div className="flex justify-between items-start gap-4 pt-3 border-t border-silver/20">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-black text-charcoal flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Secured Route Mode (<code className="text-[11px] text-emerald-600 font-mono">is_secured</code>)
+                  </span>
+                  <span className="text-[10px] text-charcoal/40 font-semibold leading-relaxed block">
+                    Enables secured verification mode on all routes, returning <code className="text-[10px] font-mono text-charcoal/60">is_secured: true</code> in route API responses.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggle("is_secured")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                    config.is_secured ? "bg-emerald-500" : "bg-silver/60"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      config.is_secured ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>

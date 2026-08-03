@@ -64,6 +64,7 @@ export interface Route {
   delivery_date: string;
   is_completed: boolean;
   is_locked?: boolean;
+  is_secured?: boolean;
   route_geometry: any;
   stops: Stop[];
   stops_count?: number;

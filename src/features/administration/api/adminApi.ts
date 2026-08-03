@@ -14,6 +14,7 @@ export interface AdminConfiguration {
   bottle_penalty_amount: string | number;
   company_upi_id?: string;
   company_upi_name?: string;
+  is_secured?: boolean;
 }
 
 export const adminApi = {
