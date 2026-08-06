@@ -18,8 +18,8 @@ import {
   Users,
   Search,
   Building2,
-  Eye,
-  EyeOff,
+  Mail,
+  Loader2,
   Edit,
 } from "lucide-react";
 import type { Driver } from "./types";
@@ -45,12 +45,16 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   onUpdateDriver,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers">("basic");
-  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Send Credentials State
+  const [isSendCredsConfirmOpen, setIsSendCredsConfirmOpen] = useState<boolean>(false);
+  const [isSendingCreds, setIsSendingCreds] = useState<boolean>(false);
+  const [sendCredsResult, setSendCredsResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Zone Assignment State
   const [zones, setZones] = useState<Zone[]>([]);
@@ -508,33 +512,24 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                         </div>
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-charcoal/40 font-bold">Password</span>
-                          <div className="flex items-center gap-2 max-w-[200px]">
-                            <span
-                              className="font-bold text-charcoal font-mono text-[10px] truncate max-w-[120px]"
-                              title={showPassword ? (driver.password || "N/A") : "••••••••"}
-                            >
-                              {showPassword ? (driver.password || "N/A") : "••••••••"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="p-1 text-[10px] font-semibold text-primary hover:text-primary-dark transition-colors flex items-center gap-1 bg-primary/10 hover:bg-primary/20 rounded px-2 py-0.5"
-                              title={showPassword ? "Hide Password" : "Show Password"}
-                            >
-                              {showPassword ? (
-                                <>
-                                  <EyeOff className="w-3 h-3" />
-                                  <span>Hide</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Eye className="w-3 h-3" />
-                                  <span>Show</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSendCredsResult(null);
+                              setIsSendCredsConfirmOpen(true);
+                            }}
+                            className="p-1 text-[10px] font-semibold text-primary hover:text-primary-dark transition-colors flex items-center gap-1 bg-primary/10 hover:bg-primary/20 rounded px-2 py-0.5 cursor-pointer outline-none"
+                            title="Generate a new password and email it to the admin team"
+                          >
+                            <Mail className="w-3 h-3" />
+                            <span>Send Credentials</span>
+                          </button>
                         </div>
+                        {sendCredsResult && (
+                          <p className={`text-[10px] font-bold text-right ${sendCredsResult.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                            {sendCredsResult.text}
+                          </p>
+                        )}
                         {driver.rating && (
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-charcoal/40 font-bold">Performance Rating</span>
@@ -819,6 +814,60 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
             setIsEditModalOpen(false);
           }}
         />
+      )}
+
+      {isSendCredsConfirmOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-charcoal/65 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 animate-in zoom-in-95 duration-300 text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+                <Mail className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-charcoal">Send Rider Credentials</h3>
+            </div>
+            <p className="text-sm text-charcoal/70 mb-6">
+              This will generate a brand-new password for <strong>{driver.full_name}</strong>, invalidating their current one, and email the login details to the admin team. The password is <strong>not</strong> shown here — it goes out by email only.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsSendCredsConfirmOpen(false)}
+                disabled={isSendingCreds}
+                className="px-5 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsSendingCreds(true);
+                  try {
+                    const result = await driverApi.sendCredentials(driver.id);
+                    setSendCredsResult({ type: "success", text: result.message || "Credentials sent." });
+                    setIsSendCredsConfirmOpen(false);
+                  } catch (err: any) {
+                    console.error("Failed to send rider credentials:", err);
+                    const errMsg = err.response?.data?.detail || "Please try again.";
+                    setSendCredsResult({ type: "error", text: `Failed to send credentials: ${errMsg}` });
+                  } finally {
+                    setIsSendingCreds(false);
+                  }
+                }}
+                disabled={isSendingCreds}
+                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSendingCreds ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Credentials"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

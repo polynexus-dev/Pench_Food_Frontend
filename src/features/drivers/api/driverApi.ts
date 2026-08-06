@@ -70,6 +70,16 @@ export const driverApi = {
   },
 
   /**
+   * Generate a brand-new random password for this rider and email it
+   * (plaintext) to the configured admin recipients. The password is never
+   * returned to or displayed in the admin panel.
+   */
+  sendCredentials: async (id: string): Promise<{ message: string; username: string; driver_id: string }> => {
+    const response = await axiosInstance.post(`/ems/drivers/${id}/send-credentials/`);
+    return response.data;
+  },
+
+  /**
    * Register multiple rider / driver user accounts in one request (bulk Excel import)
    */
   bulkRegisterDrivers: async (payloads: any[]): Promise<any> => {
