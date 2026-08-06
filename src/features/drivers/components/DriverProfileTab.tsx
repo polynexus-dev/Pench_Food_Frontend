@@ -54,6 +54,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   // Send Credentials State
   const [isSendCredsConfirmOpen, setIsSendCredsConfirmOpen] = useState<boolean>(false);
   const [isSendingCreds, setIsSendingCreds] = useState<boolean>(false);
+  const [customRecipientEmail, setCustomRecipientEmail] = useState<string>("");
   const [sendCredsResult, setSendCredsResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Zone Assignment State
@@ -825,13 +826,33 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
               </div>
               <h3 className="text-lg font-black text-charcoal">Send Rider Credentials</h3>
             </div>
-            <p className="text-sm text-charcoal/70 mb-6">
-              This will generate a brand-new password for <strong>{driver.full_name}</strong>, invalidating their current one, and email the login details to the admin team. The password is <strong>not</strong> shown here — it goes out by email only.
+            <p className="text-sm text-charcoal/70 mb-5">
+              This will generate a brand-new password for <strong>{driver.full_name}</strong> and email the credentials directly.
             </p>
+
+            <div className="mb-6 space-y-1">
+              <label className="text-[10px] font-black text-charcoal/50 uppercase tracking-wider block">
+                Recipient Email (Optional)
+              </label>
+              <input
+                type="email"
+                value={customRecipientEmail}
+                onChange={(e) => setCustomRecipientEmail(e.target.value)}
+                placeholder="e.g. manager@penchfoods.com"
+                className="w-full px-3.5 py-2.5 bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none text-charcoal font-medium text-xs font-mono"
+              />
+              <p className="text-[10px] text-charcoal/40 font-medium">
+                Enter the email address where you want to receive these rider credentials.
+              </p>
+            </div>
+
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsSendCredsConfirmOpen(false)}
+                onClick={() => {
+                  setIsSendCredsConfirmOpen(false);
+                  setCustomRecipientEmail("");
+                }}
                 disabled={isSendingCreds}
                 className="px-5 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 transition-all cursor-pointer disabled:opacity-50"
               >
@@ -842,9 +863,11 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 onClick={async () => {
                   setIsSendingCreds(true);
                   try {
-                    const result = await driverApi.sendCredentials(driver.id);
+                    const payload = customRecipientEmail.trim() ? { recipient_email: customRecipientEmail.trim() } : undefined;
+                    const result = await driverApi.sendCredentials(driver.id, payload);
                     setSendCredsResult({ type: "success", text: result.message || "Credentials sent." });
                     setIsSendCredsConfirmOpen(false);
+                    setCustomRecipientEmail("");
                   } catch (err: any) {
                     console.error("Failed to send rider credentials:", err);
                     const errMsg = err.response?.data?.detail || "Please try again.";
