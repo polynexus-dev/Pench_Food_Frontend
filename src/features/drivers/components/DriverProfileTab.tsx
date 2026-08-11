@@ -21,6 +21,8 @@ import {
   Mail,
   Loader2,
   Edit,
+  Eye,
+  X,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { EditDriverModal } from "./EditDriverModal";
@@ -54,6 +56,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   // Activity Logs State
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(false);
+  const [selectedActivityLog, setSelectedActivityLog] = useState<any | null>(null);
 
   useEffect(() => {
     if (activeSubTab === "logs") {
@@ -911,11 +914,16 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                               <th className="px-6 py-3.5">Status</th>
                               <th className="px-6 py-3.5">Details</th>
                               <th className="px-6 py-3.5">IP Address</th>
+                              <th className="px-6 py-3.5 text-right">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-silver/20 text-xs">
                             {activityLogs.map((log) => (
-                              <tr key={log.id} className="hover:bg-primary/5 transition-colors">
+                              <tr
+                                key={log.id}
+                                onClick={() => setSelectedActivityLog(log)}
+                                className="hover:bg-primary/5 cursor-pointer transition-colors group"
+                              >
                                 <td className="px-6 py-4">
                                   <span className="font-bold text-charcoal flex items-center gap-2">
                                     {log.type === "PASSWORD_CHANGE" ? (
@@ -954,11 +962,27 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                                     {log.title}
                                   </span>
                                 </td>
-                                <td className="px-6 py-4 text-charcoal/70 max-w-[250px] truncate" title={log.details}>
-                                  {log.details}
+                                <td className="px-6 py-4 text-charcoal/80 max-w-[280px]" title="Click row to view complete message">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="truncate">{log.details}</span>
+                                    <span className="text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-0.5">
+                                      <Eye className="w-3 h-3" /> View
+                                    </span>
+                                  </div>
                                 </td>
                                 <td className="px-6 py-4 font-mono text-[10px] text-charcoal/50">
                                   {log.ip_address || "127.0.0.1"}
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedActivityLog(log);
+                                    }}
+                                    className="px-2.5 py-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye className="w-3 h-3" /> Details
+                                  </button>
                                 </td>
                               </tr>
                             ))}
@@ -1062,6 +1086,98 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 ) : (
                   "Send Credentials"
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedActivityLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-silver/40 overflow-hidden relative">
+            <div className="flex items-center justify-between border-b border-silver/20 pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${
+                  selectedActivityLog.type === "PASSWORD_CHANGE"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-blue-100 text-blue-800"
+                }`}>
+                  {selectedActivityLog.type === "PASSWORD_CHANGE" ? (
+                    <ShieldCheck className="w-5 h-5" />
+                  ) : (
+                    <User className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-charcoal">
+                    {selectedActivityLog.type === "PASSWORD_CHANGE" ? "Password Change Details" : "Login Attempt Details"}
+                  </h3>
+                  <p className="text-xs text-charcoal/50">Audit log entry breakdown</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedActivityLog(null)}
+                className="p-2 text-charcoal/40 hover:text-charcoal hover:bg-silver/20 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 bg-silver/10 p-3.5 rounded-2xl border border-silver/20">
+                <div>
+                  <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Status</span>
+                  <span className="text-xs font-bold text-charcoal flex items-center gap-1.5 mt-0.5">
+                    <span className={`w-2 h-2 rounded-full ${
+                      selectedActivityLog.status === "SUCCESS" ? "bg-emerald-500" :
+                      selectedActivityLog.status === "ERROR" ? "bg-red-500" : "bg-amber-500"
+                    }`} />
+                    {selectedActivityLog.title}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Date & Time</span>
+                  <span className="text-xs font-bold font-mono text-charcoal mt-0.5 block">
+                    {selectedActivityLog.timestamp ? new Date(selectedActivityLog.timestamp).toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: true,
+                    }) : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block mb-1.5">Full Details & Metadata</span>
+                <div className="bg-silver/15 p-4 rounded-2xl border border-silver/30 font-mono text-xs text-charcoal leading-relaxed break-words whitespace-pre-wrap select-all">
+                  {selectedActivityLog.details || "No details available."}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-silver/5 p-3 rounded-xl border border-silver/30">
+                  <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">IP Address</span>
+                  <span className="font-mono text-charcoal/80 mt-0.5 block">{selectedActivityLog.ip_address || "127.0.0.1"}</span>
+                </div>
+                <div className="bg-silver/5 p-3 rounded-xl border border-silver/30">
+                  <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Action By</span>
+                  <span className="font-bold text-charcoal/80 mt-0.5 block">{selectedActivityLog.changed_by || "System"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-silver/20 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedActivityLog(null)}
+                className="px-5 py-2 bg-silver/20 hover:bg-silver/30 text-charcoal text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
