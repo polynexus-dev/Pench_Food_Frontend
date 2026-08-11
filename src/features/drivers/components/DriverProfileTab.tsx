@@ -44,12 +44,33 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   onBack,
   onUpdateDriver,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers">("basic");
+  const [activeSubTab, setActiveSubTab] = useState<"basic" | "deliveries" | "customers" | "logs">("basic");
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState<boolean>(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Activity Logs State
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (activeSubTab === "logs") {
+      const fetchLogs = async () => {
+        try {
+          setIsLoadingLogs(true);
+          const data = await driverApi.getActivityLogs(driver.id);
+          setActivityLogs(data);
+        } catch (err) {
+          console.error("Failed to fetch rider activity logs:", err);
+        } finally {
+          setIsLoadingLogs(false);
+        }
+      };
+      fetchLogs();
+    }
+  }, [activeSubTab, driver.id]);
 
   // Send Credentials State
   const [isSendCredsConfirmOpen, setIsSendCredsConfirmOpen] = useState<boolean>(false);
@@ -345,6 +366,36 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 </div>
               </div>
             )}
+
+            {driver.password_changed_at ? (
+              <div className="flex items-center gap-3 p-3 bg-amber-50/60 hover:bg-amber-50 rounded-xl border border-amber-200/60 transition-colors">
+                <div className="p-1.5 bg-white rounded-lg border border-amber-200 text-amber-600 flex-shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black text-amber-700 uppercase tracking-wider">
+                    Last Password Change
+                  </p>
+                  <p className="text-xs font-bold text-amber-900 truncate">
+                    {new Date(driver.password_changed_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 p-3 bg-silver/5 hover:bg-silver/10 rounded-xl border border-silver/30 transition-colors">
+                <div className="p-1.5 bg-white rounded-lg border border-silver/50 text-charcoal/40 flex-shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black text-charcoal/40 uppercase tracking-wider">
+                    Last Password Change
+                  </p>
+                  <p className="text-xs font-bold text-charcoal/50 truncate">
+                    Never / Initial Setup
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons Section */}
@@ -466,6 +517,21 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 <Users className={`w-4 h-4 ${activeSubTab === "customers" ? "text-primary" : "text-charcoal/30"}`} />
                 Assigned Customers
                 {activeSubTab === "customers" && (
+                  <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full"></div>
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveSubTab("logs")}
+                className={`py-4 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap flex items-center gap-2 cursor-pointer outline-none focus:outline-none ${
+                  activeSubTab === "logs"
+                    ? "text-primary"
+                    : "text-charcoal/40 hover:text-charcoal"
+                }`}
+              >
+                <ShieldCheck className={`w-4 h-4 ${activeSubTab === "logs" ? "text-primary" : "text-charcoal/30"}`} />
+                Activity Logs
+                {activeSubTab === "logs" && (
                   <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-primary rounded-full"></div>
                 )}
               </button>
@@ -796,6 +862,115 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                           ? "This rider's assigned zone does not have any active customers yet."
                           : "Please assign a zone to this rider to see their assigned customers."}
                       </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSubTab === "logs" && (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between pb-3 border-b border-silver/30">
+                    <div>
+                      <h4 className="text-xs font-black text-charcoal uppercase tracking-wider flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-primary" /> Security & Activity Audit Log
+                      </h4>
+                      <p className="text-[11px] text-charcoal/50 mt-0.5">
+                        Track password changes, credential resets, and rider login attempts with precise date and timestamps.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsLoadingLogs(true);
+                        try {
+                          const data = await driverApi.getActivityLogs(driver.id);
+                          setActivityLogs(data);
+                        } finally {
+                          setIsLoadingLogs(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-silver/10 hover:bg-silver/20 text-charcoal text-xs font-bold rounded-xl transition-all border border-silver/30 cursor-pointer"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+
+                  {isLoadingLogs ? (
+                    <div className="py-16 text-center">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-2" />
+                      <p className="text-xs font-bold text-charcoal/50">Fetching rider activity logs...</p>
+                    </div>
+                  ) : activityLogs.length > 0 ? (
+                    <div className="bg-white rounded-2xl border border-silver/40 overflow-hidden shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-silver/10 border-b border-silver/30 text-[9px] font-black text-charcoal/40 uppercase tracking-wider">
+                              <th className="px-6 py-3.5">Event Type</th>
+                              <th className="px-6 py-3.5">Date & Timestamp</th>
+                              <th className="px-6 py-3.5">Status</th>
+                              <th className="px-6 py-3.5">Details</th>
+                              <th className="px-6 py-3.5">IP Address</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-silver/20 text-xs">
+                            {activityLogs.map((log) => (
+                              <tr key={log.id} className="hover:bg-primary/5 transition-colors">
+                                <td className="px-6 py-4">
+                                  <span className="font-bold text-charcoal flex items-center gap-2">
+                                    {log.type === "PASSWORD_CHANGE" ? (
+                                      <span className="p-1.5 bg-amber-100 text-amber-800 rounded-lg">
+                                        <ShieldCheck className="w-3.5 h-3.5" />
+                                      </span>
+                                    ) : (
+                                      <span className="p-1.5 bg-blue-100 text-blue-800 rounded-lg">
+                                        <User className="w-3.5 h-3.5" />
+                                      </span>
+                                    )}
+                                    {log.type === "PASSWORD_CHANGE" ? "Password Change" : "Login Attempt"}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-charcoal/80 font-mono text-[11px]">
+                                  {log.timestamp ? new Date(log.timestamp).toLocaleString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                    hour12: true,
+                                  }) : "N/A"}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                    log.status === "SUCCESS"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : log.status === "ERROR"
+                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      : log.status === "WARNING"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-blue-50 text-blue-700 border-blue-200"
+                                  }`}>
+                                    {log.title}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-charcoal/70 max-w-[250px] truncate" title={log.details}>
+                                  {log.details}
+                                </td>
+                                <td className="px-6 py-4 font-mono text-[10px] text-charcoal/50">
+                                  {log.ip_address || "127.0.0.1"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-16 text-center border border-dashed border-silver/50 rounded-2xl bg-silver/5">
+                      <ShieldCheck className="w-10 h-10 text-charcoal/20 mx-auto mb-2" />
+                      <p className="text-sm font-black text-charcoal/40">No activity logs recorded yet</p>
+                      <p className="text-xs text-charcoal/30 mt-0.5">Password changes and login attempts for this rider will appear here automatically.</p>
                     </div>
                   )}
                 </div>

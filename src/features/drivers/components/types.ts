@@ -14,6 +14,7 @@ export interface Driver {
   warehouse?: string | null;
   warehouse_name?: string | null;
   is_active?: boolean;
+  password_changed_at?: string | null;
 }
 
 export interface Zone {

@@ -44,6 +44,14 @@ export const driverApi = {
     await axiosInstance.delete(`/ems/drivers/${id}/`);
   },
 
+  /**
+   * Fetch activity and audit logs for a driver (password changes & login attempts)
+   */
+  getActivityLogs: async (id: string): Promise<any[]> => {
+    const response = await axiosInstance.get<any[]>(`/ems/drivers/${id}/activity-logs/`);
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
 
   /**
    * Fetch all zones
