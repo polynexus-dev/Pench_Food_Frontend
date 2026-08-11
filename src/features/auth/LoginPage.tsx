@@ -81,9 +81,11 @@ const LoginPage: React.FC<LoginPageProps> = () => {
 
       setAuth(user, access, refresh);
     } catch (err: any) {
+      const serverMsg = err.response?.data?.detail || err.response?.data?.message;
       setError(
-        err.response?.data?.message ||
-          "Failed to connect to the server. Please check your credentials.",
+        typeof serverMsg === "string"
+          ? serverMsg
+          : "Failed to connect to the server. Please check your credentials.",
       );
     } finally {
       setIsLoading(false);
