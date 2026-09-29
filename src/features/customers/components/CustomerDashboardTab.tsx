@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2, User, Boxes } from "lucide-react";
+import { Search, Mail, Phone, MoreVertical, Filter, LayoutGrid, List as ListIcon, Calendar, Users, Trash2, X, Loader2, User, Boxes, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Customer } from "./types";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import { driverApi } from "../../drivers/api/driverApi";
 import axiosInstance from "../../../api/axiosInstance";
 import { customerApi } from "../api/customerApi";
+
+const ALPHABETS = ["ALL", "0-9", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 interface CustomerDashboardTabProps {
   customers: Customer[];
@@ -17,6 +19,11 @@ interface CustomerDashboardTabProps {
 const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails, onRefresh, mode }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Pagination & Alphabetical Navigation States
+  const [selectedLetter, setSelectedLetter] = useState<string>("ALL");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(24);
 
   // Selection States
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -73,10 +80,17 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
     loadFilterData();
   }, []);
 
-  const filteredCustomers = useMemo(() => {
-    const searchLower = (searchQuery || "").toLowerCase().trim();
+  // Helper to extract sorting & letter matching characters
+  const getCustomerInitial = (cust: Customer): { firstChar: string; firstAlphaChar: string | null } => {
+    const name = (cust.name || cust.company || "").trim();
+    const firstChar = name.length > 0 ? name.charAt(0).toUpperCase() : "";
+    const alphaMatch = name.match(/[a-zA-Z]/);
+    const firstAlphaChar = alphaMatch ? alphaMatch[0].toUpperCase() : null;
+    return { firstChar, firstAlphaChar };
+  };
 
-    const baseCustomers = (customers || []).filter((customer) => {
+  const baseCustomers = useMemo(() => {
+    return (customers || []).filter((customer) => {
       if (!customer) return false;
       const activeSubs = customer.dashboard?.active_subscriptions || 0;
       if (mode === "leads") {
@@ -85,70 +99,229 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
       // default: show only active subscribed customers
       return activeSubs > 0;
     });
+  }, [customers, mode]);
 
-    return baseCustomers.filter((customer) => {
-      // 1. Search text filter
-      if (searchLower) {
-        const digitQuery = searchQuery.replace(/\D/g, "");
+  // Compute available customer counts for each letter in the alphabet bar
+  const letterCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: baseCustomers.length };
+    for (const c of baseCustomers) {
+      const { firstChar, firstAlphaChar } = getCustomerInitial(c);
+      if (firstChar >= "0" && firstChar <= "9") {
+        counts["0-9"] = (counts["0-9"] || 0) + 1;
+      }
+      if (firstAlphaChar) {
+        counts[firstAlphaChar] = (counts[firstAlphaChar] || 0) + 1;
+      } else if (firstChar && firstChar >= "A" && firstChar <= "Z") {
+        counts[firstChar] = (counts[firstChar] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [baseCustomers]);
 
-        const nameMatch = customer.name ? customer.name.toLowerCase().includes(searchLower) : false;
-        const emailMatch = customer.email ? customer.email.toLowerCase().includes(searchLower) : false;
+  const filteredCustomers = useMemo(() => {
+    const searchLower = (searchQuery || "").toLowerCase().trim();
 
-        // Phone matching: raw string match OR digit-normalized match
-        const rawPhone = customer.phone ? String(customer.phone) : "";
-        const cleanPhone = rawPhone.replace(/\D/g, "");
-        const phoneMatch =
-          rawPhone.toLowerCase().includes(searchLower) ||
-          (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+    return baseCustomers
+      .filter((customer) => {
+        // 0. Alphabetical Quick-Filter
+        if (selectedLetter !== "ALL") {
+          const { firstChar, firstAlphaChar } = getCustomerInitial(customer);
+          if (selectedLetter === "0-9") {
+            if (!(firstChar >= "0" && firstChar <= "9")) return false;
+          } else {
+            if (firstChar !== selectedLetter && firstAlphaChar !== selectedLetter) {
+              return false;
+            }
+          }
+        }
 
-        const usernameMatch = customer.username ? customer.username.toLowerCase().includes(searchLower) : false;
-        const companyMatch = customer.company ? customer.company.toLowerCase().includes(searchLower) : false;
+        // 1. Search text filter
+        if (searchLower) {
+          const digitQuery = searchQuery.replace(/\D/g, "");
 
-        if (!nameMatch && !emailMatch && !phoneMatch && !usernameMatch && !companyMatch) {
+          const nameMatch = customer.name ? customer.name.toLowerCase().includes(searchLower) : false;
+          const emailMatch = customer.email ? customer.email.toLowerCase().includes(searchLower) : false;
+
+          // Phone matching: raw string match OR digit-normalized match
+          const rawPhone = customer.phone ? String(customer.phone) : "";
+          const cleanPhone = rawPhone.replace(/\D/g, "");
+          const phoneMatch =
+            rawPhone.toLowerCase().includes(searchLower) ||
+            (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
+
+          const usernameMatch = customer.username ? customer.username.toLowerCase().includes(searchLower) : false;
+          const companyMatch = customer.company ? customer.company.toLowerCase().includes(searchLower) : false;
+
+          if (!nameMatch && !emailMatch && !phoneMatch && !usernameMatch && !companyMatch) {
+            return false;
+          }
+        }
+
+        // 2. Zone filter
+        if (selectedZone && customer.zone !== selectedZone) {
           return false;
         }
-      }
 
-      // 2. Zone filter
-      if (selectedZone && customer.zone !== selectedZone) {
-        return false;
-      }
-
-      // 3. Rider filter (rider's assigned zone matches customer's zone)
-      if (selectedRider) {
-        const rider = riders.find((r) => r.id === selectedRider);
-        if (!rider || customer.zone !== rider.zone) {
-          return false;
+        // 3. Rider filter (rider's assigned zone matches customer's zone)
+        if (selectedRider) {
+          const rider = riders.find((r) => r.id === selectedRider);
+          if (!rider || customer.zone !== rider.zone) {
+            return false;
+          }
         }
-      }
 
-      // 4. Status filter
-      if (selectedStatus) {
-        const isActive = selectedStatus === "active";
-        if (customer.is_active !== isActive) {
-          return false;
+        // 4. Status filter
+        if (selectedStatus) {
+          const isActive = selectedStatus === "active";
+          if (customer.is_active !== isActive) {
+            return false;
+          }
         }
-      }
 
-      // 5. Bottle Type filter
-      if (selectedBottleType) {
-        const custBalances = bottleBalances.filter((b) => b && b.customer === customer.id);
-        
-        if (selectedBottleType === "1L") {
-          const has1L = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
-          if (!has1L) return false;
-        } else if (selectedBottleType === "500ml") {
-          const has500ml = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
-          if (!has500ml) return false;
-        } else if (selectedBottleType === "none") {
-          const hasAny = custBalances.some((b) => b.balance > 0);
-          if (hasAny) return false;
+        // 5. Bottle Type filter
+        if (selectedBottleType) {
+          const custBalances = bottleBalances.filter((b) => b && b.customer === customer.id);
+          
+          if (selectedBottleType === "1L") {
+            const has1L = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
+            if (!has1L) return false;
+          } else if (selectedBottleType === "500ml") {
+            const has500ml = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
+            if (!has500ml) return false;
+          } else if (selectedBottleType === "none") {
+            const hasAny = custBalances.some((b) => b.balance > 0);
+            if (hasAny) return false;
+          }
         }
-      }
 
-      return true;
-    });
-  }, [customers, searchQuery, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances, mode]);
+        return true;
+      })
+      .sort((a, b) => {
+        // Natural alphabetical sorting A-Z
+        const nameA = (a.name || a.company || "").trim().toLowerCase();
+        const nameB = (b.name || b.company || "").trim().toLowerCase();
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+      });
+  }, [baseCustomers, searchQuery, selectedLetter, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances]);
+
+  // Reset to first page whenever search, letter, or other filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedLetter, selectedZone, selectedRider, selectedStatus, selectedBottleType, mode, pageSize]);
+
+  // Pagination Calculations
+  const totalCustomers = filteredCustomers.length;
+  const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalCustomers);
+
+  const paginatedCustomers = useMemo(() => {
+    return filteredCustomers.slice(startIndex, endIndex);
+  }, [filteredCustomers, startIndex, endIndex]);
+
+  // Page-Level Selection Logic
+  const currentPageIds = useMemo(() => {
+    return paginatedCustomers.map((c) => c.id);
+  }, [paginatedCustomers]);
+
+  const isAllCurrentPageSelected = useMemo(() => {
+    return currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.includes(id));
+  }, [currentPageIds, selectedIds]);
+
+  const isSomeCurrentPageSelected = useMemo(() => {
+    return currentPageIds.some((id) => selectedIds.includes(id)) && !isAllCurrentPageSelected;
+  }, [currentPageIds, selectedIds, isAllCurrentPageSelected]);
+
+  const handleToggleSelectPage = () => {
+    if (isAllCurrentPageSelected) {
+      // Deselect all customers on the current page
+      setSelectedIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      // Select all customers on the current page
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  // Reusable Pagination Component
+  const renderPaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages: (number | string)[] = [];
+      const maxVisible = 7;
+      if (totalPages <= maxVisible) {
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        if (safePage > 3) pages.push("...");
+        const start = Math.max(2, safePage - 1);
+        const end = Math.min(totalPages - 1, safePage + 1);
+        for (let i = start; i <= end; i++) {
+          if (!pages.includes(i)) pages.push(i);
+        }
+        if (safePage < totalPages - 2) pages.push("...");
+        pages.push(totalPages);
+      }
+      return pages;
+    };
+
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-4 py-3 px-1">
+        <div className="text-xs font-bold text-charcoal/50">
+          Page <span className="text-charcoal font-black">{safePage}</span> of{" "}
+          <span className="text-charcoal font-black">{totalPages}</span> ({totalCustomers} total)
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="flex items-center gap-1 px-3 py-2 bg-white border border-silver/50 rounded-xl text-xs font-bold text-charcoal/70 hover:text-primary hover:border-primary/30 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer shadow-xs"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Prev</span>
+          </button>
+
+          <div className="flex items-center gap-1">
+            {getPageNumbers().map((p, idx) => {
+              if (p === "...") {
+                return (
+                  <span key={`dots-${idx}`} className="px-2 text-xs font-bold text-charcoal/30 select-none">
+                    ...
+                  </span>
+                );
+              }
+              const pageNum = p as number;
+              const isActive = pageNum === safePage;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`min-w-8 h-8 px-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
+                      : "bg-white border border-silver/50 text-charcoal/70 hover:text-primary hover:border-primary/30"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="flex items-center gap-1 px-3 py-2 bg-white border border-silver/50 rounded-xl text-xs font-bold text-charcoal/70 hover:text-primary hover:border-primary/30 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer shadow-xs"
+          >
+            <span>Next</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -292,6 +465,111 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
         </div>
       )}
 
+      {/* Alphabetical Quick-Filter Bar */}
+      <div className="bg-white border border-silver/50 rounded-2xl p-2.5 px-4 shadow-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+          <span className="text-[10px] font-black uppercase tracking-wider text-charcoal/40 pr-2 shrink-0 select-none">
+            A–Z:
+          </span>
+          {ALPHABETS.map((letter) => {
+            const count = letterCounts[letter] || 0;
+            const isSelected = selectedLetter === letter;
+            const hasCustomers = count > 0 || letter === "ALL";
+
+            return (
+              <button
+                key={letter}
+                type="button"
+                onClick={() => setSelectedLetter(letter)}
+                className={`shrink-0 min-w-7 h-7 px-2 rounded-xl text-[11px] font-black transition-all cursor-pointer flex items-center justify-center gap-1 select-none ${
+                  isSelected
+                    ? "bg-primary text-white shadow-md shadow-primary/20 scale-105"
+                    : hasCustomers
+                    ? "bg-silver/10 hover:bg-silver/30 text-charcoal/80 hover:text-primary"
+                    : "bg-transparent text-charcoal/25 hover:text-charcoal/50"
+                }`}
+                title={`${letter}: ${count} customers`}
+              >
+                <span>{letter}</span>
+                {letter === "ALL" && (
+                  <span className={`text-[9px] font-bold ${isSelected ? "text-white/80" : "text-charcoal/40"}`}>
+                    ({count})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          {selectedLetter !== "ALL" && (
+            <button
+              type="button"
+              onClick={() => setSelectedLetter("ALL")}
+              className="ml-auto shrink-0 text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-700 underline px-2 cursor-pointer"
+            >
+              Reset A–Z
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Page-Level Selection & Top Pagination Toolbar */}
+      <div className="bg-white border border-silver/50 rounded-2xl p-3 px-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
+        {/* Left: Select All on current page */}
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+            <input
+              type="checkbox"
+              ref={(el) => {
+                if (el) el.indeterminate = isSomeCurrentPageSelected;
+              }}
+              checked={isAllCurrentPageSelected}
+              onChange={handleToggleSelectPage}
+              className="w-4 h-4 rounded border-silver/60 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+            />
+            <span className="text-xs font-black text-charcoal group-hover:text-primary transition-colors">
+              Select All on this Page ({paginatedCustomers.length})
+            </span>
+          </label>
+
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-2 pl-4 border-l border-silver/40">
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-primary/10 text-primary border border-primary/20">
+                {selectedIds.length} Total Selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="text-xs font-bold text-charcoal/50 hover:text-charcoal underline cursor-pointer"
+              >
+                Clear Selection
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Customer count & Page Size Selector */}
+        <div className="flex items-center gap-4 text-xs font-bold text-charcoal/60">
+          <span>
+            Showing <strong className="text-charcoal">{totalCustomers > 0 ? startIndex + 1 : 0}–{endIndex}</strong> of <strong className="text-charcoal">{totalCustomers}</strong>
+          </span>
+          <div className="flex items-center gap-1.5 pl-3 border-l border-silver/40">
+            <span className="text-[11px] font-medium text-charcoal/40">Page Size:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="bg-silver/10 border border-silver/40 rounded-xl px-2.5 py-1 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+            >
+              <option value={12}>12 / page</option>
+              <option value={24}>24 / page</option>
+              <option value={48}>48 / page</option>
+              <option value={96}>96 / page</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Pagination Buttons (when multiple pages exist) */}
+      {renderPaginationControls()}
+
       {/* View Content */}
       {isLoading ? (
         <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
@@ -301,7 +579,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCustomers.map((customer) => {
+          {paginatedCustomers.map((customer) => {
             const isSelected = selectedIds.includes(customer.id);
             return (
               <div
@@ -442,14 +720,11 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                   <th className="px-6 py-5 w-[50px] text-center">
                     <input
                       type="checkbox"
-                      checked={filteredCustomers.length > 0 && selectedIds.length === filteredCustomers.length}
-                      onChange={() => {
-                        if (selectedIds.length === filteredCustomers.length) {
-                          setSelectedIds([]);
-                        } else {
-                          setSelectedIds(filteredCustomers.map(c => c.id));
-                        }
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeCurrentPageSelected;
                       }}
+                      checked={isAllCurrentPageSelected}
+                      onChange={handleToggleSelectPage}
                       className="w-4 h-4 rounded border-silver/60 text-primary focus:ring-primary/20 accent-primary cursor-pointer"
                     />
                   </th>
@@ -462,7 +737,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-silver/30">
-                {filteredCustomers.map((customer) => {
+                {paginatedCustomers.map((customer) => {
                   const isSelected = selectedIds.includes(customer.id);
                   return (
                     <tr 
@@ -574,6 +849,9 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
           </div>
         </div>
       )}
+
+      {/* Bottom Pagination Controls */}
+      {!isLoading && paginatedCustomers.length > 0 && renderPaginationControls()}
 
       {filteredCustomers.length === 0 && !isLoading && (
         <div className="p-20 text-center bg-white rounded-3xl border border-silver/50 shadow-sm mt-8">
