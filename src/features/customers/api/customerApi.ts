@@ -2,17 +2,89 @@ import axiosInstance from "../../../api/axiosInstance";
 import type { Customer, Order, CustomerProductPrice, Subscription, MonthlyBill, BottleType, CustomerBottleBalance, BottleTransaction } from "../components/types";
 import type { Product } from "../../inventory/components/types";
 
+export interface CustomerListParams {
+  page?: number;
+  page_size?: number;
+  mode?: "subscribed" | "leads";
+  letter?: string;
+  search?: string;
+  q?: string;
+  zone?: string;
+  status?: string;
+  paginate?: boolean | string;
+}
+
+export interface PaginatedCustomersResponse {
+  count: number;
+  total_pages: number;
+  current_page: number;
+  page_size: number;
+  next: string | null;
+  previous: string | null;
+  results: Customer[];
+}
+
+export interface CustomerStats {
+  total_customers: number;
+  active_subscribers: number;
+  leads: number;
+  letter_counts: Record<string, number>;
+}
+
 /**
  * Customer API Service
  * Handles all network requests related to the customer module.
  */
 export const customerApi = {
   /**
-   * Fetch all customers for the current tenant
+   * Fetch paginated customers with server-side filters (mode, letter, search, zone, status)
    */
-  getCustomers: async (): Promise<Customer[]> => {
-    const response = await axiosInstance.get<Customer[]>("/erp/customers/");
-    return Array.isArray(response.data) ? response.data : [];
+  getPaginatedCustomers: async (params?: CustomerListParams): Promise<PaginatedCustomersResponse> => {
+    const response = await axiosInstance.get<PaginatedCustomersResponse>("/erp/customers/", {
+      params,
+    });
+    if (Array.isArray(response.data)) {
+      return {
+        count: response.data.length,
+        total_pages: 1,
+        current_page: 1,
+        page_size: response.data.length,
+        next: null,
+        previous: null,
+        results: response.data,
+      };
+    }
+    return response.data;
+  },
+
+  /**
+   * Fetch customers (defaults to paginate=false for full lists like CSV export or map view)
+   */
+  getCustomers: async (params?: CustomerListParams): Promise<Customer[]> => {
+    const queryParams: Record<string, any> = { ...params };
+    if (queryParams.paginate === undefined) {
+      queryParams.paginate = false;
+    }
+    const response = await axiosInstance.get<any>("/erp/customers/", {
+      params: queryParams,
+    });
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (response.data && Array.isArray(response.data.results)) {
+      return response.data.results;
+    }
+    return [];
+  },
+
+  /**
+   * Fetch fast aggregated customer metrics and letter breakdown
+   */
+  getCustomerStats: async (mode?: "subscribed" | "leads"): Promise<CustomerStats> => {
+    const response = await axiosInstance.get<CustomerStats>("/erp/customers/stats/", {
+      params: mode ? { mode } : undefined,
+    });
+    return response.data;
   },
 
   /**

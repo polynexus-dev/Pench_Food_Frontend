@@ -4,26 +4,46 @@ import type { Customer } from "./types";
 import { tenantApi } from "../../tenant/api/tenantApi";
 import { driverApi } from "../../drivers/api/driverApi";
 import axiosInstance from "../../../api/axiosInstance";
-import { customerApi } from "../api/customerApi";
+import { customerApi, type CustomerStats } from "../api/customerApi";
 
 const ALPHABETS = ["ALL", "0-9", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 interface CustomerDashboardTabProps {
-  customers: Customer[];
-  isLoading: boolean;
+  customers?: Customer[];
+  isLoading?: boolean;
   onViewDetails: (customerId: string) => void;
-  onRefresh: () => void;
+  onRefresh?: () => void;
   mode?: "subscribed" | "leads";
 }
 
-const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, isLoading, onViewDetails, onRefresh, mode }) => {
+const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({
+  isLoading: _parentLoading,
+  onViewDetails,
+  onRefresh,
+  mode = "subscribed",
+}) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Server-Side Data States
+  const [pageCustomers, setPageCustomers] = useState<Customer[]>([]);
+  const [totalCustomers, setTotalCustomers] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [isPageLoading, setIsPageLoading] = useState<boolean>(true);
 
   // Pagination & Alphabetical Navigation States
   const [selectedLetter, setSelectedLetter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(24);
+
+  // Stats State (Live accurate active subscriber & leads count + letter distribution)
+  const [stats, setStats] = useState<CustomerStats>({
+    total_customers: 0,
+    active_subscribers: 0,
+    leads: 0,
+    letter_counts: {},
+  });
 
   // Selection States
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -80,145 +100,92 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
     loadFilterData();
   }, []);
 
-  // Helper to extract sorting & letter matching characters
-  const getCustomerInitial = (cust: Customer): { firstChar: string; firstAlphaChar: string | null } => {
-    const name = (cust.name || cust.company || "").trim();
-    const firstChar = name.length > 0 ? name.charAt(0).toUpperCase() : "";
-    const alphaMatch = name.match(/[a-zA-Z]/);
-    const firstAlphaChar = alphaMatch ? alphaMatch[0].toUpperCase() : null;
-    return { firstChar, firstAlphaChar };
+  // Debounce search query by 300ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Fetch stats (exact active subscribers & lead counts in single-digit ms)
+  const fetchStats = async () => {
+    try {
+      const data = await customerApi.getCustomerStats(mode);
+      setStats(data);
+    } catch (err) {
+      console.warn("Failed to fetch customer stats:", err);
+    }
   };
 
-  const baseCustomers = useMemo(() => {
-    return (customers || []).filter((customer) => {
-      if (!customer) return false;
-      const activeSubs = customer.dashboard?.active_subscriptions || 0;
-      if (mode === "leads") {
-        return activeSubs === 0;
-      }
-      // default: show only active subscribed customers
-      return activeSubs > 0;
-    });
-  }, [customers, mode]);
+  useEffect(() => {
+    fetchStats();
+  }, [mode]);
 
-  // Compute available customer counts for each letter in the alphabet bar
-  const letterCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: baseCustomers.length };
-    for (const c of baseCustomers) {
-      const { firstChar, firstAlphaChar } = getCustomerInitial(c);
-      if (firstChar >= "0" && firstChar <= "9") {
-        counts["0-9"] = (counts["0-9"] || 0) + 1;
-      }
-      if (firstAlphaChar) {
-        counts[firstAlphaChar] = (counts[firstAlphaChar] || 0) + 1;
-      } else if (firstChar && firstChar >= "A" && firstChar <= "Z") {
-        counts[firstChar] = (counts[firstChar] || 0) + 1;
-      }
-    }
-    return counts;
-  }, [baseCustomers]);
-
-  const filteredCustomers = useMemo(() => {
-    const searchLower = (searchQuery || "").toLowerCase().trim();
-
-    return baseCustomers
-      .filter((customer) => {
-        // 0. Alphabetical Quick-Filter
-        if (selectedLetter !== "ALL") {
-          const { firstChar, firstAlphaChar } = getCustomerInitial(customer);
-          if (selectedLetter === "0-9") {
-            if (!(firstChar >= "0" && firstChar <= "9")) return false;
-          } else {
-            if (firstChar !== selectedLetter && firstAlphaChar !== selectedLetter) {
-              return false;
-            }
-          }
-        }
-
-        // 1. Search text filter
-        if (searchLower) {
-          const digitQuery = searchQuery.replace(/\D/g, "");
-
-          const nameMatch = customer.name ? customer.name.toLowerCase().includes(searchLower) : false;
-          const emailMatch = customer.email ? customer.email.toLowerCase().includes(searchLower) : false;
-
-          // Phone matching: raw string match OR digit-normalized match
-          const rawPhone = customer.phone ? String(customer.phone) : "";
-          const cleanPhone = rawPhone.replace(/\D/g, "");
-          const phoneMatch =
-            rawPhone.toLowerCase().includes(searchLower) ||
-            (digitQuery.length > 0 && cleanPhone.includes(digitQuery));
-
-          const usernameMatch = customer.username ? customer.username.toLowerCase().includes(searchLower) : false;
-          const companyMatch = customer.company ? customer.company.toLowerCase().includes(searchLower) : false;
-
-          if (!nameMatch && !emailMatch && !phoneMatch && !usernameMatch && !companyMatch) {
-            return false;
-          }
-        }
-
-        // 2. Zone filter
-        if (selectedZone && customer.zone !== selectedZone) {
-          return false;
-        }
-
-        // 3. Rider filter (rider's assigned zone matches customer's zone)
-        if (selectedRider) {
-          const rider = riders.find((r) => r.id === selectedRider);
-          if (!rider || customer.zone !== rider.zone) {
-            return false;
-          }
-        }
-
-        // 4. Status filter
-        if (selectedStatus) {
-          const isActive = selectedStatus === "active";
-          if (customer.is_active !== isActive) {
-            return false;
-          }
-        }
-
-        // 5. Bottle Type filter
-        if (selectedBottleType) {
-          const custBalances = bottleBalances.filter((b) => b && b.customer === customer.id);
-          
-          if (selectedBottleType === "1L") {
-            const has1L = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
-            if (!has1L) return false;
-          } else if (selectedBottleType === "500ml") {
-            const has500ml = custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
-            if (!has500ml) return false;
-          } else if (selectedBottleType === "none") {
-            const hasAny = custBalances.some((b) => b.balance > 0);
-            if (hasAny) return false;
-          }
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        // Natural alphabetical sorting A-Z
-        const nameA = (a.name || a.company || "").trim().toLowerCase();
-        const nameB = (b.name || b.company || "").trim().toLowerCase();
-        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
-      });
-  }, [baseCustomers, searchQuery, selectedLetter, selectedZone, selectedRider, selectedStatus, selectedBottleType, riders, bottleBalances]);
-
-  // Reset to first page whenever search, letter, or other filters change
+  // Reset to first page when search, letter, or other filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedLetter, selectedZone, selectedRider, selectedStatus, selectedBottleType, mode, pageSize]);
+  }, [debouncedSearch, selectedLetter, selectedZone, selectedRider, selectedStatus, selectedBottleType, mode, pageSize]);
+
+  // Fetch paginated customer records from server
+  const fetchPageData = async () => {
+    setIsPageLoading(true);
+    try {
+      const rider = riders.find((r) => r.id === selectedRider);
+      const effectiveZone = selectedZone || (rider ? rider.zone : undefined);
+
+      const res = await customerApi.getPaginatedCustomers({
+        page: currentPage,
+        page_size: pageSize,
+        mode: mode,
+        letter: selectedLetter !== "ALL" ? selectedLetter : undefined,
+        search: debouncedSearch.trim() || undefined,
+        zone: effectiveZone || undefined,
+        status: selectedStatus || undefined,
+      });
+
+      setPageCustomers(res.results || []);
+      setTotalCustomers(res.count || 0);
+      setTotalPages(Math.max(1, res.total_pages || 1));
+    } catch (err) {
+      console.error("Failed to fetch customer page:", err);
+      setPageCustomers([]);
+      setTotalCustomers(0);
+      setTotalPages(1);
+    } finally {
+      setIsPageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPageData();
+  }, [currentPage, pageSize, selectedLetter, debouncedSearch, selectedZone, selectedRider, selectedStatus, mode]);
+
+  // Letter counts from server stats for instant, accurate rendering in A-Z bar
+  const letterCounts = useMemo(() => {
+    return stats.letter_counts || {};
+  }, [stats]);
+
+  // Filter by bottle type on current page if chosen
+  const paginatedCustomers = useMemo(() => {
+    if (!selectedBottleType) return pageCustomers;
+    return pageCustomers.filter((customer) => {
+      const custBalances = bottleBalances.filter((b) => b && b.customer === customer.id);
+      if (selectedBottleType === "1L") {
+        return custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("1") && b.balance > 0);
+      } else if (selectedBottleType === "500ml") {
+        return custBalances.some((b) => b.bottle_type_name && b.bottle_type_name.toLowerCase().includes("500") && b.balance > 0);
+      } else if (selectedBottleType === "none") {
+        return !custBalances.some((b) => b.balance > 0);
+      }
+      return true;
+    });
+  }, [pageCustomers, selectedBottleType, bottleBalances]);
 
   // Pagination Calculations
-  const totalCustomers = filteredCustomers.length;
-  const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const startIndex = (safePage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalCustomers);
-
-  const paginatedCustomers = useMemo(() => {
-    return filteredCustomers.slice(startIndex, endIndex);
-  }, [filteredCustomers, startIndex, endIndex]);
+  const endIndex = Math.min(startIndex + paginatedCustomers.length, totalCustomers);
 
   // Page-Level Selection Logic
   const currentPageIds = useMemo(() => {
@@ -378,9 +345,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
               {mode === "leads" ? "Total Leads" : "Active Subscribers"}
             </span>
             <span className="text-lg font-black text-primary leading-none">
-              {mode === "leads"
-                ? customers.filter((c) => (c.dashboard?.active_subscriptions || 0) === 0).length
-                : customers.filter((c) => (c.dashboard?.active_subscriptions || 0) > 0).length}
+              {mode === "leads" ? stats.leads : stats.active_subscribers}
             </span>
           </div>
         </div>
@@ -571,7 +536,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
       {renderPaginationControls()}
 
       {/* View Content */}
-      {isLoading ? (
+      {isPageLoading ? (
         <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
           {Array(6).fill(0).map((_, i) => (
             <div key={i} className={`bg-white rounded-3xl border border-silver/50 animate-pulse ${viewMode === 'grid' ? 'h-64' : 'h-20'}`}></div>
@@ -896,19 +861,50 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({ customers, 
               <button
                 type="button"
                 onClick={async () => {
+                  if (!deleteConfirmIds || deleteConfirmIds.length === 0) return;
                   setIsDeleting(true);
+                  const toDelete = [...deleteConfirmIds];
+                  const countToDelete = toDelete.length;
                   try {
-                    if (deleteConfirmIds.length === 1) {
-                      await customerApi.deleteCustomer(deleteConfirmIds[0]);
+                    if (toDelete.length === 1) {
+                      await customerApi.deleteCustomer(toDelete[0]);
                     } else {
-                      await customerApi.bulkDeleteCustomers(deleteConfirmIds);
+                      await customerApi.bulkDeleteCustomers(toDelete);
                     }
-                    setSelectedIds(prev => prev.filter(id => !deleteConfirmIds.includes(id)));
+
+                    // 1. Optimistic removal from page
+                    setPageCustomers((prev) => prev.filter((c) => !toDelete.includes(c.id)));
+
+                    // 2. Optimistic decrement of counts
+                    setTotalCustomers((prev) => Math.max(0, prev - countToDelete));
+                    setStats((prev) => ({
+                      ...prev,
+                      total_customers: Math.max(0, prev.total_customers - countToDelete),
+                      active_subscribers:
+                        mode === "subscribed"
+                          ? Math.max(0, prev.active_subscribers - countToDelete)
+                          : prev.active_subscribers,
+                      leads:
+                        mode === "leads"
+                          ? Math.max(0, prev.leads - countToDelete)
+                          : prev.leads,
+                      letter_counts: {
+                        ...prev.letter_counts,
+                        ALL: Math.max(0, (prev.letter_counts["ALL"] || 0) - countToDelete),
+                      },
+                    }));
+
+                    // 3. Clear selected IDs and close modal
+                    setSelectedIds((prev) => prev.filter((id) => !toDelete.includes(id)));
                     setDeleteConfirmIds(null);
-                    onRefresh();
-                  } catch (err) {
-                    console.error("Failed to delete customers:", err);
-                    alert("Failed to delete customer(s). Please try again.");
+
+                    // 4. Background re-fetch to synchronize state
+                    fetchPageData();
+                    fetchStats();
+                    if (onRefresh) onRefresh();
+                  } catch (err: any) {
+                    console.error("Failed to delete customer(s):", err);
+                    alert(err?.response?.data?.detail || "Failed to delete customer(s). Please try again.");
                   } finally {
                     setIsDeleting(false);
                   }

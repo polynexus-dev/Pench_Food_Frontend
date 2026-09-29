@@ -78,12 +78,18 @@ const CustomerPage: React.FC = () => {
 
   useEffect(() => {
     if (tenant) {
-      fetchCustomers();
+      if (activeTab === "detail" || activeTab === "customer-qr") {
+        if (customers.length === 0) {
+          fetchCustomers();
+        }
+      } else {
+        setIsLoading(false);
+      }
     } else {
       setCustomers([]);
       setIsLoading(false);
     }
-  }, [tenant]);
+  }, [tenant, activeTab]);
 
   // Handle switching to profile details tab
   const handleViewProfile = async (customerId: string) => {
@@ -189,18 +195,28 @@ const CustomerPage: React.FC = () => {
     }
   }, [notification]);
   // Export Customer List to CSV
-  const handleExportCSV = () => {
-    if (customers.length === 0) {
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    let exportData = customers;
+    if (exportData.length === 0) {
+      try {
+        exportData = await customerApi.getCustomers({ paginate: false });
+        setCustomers(exportData);
+      } catch (err) {
+        console.error("Failed to load customers for CSV export:", err);
+      }
+    }
+
+    if (exportData.length === 0) {
       setNotification({
         title: "Export Failed ⚠️",
         message: "No customer data available to export.",
         type: "error"
       });
+      setIsExporting(false);
       return;
     }
 
-    setIsExporting(true);
-    
     setTimeout(() => {
       try {
         const headers = [
@@ -227,7 +243,7 @@ const CustomerPage: React.FC = () => {
 
         const csvRows = [
           headers.join(","),
-          ...customers.map(c => [
+          ...exportData.map(c => [
             escapeCSV(c.id),
             escapeCSV(c.name),
             escapeCSV(c.company),
