@@ -816,9 +816,9 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({
       )}
 
       {/* Bottom Pagination Controls */}
-      {!isLoading && paginatedCustomers.length > 0 && renderPaginationControls()}
+      {!isPageLoading && paginatedCustomers.length > 0 && renderPaginationControls()}
 
-      {filteredCustomers.length === 0 && !isLoading && (
+      {totalCustomers === 0 && !isPageLoading && (
         <div className="p-20 text-center bg-white rounded-3xl border border-silver/50 shadow-sm mt-8">
           <div className="w-20 h-20 bg-silver/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <Users className="w-10 h-10 text-charcoal/20" />
