@@ -9,6 +9,7 @@ import {
   Navigation,
   UserCheck,
   UserMinus,
+  UserPlus,
   Activity,
   User,
   Info,
@@ -23,9 +24,14 @@ import {
   Edit,
   Eye,
   X,
+  Trash2,
+  AlertCircle,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import type { Driver } from "./types";
 import { EditDriverModal } from "./EditDriverModal";
+import { AssignCustomersModal } from "./AssignCustomersModal";
 import { deliveryApi } from "../../deliveries/api/deliveryApi";
 import type { Route } from "../../deliveries/components/types";
 import axiosInstance from "../../../api/axiosInstance";
@@ -33,6 +39,7 @@ import { tenantApi } from "../../tenant/api/tenantApi";
 import type { Zone } from "../../tenant/components/types";
 import { driverApi } from "../api/driverApi";
 import { customerApi } from "../../customers/api/customerApi";
+import type { Customer } from "../../customers/components/types";
 import { inventoryApi } from "../../inventory/api/inventoryApi";
 
 interface DriverProfileTabProps {
@@ -92,30 +99,44 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
   const [isUpdatingWarehouse, setIsUpdatingWarehouse] = useState<boolean>(false);
 
   // Assigned Customers State
-  const [assignedCustomers, setAssignedCustomers] = useState<any[]>([]);
+  const [assignedCustomers, setAssignedCustomers] = useState<Customer[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState<boolean>(true);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
+  const [customerActionToast, setCustomerActionToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [customerToRemove, setCustomerToRemove] = useState<Customer | null>(null);
+  const [isBulkRemoveConfirmOpen, setIsBulkRemoveConfirmOpen] = useState<boolean>(false);
+  const [isRemoving, setIsRemoving] = useState<boolean>(false);
+
+  const showCustomerToast = (type: "success" | "error", message: string) => {
+    setCustomerActionToast({ type, message });
+    setTimeout(() => {
+      setCustomerActionToast(null);
+    }, 4500);
+  };
 
   // Fetch customers assigned to this rider's zone
-  useEffect(() => {
-    const fetchAssignedCustomers = async () => {
-      if (!driver.zone) {
-        setAssignedCustomers([]);
-        setIsLoadingCustomers(false);
-        return;
-      }
-      try {
-        setIsLoadingCustomers(true);
-        const allCustomers = await customerApi.getCustomers();
-        const filtered = allCustomers.filter((c) => c.zone === driver.zone);
-        setAssignedCustomers(filtered);
-      } catch (error) {
-        console.error("Failed to fetch assigned customers:", error);
-      } finally {
-        setIsLoadingCustomers(false);
-      }
-    };
+  const fetchAssignedCustomers = async () => {
+    if (!driver.zone) {
+      setAssignedCustomers([]);
+      setIsLoadingCustomers(false);
+      return;
+    }
+    try {
+      setIsLoadingCustomers(true);
+      const allCustomers = await customerApi.getCustomers();
+      const filtered = allCustomers.filter((c) => c.zone === driver.zone);
+      setAssignedCustomers(filtered);
+      setSelectedCustomerIds(new Set());
+    } catch (error) {
+      console.error("Failed to fetch assigned customers:", error);
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
 
+  useEffect(() => {
     fetchAssignedCustomers();
   }, [driver.zone]);
 
@@ -131,6 +152,69 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
       return nameMatch || companyMatch || emailMatch || addressMatch || phoneMatch;
     });
   }, [assignedCustomers, customerSearchQuery]);
+
+  const handleToggleSelectCustomer = (id: string) => {
+    setSelectedCustomerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedCustomerIds.size === filteredCustomers.length && filteredCustomers.length > 0) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(filteredCustomers.map((c) => c.id)));
+    }
+  };
+
+  const handleRemoveCustomer = async (cust: Customer) => {
+    try {
+      setIsRemoving(true);
+      await customerApi.updateCustomer(cust.id, { zone: null as any });
+      setAssignedCustomers((prev) => prev.filter((c) => c.id !== cust.id));
+      setSelectedCustomerIds((prev) => {
+        const next = new Set(prev);
+        next.delete(cust.id);
+        return next;
+      });
+      showCustomerToast("success", `Unassigned "${cust.name}" from ${driver.full_name || "this rider"}.`);
+    } catch (err: any) {
+      console.error("Failed to remove customer:", err);
+      showCustomerToast("error", `Failed to unassign "${cust.name}". Please try again.`);
+    } finally {
+      setIsRemoving(false);
+      setCustomerToRemove(null);
+    }
+  };
+
+  const handleBulkRemove = async () => {
+    if (selectedCustomerIds.size === 0) return;
+    const ids = Array.from(selectedCustomerIds);
+    try {
+      setIsRemoving(true);
+      await Promise.all(ids.map((id) => customerApi.updateCustomer(id, { zone: null as any })));
+      setAssignedCustomers((prev) => prev.filter((c) => !selectedCustomerIds.has(c.id)));
+      showCustomerToast("success", `Unassigned ${ids.length} customers from ${driver.full_name || "this rider"}.`);
+      setSelectedCustomerIds(new Set());
+    } catch (err: any) {
+      console.error("Failed to bulk unassign customers:", err);
+      showCustomerToast("error", "Failed to unassign selected customers. Please try again.");
+    } finally {
+      setIsRemoving(false);
+      setIsBulkRemoveConfirmOpen(false);
+    }
+  };
+
+  const handleAssignSuccess = async (count: number) => {
+    showCustomerToast(
+      "success",
+      `Successfully assigned ${count} customer${count > 1 ? "s" : ""} to ${driver.full_name || "this rider"} without overlapping!`
+    );
+    await fetchAssignedCustomers();
+  };
 
   // Fetch zones on mount
   useEffect(() => {
@@ -777,10 +861,36 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                   )}
                 </div>
               )}
-
               {activeSubTab === "customers" && (
                 <div className="space-y-4 animate-in fade-in duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                  {/* Action Notification Toast */}
+                  {customerActionToast && (
+                    <div
+                      className={`px-4 py-3 rounded-2xl border flex items-center justify-between text-xs font-bold animate-in slide-in-from-top-2 duration-300 ${
+                        customerActionToast.type === "success"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          : "bg-red-50 text-red-800 border-red-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {customerActionToast.type === "success" ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                        )}
+                        <span>{customerActionToast.message}</span>
+                      </div>
+                      <button
+                        onClick={() => setCustomerActionToast(null)}
+                        className="text-charcoal/40 hover:text-charcoal cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Top Control Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                     <div className="relative flex-1 group">
                       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal/30 w-4 h-4 group-focus-within:text-primary transition-colors" />
                       <input
@@ -791,12 +901,68 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                         className="w-full pl-10 pr-4 py-2.5 text-xs bg-white border border-silver/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 transition-all outline-none text-charcoal font-medium"
                       />
                     </div>
-                    {driver.zone && (
-                      <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/10 px-3 py-2 rounded-xl uppercase tracking-wider self-start sm:self-auto">
-                        Zone: {zones.find(z => z.id === driver.zone)?.name || "Assigned"}
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                      {driver.zone ? (
+                        <span className="text-[10px] font-black text-primary bg-primary/10 border border-primary/10 px-3 py-2 rounded-xl uppercase tracking-wider">
+                          Zone: {zones.find((z) => z.id === driver.zone)?.name || "Assigned"}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl uppercase tracking-wider flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> No Zone Assigned
+                        </span>
+                      )}
+
+                      <span className="text-[10px] font-black text-charcoal/60 bg-silver/20 px-3 py-2 rounded-xl">
+                        {filteredCustomers.length} Assigned
                       </span>
-                    )}
+
+                      <button
+                        type="button"
+                        onClick={() => fetchAssignedCustomers()}
+                        disabled={isLoadingCustomers}
+                        className="p-2 text-charcoal/50 hover:text-charcoal hover:bg-silver/20 rounded-xl transition-all cursor-pointer"
+                        title="Refresh customers"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingCustomers ? "animate-spin text-primary" : ""}`} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!driver.zone) {
+                            showCustomerToast("error", "Please assign a Zone to this rider first in Basic Details.");
+                          } else {
+                            setIsAssignModalOpen(true);
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Assign Customers</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Bulk Selection Action Toolbar */}
+                  {selectedCustomerIds.size > 0 && (
+                    <div className="bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-xl flex items-center justify-between animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        <span className="text-xs font-black text-primary">
+                          {selectedCustomerIds.size} customer{selectedCustomerIds.size > 1 ? "s" : ""} selected
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkRemoveConfirmOpen(true)}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove Selected</span>
+                      </button>
+                    </div>
+                  )}
 
                   {isLoadingCustomers ? (
                     <div className="space-y-3">
@@ -810,65 +976,127 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                         <table className="w-full text-left">
                           <thead className="bg-silver/10 text-[9px] uppercase tracking-widest text-charcoal/40 font-black border-b border-silver/30">
                             <tr>
+                              <th className="py-4 px-4 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    filteredCustomers.length > 0 &&
+                                    selectedCustomerIds.size === filteredCustomers.length
+                                  }
+                                  onChange={handleToggleSelectAll}
+                                  className="w-4 h-4 rounded border-silver/60 text-primary accent-primary cursor-pointer"
+                                  title="Select all"
+                                />
+                              </th>
                               <th className="px-6 py-4">Customer</th>
                               <th className="px-6 py-4">Contact & Location</th>
                               <th className="px-6 py-4">Status</th>
+                              <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-silver/30 text-xs font-bold text-charcoal">
-                            {filteredCustomers.map((cust) => (
-                              <tr key={cust.id} className="hover:bg-primary/5 transition-colors">
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-gradient-to-tr from-primary to-sage text-white rounded-lg flex items-center justify-center font-black text-xs shadow-xs">
-                                      {cust.name.charAt(0)}
+                            {filteredCustomers.map((cust) => {
+                              const isSelected = selectedCustomerIds.has(cust.id);
+                              return (
+                                <tr
+                                  key={cust.id}
+                                  className={`transition-colors ${
+                                    isSelected ? "bg-primary/5" : "hover:bg-primary/5"
+                                  }`}
+                                >
+                                  <td className="py-4 px-4 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => handleToggleSelectCustomer(cust.id)}
+                                      className="w-4 h-4 rounded border-silver/60 text-primary accent-primary cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 bg-gradient-to-tr from-primary to-sage text-white rounded-lg flex items-center justify-center font-black text-xs shadow-xs">
+                                        {cust.name ? cust.name.charAt(0).toUpperCase() : "C"}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-black text-charcoal">{cust.name}</p>
+                                        {cust.company && (
+                                          <p className="text-[9px] text-charcoal/40 font-medium">{cust.company}</p>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div>
-                                      <p className="text-xs font-black text-charcoal">{cust.name}</p>
-                                      {cust.company && (
-                                        <p className="text-[9px] text-charcoal/40 font-medium">{cust.company}</p>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-0.5">
+                                      {cust.phone && <span className="text-[10px] text-charcoal/80 font-bold">{cust.phone}</span>}
+                                      {cust.address && (
+                                        <span className="text-[9px] text-charcoal/40 font-medium truncate max-w-[240px]" title={cust.address}>
+                                          {cust.address}
+                                        </span>
                                       )}
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex flex-col gap-0.5">
-                                    {cust.phone && <span className="text-[10px] text-charcoal/80 font-bold">{cust.phone}</span>}
-                                    {cust.address && (
-                                      <span className="text-[9px] text-charcoal/40 font-medium truncate max-w-[240px]" title={cust.address}>
-                                        {cust.address}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                                    cust.is_active
-                                      ? "bg-sage/10 text-primary border-primary/10"
-                                      : "bg-red-50 text-red-500 border-red-100"
-                                  }`}>
-                                    {cust.is_active ? "Active" : "Inactive"}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                        cust.is_active
+                                          ? "bg-sage/10 text-primary border-primary/10"
+                                          : "bg-red-50 text-red-500 border-red-100"
+                                      }`}
+                                    >
+                                      {cust.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCustomerToRemove(cust)}
+                                      className="p-1.5 text-charcoal/40 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title={`Remove ${cust.name} from this rider`}
+                                    >
+                                      <UserMinus className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   ) : (
-                    <div className="py-16 text-center border border-dashed border-silver/50 rounded-2xl bg-silver/5">
-                      <Users className="w-10 h-10 text-charcoal/20 mx-auto mb-2" />
-                      <p className="text-sm font-black text-charcoal/40">No assigned customers found</p>
-                      <p className="text-xs text-charcoal/30 mt-0.5">
-                        {driver.zone 
-                          ? "This rider's assigned zone does not have any active customers yet."
-                          : "Please assign a zone to this rider to see their assigned customers."}
-                      </p>
+                    <div className="py-16 text-center border border-dashed border-silver/50 rounded-2xl bg-silver/5 space-y-3">
+                      <Users className="w-10 h-10 text-charcoal/20 mx-auto" />
+                      <div>
+                        <p className="text-sm font-black text-charcoal/60">No assigned customers found</p>
+                        <p className="text-xs text-charcoal/40 mt-0.5">
+                          {driver.zone
+                            ? "This rider's assigned zone does not have any active customers yet."
+                            : "Please assign a zone to this rider first before assigning customers."}
+                        </p>
+                      </div>
+
+                      {driver.zone ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsAssignModalOpen(true)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-black rounded-xl hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>Assign Customers Now</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubTab("basic")}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-black rounded-xl hover:bg-primary/20 transition-all cursor-pointer"
+                        >
+                          <span>Go to Basic Details to Assign Zone</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              )})}
 
               {activeSubTab === "logs" && (
                 <div className="space-y-4 animate-in fade-in duration-300">
@@ -1178,6 +1406,114 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                 className="px-5 py-2 bg-silver/20 hover:bg-silver/30 text-charcoal text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Customers Modal */}
+      <AssignCustomersModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        driverName={driver.full_name || "Rider"}
+        targetZoneId={driver.zone || null}
+        targetZoneName={zones.find((z) => z.id === driver.zone)?.name || "Assigned Zone"}
+        onSuccess={handleAssignSuccess}
+        zones={zones}
+      />
+
+      {/* Single Customer Removal Confirmation Modal */}
+      {customerToRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-silver/40 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-charcoal">
+                Unassign Customer
+              </h3>
+              <p className="text-xs text-charcoal/60 leading-relaxed">
+                Are you sure you want to remove <strong>"{customerToRemove.name}"</strong> from{" "}
+                <strong>{driver.full_name || "this rider"}</strong>?
+              </p>
+              <p className="text-[11px] text-charcoal/40">
+                The customer will become unassigned and can be reassigned at any time.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setCustomerToRemove(null)}
+                disabled={isRemoving}
+                className="flex-1 py-2.5 text-xs font-bold text-charcoal/70 bg-silver/20 hover:bg-silver/30 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveCustomer(customerToRemove)}
+                disabled={isRemoving}
+                className="flex-1 py-2.5 text-xs font-black text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {isRemoving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  <span>Confirm Remove</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Customer Removal Confirmation Modal */}
+      {isBulkRemoveConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-silver/40 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-black text-charcoal">
+                Unassign {selectedCustomerIds.size} Customers
+              </h3>
+              <p className="text-xs text-charcoal/60 leading-relaxed">
+                Are you sure you want to remove the selected{" "}
+                <strong>{selectedCustomerIds.size} customers</strong> from{" "}
+                <strong>{driver.full_name || "this rider"}</strong>?
+              </p>
+              <p className="text-[11px] text-charcoal/40">
+                These customers will be unassigned from this zone and route.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkRemoveConfirmOpen(false)}
+                disabled={isRemoving}
+                className="flex-1 py-2.5 text-xs font-bold text-charcoal/70 bg-silver/20 hover:bg-silver/30 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkRemove}
+                disabled={isRemoving}
+                className="flex-1 py-2.5 text-xs font-black text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {isRemoving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  <span>Remove All ({selectedCustomerIds.size})</span>
+                )}
               </button>
             </div>
           </div>
