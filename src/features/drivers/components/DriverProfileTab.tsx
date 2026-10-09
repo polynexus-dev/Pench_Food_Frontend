@@ -1096,7 +1096,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                     </div>
                   )}
                 </div>
-              )})}
+              )}
 
               {activeSubTab === "logs" && (
                 <div className="space-y-4 animate-in fade-in duration-300">
