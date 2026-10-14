@@ -338,7 +338,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [isPricesLoading, setIsPricesLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [priceInputs, setPriceInputs] = useState<
-    Record<string, { customPrice: string; discountPct: string }>
+    Record<string, { customPrice: string; discountAmt: string }>
   >({});
   const [savingProductId, setSavingProductId] = useState<string | null>(null);
   const [priceSuccessMessages, setPriceSuccessMessages] = useState<
@@ -891,23 +891,22 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
       // Initialize inputs from the active custom prices or default MRP
       const initialInputs: Record<
         string,
-        { customPrice: string; discountPct: string }
+        { customPrice: string; discountAmt: string }
       > = {};
       prods.forEach((p: any) => {
         const override = cp.find((o) => o.product === p.id);
         const mrp = parseFloat(p.unit_price);
         if (override) {
           const customPriceNum = parseFloat(override.custom_price);
-          const discountPctVal =
-            mrp > 0 ? ((mrp - customPriceNum) / mrp) * 100 : 0;
+          const discountAmtVal = Math.max(mrp - customPriceNum, 0);
           initialInputs[p.id] = {
             customPrice: customPriceNum.toFixed(2),
-            discountPct: discountPctVal.toFixed(1),
+            discountAmt: discountAmtVal.toFixed(2),
           };
         } else {
           initialInputs[p.id] = {
             customPrice: mrp.toFixed(2),
-            discountPct: "0.0",
+            discountAmt: "0.00",
           };
         }
       });
@@ -927,16 +926,16 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
 
   const handlePriceChange = (productId: string, value: string, mrp: number) => {
     const numericVal = parseFloat(value);
-    let discountPctVal = "0.0";
-    if (!isNaN(numericVal) && mrp > 0) {
+    let discountAmtVal = "0.00";
+    if (!isNaN(numericVal)) {
       const clampedPrice = Math.min(Math.max(numericVal, 0), mrp);
-      discountPctVal = (((mrp - clampedPrice) / mrp) * 100).toFixed(1);
+      discountAmtVal = (mrp - clampedPrice).toFixed(2);
     }
     setPriceInputs((prev) => ({
       ...prev,
       [productId]: {
         customPrice: value,
-        discountPct: discountPctVal,
+        discountAmt: discountAmtVal,
       },
     }));
   };
@@ -949,14 +948,14 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     const numericVal = parseFloat(value);
     let customPriceVal = mrp.toFixed(2);
     if (!isNaN(numericVal)) {
-      const clampedDiscount = Math.min(Math.max(numericVal, 0), 100);
-      customPriceVal = (mrp - (mrp * clampedDiscount) / 100).toFixed(2);
+      const clampedDiscount = Math.min(Math.max(numericVal, 0), mrp);
+      customPriceVal = (mrp - clampedDiscount).toFixed(2);
     }
     setPriceInputs((prev) => ({
       ...prev,
       [productId]: {
         customPrice: customPriceVal,
-        discountPct: value,
+        discountAmt: value,
       },
     }));
   };
@@ -1036,7 +1035,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
         ...prev,
         [productId]: {
           customPrice: mrp.toFixed(2),
-          discountPct: "0.0",
+          discountAmt: "0.00",
         },
       }));
 
@@ -2483,8 +2482,15 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                           const mrp = parseFloat(p.unit_price);
                           const input = priceInputs[p.id] || {
                             customPrice: mrp.toFixed(2),
-                            discountPct: "0.0",
+                            discountAmt: "0.00",
                           };
+                          const discountAmtNum = parseFloat(input.discountAmt);
+                          const discountPercent =
+                            mrp > 0 && !isNaN(discountAmtNum)
+                              ? (Math.min(Math.max(discountAmtNum, 0), mrp) /
+                                  mrp) *
+                                100
+                              : 0;
                           const isCustomized = !!override;
                           const isSaving = savingProductId === p.id;
                           const successMsg = priceSuccessMessages[p.id];
@@ -2541,15 +2547,22 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                                   />
                                 </div>
                                 <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-charcoal/50 uppercase tracking-wider block">
-                                    Discount (%)
-                                  </label>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <label className="text-[9px] font-black text-charcoal/50 uppercase tracking-wider block">
+                                      Discount (₹)
+                                    </label>
+                                    {discountPercent > 0 && (
+                                      <span className="text-[9px] font-black text-primary bg-sage/15 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        {discountPercent.toFixed(2)}% off
+                                      </span>
+                                    )}
+                                  </div>
                                   <input
                                     type="number"
                                     min="0"
-                                    max="100"
-                                    step="0.1"
-                                    value={input.discountPct}
+                                    max={mrp}
+                                    step="0.01"
+                                    value={input.discountAmt}
                                     onChange={(e) =>
                                       handleDiscountChange(
                                         p.id,
