@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { customerApi } from "../api/customerApi";
-import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload, Loader2 } from "lucide-react";
+import { Users, Download, UserPlus, RefreshCw, PieChart, UserCircle, Map, MapPin, CheckCircle, AlertTriangle, QrCode, Upload, Loader2, UserX } from "lucide-react";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useNotificationStore } from "../../../store/useNotificationStore";
 import CustomerDashboardTab from "../components/CustomerDashboardTab";
@@ -194,6 +194,26 @@ const CustomerPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+  const escapeCSV = (val: any) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val);
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
+  const downloadCSV = (headers: string[], rows: string[][], filePrefix: string) => {
+    const csvRows = [headers.join(","), ...rows.map((r) => r.join(","))];
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filePrefix}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Export Customer List to CSV
   const handleExportCSV = async () => {
     setIsExporting(true);
@@ -235,45 +255,29 @@ const CustomerPage: React.FC = () => {
           "Created At"
         ];
 
-        const escapeCSV = (val: any) => {
-          if (val === null || val === undefined) return '""';
-          const str = String(val);
-          return `"${str.replace(/"/g, '""')}"`;
-        };
-
-        const csvRows = [
-          headers.join(","),
-          ...exportData.map(c => [
+        downloadCSV(
+          headers,
+          exportData.map(c => [
             escapeCSV(c.id),
             escapeCSV(c.name),
             escapeCSV(c.company),
             escapeCSV(c.email),
             escapeCSV(c.phone),
             escapeCSV(c.address),
-            c.latitude !== undefined ? c.latitude : "",
-            c.longitude !== undefined ? c.longitude : "",
+            c.latitude !== undefined ? String(c.latitude) : "",
+            c.longitude !== undefined ? String(c.longitude) : "",
             c.is_active ? "Active" : "Inactive",
             escapeCSV(c.qr_code_id),
             escapeCSV(c.zone_name || c.zone || ""),
-            c.discount_rate !== undefined ? c.discount_rate : "",
+            c.discount_rate !== undefined ? String(c.discount_rate) : "",
             escapeCSV(c.created_at)
-          ].join(","))
-        ];
-
-        const csvContent = "\uFEFF" + csvRows.join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `customers_export_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+          ]),
+          "customers_export"
+        );
 
         setNotification({
           title: "Export Successful 🎉",
-          message: `Successfully exported ${customers.length} customers to CSV.`,
+          message: `Successfully exported ${exportData.length} customers to CSV.`,
           type: "success"
         });
       } catch (error) {
@@ -287,6 +291,55 @@ const CustomerPage: React.FC = () => {
         setIsExporting(false);
       }
     }, 800);
+  };
+
+  // Export customers nobody delivers to (no dedicated driver and no zone driver)
+  const [isExportingNoRider, setIsExportingNoRider] = useState<boolean>(false);
+  const handleExportNoRiderCSV = async () => {
+    setIsExportingNoRider(true);
+    try {
+      const data = await customerApi.getCustomers({ paginate: false, rider: "none" });
+      if (data.length === 0) {
+        setNotification({
+          title: "Nothing to Export ✅",
+          message: "Every active customer has a rider assigned.",
+          type: "success"
+        });
+        return;
+      }
+
+      downloadCSV(
+        ["Name", "Company", "Phone", "Email", "Address", "Zone Name", "Reason", "Latitude", "Longitude", "Customer ID"],
+        data.map((c) => [
+          escapeCSV(c.name),
+          escapeCSV(c.company),
+          escapeCSV(c.phone),
+          escapeCSV(c.email),
+          escapeCSV(c.address),
+          escapeCSV(c.zone_name || ""),
+          escapeCSV(c.zone ? "Zone has no rider" : "No zone assigned"),
+          c.latitude !== undefined && c.latitude !== null ? String(c.latitude) : "",
+          c.longitude !== undefined && c.longitude !== null ? String(c.longitude) : "",
+          escapeCSV(c.id),
+        ]),
+        "customers_without_rider"
+      );
+
+      setNotification({
+        title: "Export Successful 🎉",
+        message: `Exported ${data.length} customer${data.length > 1 ? "s" : ""} without a rider.`,
+        type: "success"
+      });
+    } catch (err) {
+      console.error("Failed to export customers without rider:", err);
+      setNotification({
+        title: "Export Failed ⚠️",
+        message: "Could not load customers without a rider. Please try again.",
+        type: "error"
+      });
+    } finally {
+      setIsExportingNoRider(false);
+    }
   };
 
 
@@ -344,6 +397,19 @@ const CustomerPage: React.FC = () => {
               <Download className="w-3.5 h-3.5 text-primary" />
             )}
             {isExporting ? "Exporting..." : "Export CSV"}
+          </button>
+          <button
+            onClick={handleExportNoRiderCSV}
+            disabled={isExportingNoRider}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/50 text-charcoal text-xs font-bold rounded-xl hover:bg-silver/10 active:scale-95 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            title="Export customers who have no rider (no dedicated rider and no zone rider)"
+          >
+            {isExportingNoRider ? (
+              <div className="w-3.5 h-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            ) : (
+              <UserX className="w-3.5 h-3.5 text-primary" />
+            )}
+            {isExportingNoRider ? "Exporting..." : "Export No Rider"}
           </button>
           <button 
             onClick={() => setIsBulkModalOpen(true)}
