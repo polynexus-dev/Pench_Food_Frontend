@@ -48,6 +48,8 @@ import type {
 import { customerApi } from "../api/customerApi";
 import { financeApi } from "../../finance/api/financeApi";
 import { inventoryApi } from "../../inventory/api/inventoryApi";
+import { driverApi } from "../../drivers/api/driverApi";
+import type { Driver } from "../../drivers/components/types";
 import axiosInstance from "../../../api/axiosInstance";
 
 interface CustomerProfileTabProps {
@@ -189,7 +191,9 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 1)); // starts in May 2026
 
   // Available zones for manual assignment
-  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
+  const [zones, setZones] = useState<
+    { id: string; name: string; driver_name?: string | null }[]
+  >([]);
   const [isLoadingZones, setIsLoadingZones] = useState(false);
   const [isUpdatingZone, setIsUpdatingZone] = useState(false);
 
@@ -208,6 +212,40 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
     };
     fetchZones();
   }, []);
+
+  // Available drivers for dedicated (per-customer) assignment
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [isLoadingDrivers, setIsLoadingDrivers] = useState(false);
+  const [isUpdatingDriver, setIsUpdatingDriver] = useState(false);
+
+  useEffect(() => {
+    const fetchDrivers = async () => {
+      try {
+        setIsLoadingDrivers(true);
+        setDrivers(await driverApi.getDrivers());
+      } catch (error) {
+        console.error("Failed to fetch drivers:", error);
+      } finally {
+        setIsLoadingDrivers(false);
+      }
+    };
+    fetchDrivers();
+  }, []);
+
+  const handleAssignDriver = async (driverUserId: number | null) => {
+    setIsUpdatingDriver(true);
+    try {
+      const updated = await customerApi.updateCustomer(customer.id, {
+        assigned_driver: driverUserId,
+      });
+      onUpdateCustomer({ ...customer, ...updated });
+    } catch (error) {
+      console.error("Failed to update customer driver:", error);
+      alert("Failed to change driver. Please try again.");
+    } finally {
+      setIsUpdatingDriver(false);
+    }
+  };
 
   // Subscriptions Database-Backed State
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -1159,7 +1197,7 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
           </div>
 
           {/* Contact Details Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-6 border-t border-silver/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-8 pt-6 border-t border-silver/30">
             <div className="flex items-center gap-3.5 p-3.5 bg-silver/5 hover:bg-silver/10 rounded-2xl border border-silver/30 transition-colors">
               <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary shrink-0">
                 <Mail className="w-4 h-4" />
@@ -1253,6 +1291,52 @@ const CustomerProfileTab: React.FC<CustomerProfileTabProps> = ({
                       {zones.map((z) => (
                         <option key={z.id} value={z.id}>
                           {z.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3.5 p-3.5 bg-silver/5 hover:bg-silver/10 rounded-2xl border border-silver/30 transition-colors">
+              <div className="p-2 bg-white rounded-lg border border-silver/50 text-primary flex-shrink-0">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black text-charcoal/30 uppercase tracking-wider">
+                  Delivery Driver
+                  {customer.effective_driver?.is_dedicated && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary normal-case tracking-normal">
+                      Dedicated
+                    </span>
+                  )}
+                </p>
+                {isLoadingDrivers ? (
+                  <p className="text-xs font-bold text-charcoal/40 animate-pulse">
+                    Loading...
+                  </p>
+                ) : (
+                  <div className="relative flex items-center">
+                    <select
+                      value={customer.assigned_driver ?? ""}
+                      disabled={isUpdatingDriver}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleAssignDriver(val ? Number(val) : null);
+                      }}
+                      title="Pick a driver only for this customer. The zone stays the same."
+                      className="text-xs font-bold text-charcoal bg-transparent border-none outline-none p-0 cursor-pointer w-full focus:ring-0 focus:ring-offset-0 disabled:opacity-50"
+                    >
+                      <option value="">
+                        {`Zone driver (${
+                          zones.find((z) => z.id === customer.zone)
+                            ?.driver_name || "none"
+                        })`}
+                      </option>
+                      {drivers.map((drv) => (
+                        <option key={drv.id} value={drv.user}>
+                          {drv.full_name} ({drv.vehicle_plate})
                         </option>
                       ))}
                     </select>

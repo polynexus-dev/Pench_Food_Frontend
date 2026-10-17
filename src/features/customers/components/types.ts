@@ -55,6 +55,14 @@ export interface Customer {
   };
   zone?: string | null;
   zone_name?: string | null;
+  // Dedicated driver (User id). Overrides the zone's driver; null = use zone driver
+  assigned_driver?: number | null;
+  assigned_driver_name?: string | null;
+  effective_driver?: {
+    id: string;
+    name: string;
+    is_dedicated: boolean;
+  } | null;
   is_new?: boolean;
   trial_approved?: boolean;
   username?: string | null;
