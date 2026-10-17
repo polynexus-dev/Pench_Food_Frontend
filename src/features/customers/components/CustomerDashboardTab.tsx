@@ -131,8 +131,9 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({
   const fetchPageData = async () => {
     setIsPageLoading(true);
     try {
+      // Rider filter is resolved server-side (dedicated + zone customers); "none" = no rider
       const rider = riders.find((r) => r.id === selectedRider);
-      const effectiveZone = selectedZone || (rider ? rider.zone : undefined);
+      const riderParam = selectedRider === "none" ? "none" : rider ? String(rider.user) : undefined;
 
       const res = await customerApi.getPaginatedCustomers({
         page: currentPage,
@@ -140,7 +141,8 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({
         mode: mode,
         letter: selectedLetter !== "ALL" ? selectedLetter : undefined,
         search: debouncedSearch.trim() || undefined,
-        zone: effectiveZone || undefined,
+        zone: selectedZone || undefined,
+        rider: riderParam,
         status: selectedStatus || undefined,
       });
 
@@ -378,6 +380,7 @@ const CustomerDashboardTab: React.FC<CustomerDashboardTabProps> = ({
               className="w-full bg-white border border-silver/50 rounded-xl px-3 py-2 text-xs font-bold text-charcoal focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-xs"
             >
               <option value="">All Riders</option>
+              <option value="none">No Rider Assigned</option>
               {riders.map((r) => (
                 <option key={r.id} value={r.id}>{r.full_name}</option>
               ))}

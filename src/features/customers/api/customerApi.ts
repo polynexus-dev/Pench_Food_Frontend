@@ -10,6 +10,8 @@ export interface CustomerListParams {
   search?: string;
   q?: string;
   zone?: string;
+  // Driver User id, or "none" for customers with no rider (no dedicated or zone driver)
+  rider?: string;
   status?: string;
   paginate?: boolean | string;
 }
