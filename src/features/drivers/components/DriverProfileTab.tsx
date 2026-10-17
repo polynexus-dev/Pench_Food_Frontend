@@ -116,17 +116,19 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
     }, 4500);
   };
 
-  // Fetch customers assigned to this rider's zone
+  // A customer is served by this rider if dedicated to them, or in their zone without a dedicated driver
+  const isDedicatedToRider = (c: Customer) => c.assigned_driver === driver.user;
+
+  // Fetch customers served by this rider (dedicated + zone customers)
   const fetchAssignedCustomers = async () => {
-    if (!driver.zone) {
-      setAssignedCustomers([]);
-      setIsLoadingCustomers(false);
-      return;
-    }
     try {
       setIsLoadingCustomers(true);
       const allCustomers = await customerApi.getCustomers();
-      const filtered = allCustomers.filter((c) => c.zone === driver.zone);
+      const filtered = allCustomers.filter(
+        (c) =>
+          isDedicatedToRider(c) ||
+          (!!driver.zone && c.zone === driver.zone && !c.assigned_driver)
+      );
       setAssignedCustomers(filtered);
       setSelectedCustomerIds(new Set());
     } catch (error) {
@@ -138,7 +140,7 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
 
   useEffect(() => {
     fetchAssignedCustomers();
-  }, [driver.zone]);
+  }, [driver.zone, driver.user]);
 
   const filteredCustomers = React.useMemo(() => {
     const q = (customerSearchQuery || "").toLowerCase().trim();
@@ -170,10 +172,14 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
     }
   };
 
+  // Dedicated customers go back to their zone's driver; zone customers leave the zone
+  const unassignPayload = (cust: Customer): Partial<Customer> =>
+    isDedicatedToRider(cust) ? { assigned_driver: null } : { zone: null };
+
   const handleRemoveCustomer = async (cust: Customer) => {
     try {
       setIsRemoving(true);
-      await customerApi.updateCustomer(cust.id, { zone: null as any });
+      await customerApi.updateCustomer(cust.id, unassignPayload(cust));
       setAssignedCustomers((prev) => prev.filter((c) => c.id !== cust.id));
       setSelectedCustomerIds((prev) => {
         const next = new Set(prev);
@@ -195,7 +201,11 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
     const ids = Array.from(selectedCustomerIds);
     try {
       setIsRemoving(true);
-      await Promise.all(ids.map((id) => customerApi.updateCustomer(id, { zone: null as any })));
+      await Promise.all(
+        assignedCustomers
+          .filter((c) => selectedCustomerIds.has(c.id))
+          .map((c) => customerApi.updateCustomer(c.id, unassignPayload(c)))
+      );
       setAssignedCustomers((prev) => prev.filter((c) => !selectedCustomerIds.has(c.id)));
       showCustomerToast("success", `Unassigned ${ids.length} customers from ${driver.full_name || "this rider"}.`);
       setSelectedCustomerIds(new Set());
@@ -1018,7 +1028,17 @@ const DriverProfileTab: React.FC<DriverProfileTabProps> = ({
                                         {cust.name ? cust.name.charAt(0).toUpperCase() : "C"}
                                       </div>
                                       <div>
-                                        <p className="text-xs font-black text-charcoal">{cust.name}</p>
+                                        <p className="text-xs font-black text-charcoal">
+                                          {cust.name}
+                                          {isDedicatedToRider(cust) && (
+                                            <span
+                                              className="ml-1.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-black uppercase tracking-wider"
+                                              title="Dedicated to this rider; the customer's zone is unchanged"
+                                            >
+                                              Dedicated
+                                            </span>
+                                          )}
+                                        </p>
                                         {cust.company && (
                                           <p className="text-[9px] text-charcoal/40 font-medium">{cust.company}</p>
                                         )}
