@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import CreateOrderModal from '../../orders/components/modals/CreateOrderModal';
 import { LogoSpinner } from '../../../components/common/LogoSpinner';
+import AttentionCards from '../components/AttentionCards';
 
 const isMilkProduct = (name: string): boolean => {
   const lower = name.toLowerCase();
@@ -421,6 +422,9 @@ const OverviewPage = () => {
           </button>
         ))}
       </div>
+
+      {/* Needs attention: online payments to verify & new additional orders */}
+      <AttentionCards />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Deliveries Table */}

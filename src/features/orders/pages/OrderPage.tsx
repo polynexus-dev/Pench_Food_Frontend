@@ -4,11 +4,15 @@ import { orderApi } from "../api/orderApi";
 import type { Order } from "../components/types";
 import OrderDashboardTab from "../components/OrderDashboardTab";
 import OrderManageTab from "../components/OrderManageTab";
+import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/useAuthStore";
 
 const OrderPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant) || "nagpur";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "manage" | "calendar">("dashboard");
+  // Deep link: /orders?type=additional opens the manage tab filtered to additional orders
+  const [searchParams] = useSearchParams();
+  const showAdditional = searchParams.get("type") === "additional";
+  const [activeTab, setActiveTab] = useState<"dashboard" | "manage" | "calendar">(showAdditional ? "manage" : "dashboard");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -234,6 +238,7 @@ const OrderPage: React.FC = () => {
           setSearchQuery={setSearchQuery}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onOrderCreated={() => fetchOrders(true)}
+          initialTypeFilter={showAdditional ? "additional" : "all"}
         />
       )}
       {activeTab === "calendar" && (

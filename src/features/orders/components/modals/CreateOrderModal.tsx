@@ -474,7 +474,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
               </label>
               <input
                 type="number"
-                min="1"
+                min="0.5"
+                step="0.5"
                 required
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}

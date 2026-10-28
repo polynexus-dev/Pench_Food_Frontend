@@ -30,6 +30,27 @@ export interface Order {
   amount_collected?: string;
   payment_transaction_id?: string;
   payment_status?: string;
+  /** True for additional (non-subscription) orders */
+  is_special?: boolean;
+  subscription?: string | null;
+  latest_payment?: OrderPaymentProof | null;
+}
+
+export interface OrderPaymentProof {
+  id: string;
+  amount: number;
+  status: "pending" | "verified" | "rejected";
+  screenshot: string | null;
+  created_at: string;
+}
+
+export interface SpecialOrdersSummary {
+  new_pending: number;
+  placed_last_24h: number;
+  for_today: number;
+  upcoming: number;
+  payment_pending_verification: number;
+  recent_new_orders: Order[];
 }
 
 export interface OrderStats {

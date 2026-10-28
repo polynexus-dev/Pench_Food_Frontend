@@ -411,9 +411,10 @@ const TrialApprovalsTab: React.FC<TrialApprovalsTabProps> = ({ onViewProfile }) 
                 <label className="text-xs font-bold text-charcoal/70">Quantity</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.5"
+                  step="0.5"
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setQuantity(Math.max(0.5, parseFloat(e.target.value) || 0.5))}
                   className="w-full px-3 py-2 bg-silver/10 border border-silver/60 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white transition-all text-charcoal"
                 />
               </div>

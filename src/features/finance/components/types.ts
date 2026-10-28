@@ -46,3 +46,47 @@ export interface RecordPaymentPayload {
   transaction_id?: string;
   notes?: string;
 }
+
+// ─── Online Payments (customer-submitted, admin-verified) ───────────────────
+
+export type OnlinePaymentStatus = 'pending' | 'verified' | 'rejected';
+export type OnlinePaymentPurpose = 'subscription' | 'order' | 'bill' | 'general';
+
+export interface OnlinePayment {
+  id: string;
+  customer: string;
+  customer_name: string;
+  customer_phone: string;
+  amount: string;
+  screenshot: string | null;
+  transaction_id: string;
+  purpose: OnlinePaymentPurpose;
+  purpose_display: string;
+  subscription: string | null;
+  order: string | null;
+  bill: string | null;
+  bill_invoice_number: string | null;
+  notes: string;
+  status: OnlinePaymentStatus;
+  status_display: string;
+  verified_by: number | null;
+  verified_by_name: string | null;
+  verified_at: string | null;
+  rejection_reason: string;
+  bill_transaction: string | null;
+  created_at: string;
+}
+
+export interface OnlinePaymentBucket {
+  count: number;
+  customers: number;
+  amount: number;
+}
+
+export interface OnlinePaymentSummary {
+  total_customers_paid_online: number;
+  pending: OnlinePaymentBucket;
+  verified: OnlinePaymentBucket;
+  rejected: OnlinePaymentBucket;
+  pending_by_purpose: Partial<Record<OnlinePaymentPurpose, number>>;
+}

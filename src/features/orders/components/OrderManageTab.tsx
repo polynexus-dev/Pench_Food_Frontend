@@ -16,7 +16,8 @@ import {
   Camera,
   ExternalLink,
   Image as ImageIcon,
-  PlusCircle
+  PlusCircle,
+  Sparkles
 } from "lucide-react";
 import type { Order, OrderItem } from "./types";
 import { useAuthStore } from "../../../store/useAuthStore";
@@ -31,7 +32,11 @@ interface OrderManageTabProps {
   setSearchQuery: (q: string) => void;
   onUpdateOrderStatus: (orderId: string, status: string) => Promise<void>;
   onOrderCreated: () => void;
+  /** Initial order-type filter, e.g. "additional" when deep-linked from the dashboard */
+  initialTypeFilter?: OrderTypeFilter;
 }
+
+export type OrderTypeFilter = "all" | "regular" | "additional";
 
 const OrderManageTab: React.FC<OrderManageTabProps> = ({ 
   orders, 
@@ -39,7 +44,8 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   searchQuery, 
   setSearchQuery,
   onUpdateOrderStatus,
-  onOrderCreated
+  onOrderCreated,
+  initialTypeFilter = "all"
 }) => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
@@ -47,7 +53,8 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Filter States
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>(initialTypeFilter === "additional" ? "pending" : "all");
+  const [selectedType, setSelectedType] = useState<OrderTypeFilter>(initialTypeFilter);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
@@ -160,9 +167,17 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
     };
   }, [orders]);
 
+  // Regular (subscription) vs additional (one-off) order counts
+  const typeCounts = useMemo(() => {
+    const additional = orders.filter((o: Order) => o.is_special).length;
+    return { all: orders.length, regular: orders.length - additional, additional };
+  }, [orders]);
+
   // Apply all filters
   const finalFilteredOrders = useMemo(() => {
     return orders.filter((order: Order) => {
+      if (selectedType === "additional" && !order.is_special) return false;
+      if (selectedType === "regular" && order.is_special) return false;
       if (selectedStatus !== "all" && order.status !== selectedStatus) {
         return false;
       }
@@ -190,7 +205,7 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
       }
       return true;
     });
-  }, [orders, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedCustomer, selectedDate]);
+  }, [orders, selectedType, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedCustomer, selectedDate]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -365,6 +380,36 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
         </div>
       )}
 
+      {/* Order Type: Regular (subscription) vs Additional (one-off) */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-[10px] font-black text-charcoal/40 uppercase tracking-widest mr-1">Order Type</span>
+        {([
+          { id: "all", label: "All", count: typeCounts.all },
+          { id: "regular", label: "Regular (Subscription)", count: typeCounts.regular },
+          { id: "additional", label: "Additional Orders", count: typeCounts.additional },
+        ] as { id: OrderTypeFilter; label: string; count: number }[]).map(pill => (
+          <button
+            key={pill.id}
+            onClick={() => setSelectedType(pill.id)}
+            className={`px-3.5 py-2 rounded-xl border text-[11px] font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-2 ${
+              selectedType === pill.id
+                ? "bg-charcoal border-charcoal text-white"
+                : pill.id === "additional"
+                  ? "bg-violet-500/10 border-violet-500/20 text-violet-700"
+                  : "bg-charcoal/5 border-charcoal/10 text-charcoal"
+            }`}
+          >
+            {pill.id === "additional" && <Sparkles className="w-3 h-3" />}
+            {pill.label}
+            <span className={`px-1.5 py-0.5 rounded-lg text-[10px] font-black ${
+              selectedType === pill.id ? "bg-white/20 text-white" : "bg-black/5 text-current"
+            }`}>
+              {pill.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Essential Filters: Status Pills */}
       <div className="flex flex-wrap gap-2 items-center">
         {[
@@ -438,7 +483,14 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                         </button>
                       </td>
                       <td className="px-6 py-4 cursor-pointer" onClick={() => toggleExpandOrder(order.id)}>
-                        <p className="text-sm font-black text-charcoal">#{order.id.split('-')[0].toUpperCase()}</p>
+                        <p className="text-sm font-black text-charcoal flex items-center gap-2">
+                          #{order.id.split('-')[0].toUpperCase()}
+                          {order.is_special && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 text-[8px] font-black uppercase tracking-widest flex items-center gap-0.5">
+                              <Sparkles className="w-2.5 h-2.5" /> Additional
+                            </span>
+                          )}
+                        </p>
                         <p className="text-[9px] text-charcoal/40 font-bold mt-1 uppercase flex items-center gap-1">
                           <ShoppingBag className="w-2.5 h-2.5 text-primary/40" />
                           {(order.items || []).length} Product{(order.items || []).length !== 1 ? 's' : ''}

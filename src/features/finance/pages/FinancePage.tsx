@@ -10,6 +10,7 @@ import { financeApi } from "../api/financeApi";
 import type {
   MonthlyBill, FinanceTransaction, FinanceDashboardSummary, RecordPaymentPayload
 } from "../components/types";
+import OnlinePaymentsPanel from "../components/OnlinePaymentsPanel";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -359,7 +360,7 @@ const FinancePage: React.FC = () => {
           <div>
             <h1 className="text-3xl font-black text-charcoal tracking-tight">Finance & Billing</h1>
             <p className="text-charcoal/50 font-medium text-xs mt-0.5">
-              Track receivables, record payments, and manage monthly billing cycles.
+              Track receivables, verify online payments, and manage monthly billing cycles.
             </p>
           </div>
         </div>
@@ -442,6 +443,9 @@ const FinancePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── Customer Online Payments (verification queue) ── */}
+      <OnlinePaymentsPanel onChanged={loadAll} />
 
       {/* ── Main Content Grid ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
