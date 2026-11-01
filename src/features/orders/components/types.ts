@@ -29,12 +29,14 @@ export interface Order {
   payment_method?: string;
   amount_collected?: string;
   payment_transaction_id?: string;
-  payment_status?: string;
+  payment_status?: OrderPaymentStatus;
   /** True for additional (non-subscription) orders */
   is_special?: boolean;
   subscription?: string | null;
   latest_payment?: OrderPaymentProof | null;
 }
+
+export type OrderPaymentStatus = "pending" | "verification_pending" | "paid" | "failed";
 
 export interface OrderPaymentProof {
   id: string;

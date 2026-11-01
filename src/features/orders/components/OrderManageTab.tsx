@@ -20,6 +20,7 @@ import {
   Sparkles
 } from "lucide-react";
 import type { Order, OrderItem } from "./types";
+import { getPaymentStatusLabel, getPaymentStatusStyle } from "./paymentStatus";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { getCityUrl } from "../../../utils/constants";
 import CreateOrderModal from "./modals/CreateOrderModal";
@@ -526,6 +527,11 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                         <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${getStatusStyle(order.status)}`}>
                           {order.status_display}
                         </span>
+                        {order.payment_status === "verification_pending" && (
+                          <span className={`mt-1.5 block w-fit px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${getPaymentStatusStyle(order.payment_status)}`}>
+                            {getPaymentStatusLabel(order.payment_status)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                          <div className="flex items-center gap-2 text-xs font-bold text-charcoal/60">
@@ -656,12 +662,8 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                                     )}
                                     <div className="flex justify-between pt-1 border-t border-silver/20">
                                       <span className="text-charcoal/40 text-[10px]">Payment Status:</span>
-                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                                        order.payment_status === "paid"
-                                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                                          : "bg-amber-50 text-amber-600 border border-amber-100"
-                                      }`}>
-                                        {order.payment_status || "Pending"}
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${getPaymentStatusStyle(order.payment_status)}`}>
+                                        {getPaymentStatusLabel(order.payment_status)}
                                       </span>
                                     </div>
                                   </div>
