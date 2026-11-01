@@ -3,9 +3,12 @@ import { isAxiosError } from "axios";
 import {
   Smartphone, RefreshCw, Search, X, CheckCircle2, XCircle,
   Clock, AlertTriangle, Users, ImageOff, ExternalLink, CircleDashed,
+  Eye, FileImage,
 } from "lucide-react";
 import { financeApi } from "../api/financeApi";
 import type { OnlinePayment, OnlinePaymentStatus, OnlinePaymentSummary } from "./types";
+import { resolveMediaUrl } from "../../../utils/constants";
+import { useAuthStore } from "../../../store/useAuthStore";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -32,43 +35,173 @@ type FilterValue = OnlinePaymentStatus | "all";
 
 // ─── Screenshot Preview Modal ────────────────────────────────────────────────
 
-const ScreenshotModal: React.FC<{ payment: OnlinePayment; onClose: () => void }> = ({ payment, onClose }) => (
-  <div
-    onClick={onClose}
-    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
-  >
-    <div onClick={e => e.stopPropagation()} className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
-      <div className="p-4 border-b border-silver/50 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-black text-charcoal">{payment.customer_name}</h2>
-          <p className="text-[11px] text-charcoal/50">
-            {fmt(payment.amount)}{payment.transaction_id ? ` · UTR ${payment.transaction_id}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          {payment.screenshot && (
-            <a href={payment.screenshot} target="_blank" rel="noreferrer"
-              className="p-2 rounded-xl hover:bg-silver/20 transition-colors" title="Open original">
-              <ExternalLink className="w-4 h-4 text-charcoal/50" />
-            </a>
-          )}
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-silver/20 transition-colors cursor-pointer">
-            <X className="w-4 h-4 text-charcoal/50" />
-          </button>
-        </div>
-      </div>
-      <div className="bg-silver/10 max-h-[75vh] overflow-auto flex items-center justify-center">
-        {payment.screenshot ? (
-          <img src={payment.screenshot} alt="Payment screenshot" className="max-w-full object-contain" />
-        ) : (
-          <div className="py-20 text-xs font-bold text-charcoal/30 flex flex-col items-center gap-2">
-            <ImageOff className="w-8 h-8" /> No screenshot
+const ScreenshotModal: React.FC<{
+  payment: OnlinePayment;
+  tenant?: string | null;
+  onClose: () => void;
+  onVerify?: (payment: OnlinePayment) => void;
+  onReject?: (payment: OnlinePayment) => void;
+  isVerifying?: boolean;
+}> = ({ payment, tenant, onClose, onVerify, onReject, isVerifying }) => {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const resolvedUrl = resolveMediaUrl(payment.screenshot, tenant);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-silver/50 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-black text-charcoal">{payment.customer_name}</h2>
+              <span className="text-[10px] font-bold bg-silver/30 text-charcoal/60 px-2 py-0.5 rounded-md">
+                {payment.purpose_display}
+              </span>
+            </div>
+            <p className="text-[11px] text-charcoal/50 mt-0.5">
+              {fmt(payment.amount)}
+              {payment.transaction_id ? ` · UTR: ${payment.transaction_id}` : ""} · {fmtDateTime(payment.created_at)}
+            </p>
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            {resolvedUrl && (
+              <a
+                href={resolvedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-silver/20 hover:bg-silver/30 text-[11px] font-bold text-charcoal transition-colors"
+                title="Open original image in new tab"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open full size</span>
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-silver/20 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4 text-charcoal/50" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content / Screenshot Image */}
+        <div className="bg-silver/10 flex-1 overflow-auto flex items-center justify-center p-4 min-h-[320px] relative">
+          {resolvedUrl ? (
+            <>
+              {!imgLoaded && !imgError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-charcoal/40">
+                  <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                  <span className="text-[11px] font-bold">Loading payment screenshot...</span>
+                </div>
+              )}
+              {imgError ? (
+                <div className="py-10 px-4 text-center flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-charcoal">Preview could not be displayed directly</h3>
+                    <p className="text-[11px] text-charcoal/50 mt-1 max-w-sm">
+                      You can view or download the raw attachment file below:
+                    </p>
+                  </div>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImgError(false);
+                        setImgLoaded(false);
+                      }}
+                      className="px-3 py-1.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 transition-colors cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                    <a
+                      href={resolvedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 flex items-center gap-1.5 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Open Attachment
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={resolvedUrl}
+                  alt="Payment screenshot"
+                  onLoad={() => setImgLoaded(true)}
+                  onError={() => setImgError(true)}
+                  className={`max-w-full max-h-[65vh] object-contain rounded-xl shadow-xs transition-opacity duration-200 ${
+                    imgLoaded ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              )}
+            </>
+          ) : (
+            <div className="py-20 text-xs font-bold text-charcoal/30 flex flex-col items-center gap-2">
+              <ImageOff className="w-8 h-8" /> No screenshot uploaded
+            </div>
+          )}
+        </div>
+
+        {/* Footer with Details & Quick Actions */}
+        <div className="p-4 bg-white border-t border-silver/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs">
+            <span className="text-charcoal/50 font-medium">Customer: </span>
+            <span className="font-bold text-charcoal">
+              {payment.customer_name} ({payment.customer_phone})
+            </span>
+            {payment.notes && (
+              <span className="block text-[11px] text-charcoal/60 italic mt-0.5">
+                Note: "{payment.notes}"
+              </span>
+            )}
+          </div>
+          {payment.status === "pending" && (
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  onReject?.(payment);
+                  onClose();
+                }}
+                disabled={isVerifying}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 border border-rose-200 text-rose-600 rounded-xl text-xs font-black hover:bg-rose-50 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <XCircle className="w-3.5 h-3.5" /> Reject
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onVerify?.(payment);
+                  onClose();
+                }}
+                disabled={isVerifying}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isVerifying ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                Verify & Approve
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Reject Modal ────────────────────────────────────────────────────────────
 
@@ -152,6 +285,7 @@ interface OnlinePaymentsPanelProps {
 }
 
 const OnlinePaymentsPanel: React.FC<OnlinePaymentsPanelProps> = ({ onChanged }) => {
+  const tenant = useAuthStore(s => s.tenant);
   const [summary, setSummary] = useState<OnlinePaymentSummary | null>(null);
   const [payments, setPayments] = useState<OnlinePayment[]>([]);
   const [filter, setFilter] = useState<FilterValue>("pending");
@@ -308,80 +442,145 @@ const OnlinePaymentsPanel: React.FC<OnlinePaymentsPanelProps> = ({ onChanged }) 
             {filter === "pending" ? "No payments waiting for verification." : "No online payments found."}
           </div>
         ) : (
-          filtered.map(p => (
-            <div key={p.id} className="border border-silver/50 rounded-2xl p-3 flex items-center gap-3 hover:border-silver transition-colors">
-              {/* Thumbnail */}
-              <button
-                onClick={() => setPreviewPayment(p)}
-                className="w-14 h-14 rounded-xl overflow-hidden border border-silver/50 bg-silver/10 shrink-0 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
-                title="View screenshot"
-              >
-                {p.screenshot
-                  ? <img src={p.screenshot} alt="" className="w-full h-full object-cover" />
-                  : <ImageOff className="w-5 h-5 text-charcoal/20" />}
-              </button>
+          filtered.map(p => {
+            const resolvedUrl = resolveMediaUrl(p.screenshot, tenant);
 
-              {/* Details */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black text-charcoal truncate">{p.customer_name}</span>
-                  <span className="text-[9px] font-bold bg-silver/30 text-charcoal/50 px-2 py-0.5 rounded-md">{p.purpose_display}</span>
-                  {p.bill_invoice_number && (
-                    <span className="text-[9px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">{p.bill_invoice_number}</span>
+            return (
+              <div
+                key={p.id}
+                className="border border-silver/50 rounded-2xl p-3 flex items-center gap-3 hover:border-silver transition-colors"
+              >
+                {/* Thumbnail Preview */}
+                <button
+                  type="button"
+                  onClick={() => setPreviewPayment(p)}
+                  className="w-16 h-16 rounded-xl overflow-hidden border border-silver/50 bg-silver/10 shrink-0 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all relative group"
+                  title="Click to inspect attachment"
+                >
+                  {resolvedUrl ? (
+                    <>
+                      <img
+                        src={resolvedUrl}
+                        alt="Proof thumbnail"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fallback = e.currentTarget.parentElement?.querySelector(".proof-fallback");
+                          if (fallback) fallback.classList.remove("hidden");
+                        }}
+                      />
+                      <div className="proof-fallback hidden flex flex-col items-center justify-center text-charcoal/40 text-[9px] font-bold p-1 text-center">
+                        <FileImage className="w-5 h-5 text-primary/70 mb-0.5" />
+                        <span>Proof</span>
+                      </div>
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Eye className="w-4 h-4 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-charcoal/30">
+                      <ImageOff className="w-5 h-5 mb-0.5" />
+                      <span className="text-[8px] font-bold">No file</span>
+                    </div>
+                  )}
+                </button>
+
+                {/* Details */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-charcoal truncate">{p.customer_name}</span>
+                    <span className="text-[9px] font-bold bg-silver/30 text-charcoal/50 px-2 py-0.5 rounded-md">{p.purpose_display}</span>
+                    {p.bill_invoice_number && (
+                      <span className="text-[9px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">{p.bill_invoice_number}</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-charcoal/40 font-medium mt-0.5 flex flex-wrap gap-x-2">
+                    <span>{p.customer_phone}</span>
+                    <span>· {fmtDateTime(p.created_at)}</span>
+                    {p.transaction_id && <span className="font-bold text-charcoal/50">· UTR {p.transaction_id}</span>}
+                  </div>
+                  {p.notes && <div className="text-[10px] italic text-charcoal/40 truncate mt-0.5">"{p.notes}"</div>}
+                  {p.status === "rejected" && p.rejection_reason && (
+                    <div className="text-[10px] font-bold text-rose-600 mt-0.5">Rejected: {p.rejection_reason}</div>
+                  )}
+                  {p.status === "verified" && p.verified_by_name && (
+                    <div className="text-[10px] font-bold text-emerald-600 mt-0.5">
+                      Verified by {p.verified_by_name}{p.verified_at ? ` · ${fmtDateTime(p.verified_at)}` : ""}
+                    </div>
+                  )}
+
+                  {/* Prominent Action to Open Attachment */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPayment(p)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black transition-all cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{resolvedUrl ? "Check Payment Attachment" : "View Details"}</span>
+                    </button>
+                    {resolvedUrl && (
+                      <a
+                        href={resolvedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-charcoal/40 hover:text-charcoal/70 transition-colors"
+                        title="Open attachment in new tab"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Open file</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Amount + actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-right">
+                    <div className="text-sm font-black text-charcoal">{fmt(p.amount)}</div>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border ${statusStyle(p.status)}`}>
+                      {p.status_display}
+                    </span>
+                  </div>
+                  {p.status === "pending" && (
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => handleVerify(p)}
+                        disabled={verifyingId === p.id}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {verifyingId === p.id
+                          ? <RefreshCw className="w-3 h-3 animate-spin" />
+                          : <CheckCircle2 className="w-3 h-3" />}
+                        Verify
+                      </button>
+                      <button
+                        onClick={() => setRejectPayment(p)}
+                        disabled={verifyingId === p.id}
+                        className="flex items-center gap-1 px-3 py-1.5 border border-rose-200 text-rose-600 rounded-lg text-[10px] font-black hover:bg-rose-50 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <XCircle className="w-3 h-3" /> Reject
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="text-[10px] text-charcoal/40 font-medium mt-0.5 flex flex-wrap gap-x-2">
-                  <span>{p.customer_phone}</span>
-                  <span>· {fmtDateTime(p.created_at)}</span>
-                  {p.transaction_id && <span className="font-bold text-charcoal/50">· UTR {p.transaction_id}</span>}
-                </div>
-                {p.notes && <div className="text-[10px] italic text-charcoal/40 truncate mt-0.5">"{p.notes}"</div>}
-                {p.status === "rejected" && p.rejection_reason && (
-                  <div className="text-[10px] font-bold text-rose-600 mt-0.5">Rejected: {p.rejection_reason}</div>
-                )}
-                {p.status === "verified" && p.verified_by_name && (
-                  <div className="text-[10px] font-bold text-emerald-600 mt-0.5">
-                    Verified by {p.verified_by_name}{p.verified_at ? ` · ${fmtDateTime(p.verified_at)}` : ""}
-                  </div>
-                )}
               </div>
-
-              {/* Amount + actions */}
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="text-right">
-                  <div className="text-sm font-black text-charcoal">{fmt(p.amount)}</div>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border ${statusStyle(p.status)}`}>
-                    {p.status_display}
-                  </span>
-                </div>
-                {p.status === "pending" && (
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => handleVerify(p)}
-                      disabled={verifyingId === p.id}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {verifyingId === p.id
-                        ? <RefreshCw className="w-3 h-3 animate-spin" />
-                        : <CheckCircle2 className="w-3 h-3" />}
-                      Verify
-                    </button>
-                    <button
-                      onClick={() => setRejectPayment(p)}
-                      disabled={verifyingId === p.id}
-                      className="flex items-center gap-1 px-3 py-1.5 border border-rose-200 text-rose-600 rounded-lg text-[10px] font-black hover:bg-rose-50 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <XCircle className="w-3 h-3" /> Reject
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      {previewPayment && <ScreenshotModal payment={previewPayment} onClose={() => setPreviewPayment(null)} />}
+      {previewPayment && (
+        <ScreenshotModal
+          payment={previewPayment}
+          tenant={tenant}
+          onClose={() => setPreviewPayment(null)}
+          onVerify={handleVerify}
+          onReject={setRejectPayment}
+          isVerifying={verifyingId === previewPayment.id}
+        />
+      )}
       {rejectPayment && (
         <RejectModal payment={rejectPayment} onClose={() => setRejectPayment(null)} onRejected={afterChange} />
       )}
