@@ -4,44 +4,62 @@ import type { OrderStats } from "./types";
 import { CheckCircle2, Clock, IndianRupee, ShoppingCart, TrendingUp, Truck } from "lucide-react";
 
 interface OrderDashboardTabProps {
-  stats: OrderStats;
+  /** Null until the summary has loaded */
+  stats: OrderStats | null;
+  loadFailed: boolean;
+  onRetry: () => void;
 }
 
-const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
+const formatCount = (value: number | undefined) => value === undefined ? "—" : value.toLocaleString("en-IN");
+
+const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats, loadFailed, onRetry }) => {
   const navigate = useNavigate();
+  const statusRows = Object.entries(stats?.statusBreakdown ?? {}).sort(([, a], [, b]) => b - a);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* 1. Metric Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          label="Total Orders" 
-          value={stats.totalOrders.toString()} 
-          icon={ShoppingCart} 
+      {loadFailed && !stats && (
+        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-between gap-3">
+          <p className="text-xs font-bold text-red-600">Could not load order totals.</p>
+          <button
+            onClick={onRetry}
+            className="px-3 py-1.5 bg-white border border-red-200 rounded-xl text-xs font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* 1. Metric Grid: columns follow the available width, so values are never cut off */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))] gap-6">
+        <StatCard
+          label="Total Orders"
+          value={formatCount(stats?.totalOrders)}
+          icon={ShoppingCart}
           bgColor="bg-primary/10"
           iconColor="text-primary"
           onClick={() => navigate("/orders")}
         />
-        <StatCard 
-          label="Pending Dispatch" 
-          value={stats.pendingOrders.toString()} 
-          icon={Clock} 
+        <StatCard
+          label="Pending Dispatch"
+          value={formatCount(stats?.pendingOrders)}
+          icon={Clock}
           bgColor="bg-amber-100"
           iconColor="text-amber-600"
           onClick={() => navigate("/orders")}
         />
-        <StatCard 
-          label="Completed" 
-          value={stats.deliveredOrders.toString()} 
-          icon={CheckCircle2} 
+        <StatCard
+          label="Completed"
+          value={formatCount(stats?.deliveredOrders)}
+          icon={CheckCircle2}
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
           onClick={() => navigate("/orders")}
         />
-        <StatCard 
-          label="Revenue" 
-          value={`₹${stats.totalRevenue.toLocaleString()}`} 
-          icon={IndianRupee} 
+        <StatCard
+          label="Delivered Revenue"
+          value={stats ? `₹${stats.totalRevenue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—"}
+          icon={IndianRupee}
           bgColor="bg-indigo-100"
           iconColor="text-indigo-600"
           onClick={() => navigate("/finance")}
@@ -60,13 +78,13 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
            </div>
            
            <div className="space-y-6">
-              {Object.entries(stats.statusBreakdown).map(([status, count]) => {
-                const percentage = (count / stats.totalOrders) * 100 || 0;
+              {statusRows.map(([status, count]) => {
+                const percentage = (count / (stats?.totalOrders || 1)) * 100;
                 return (
                   <div key={status} className="space-y-2">
-                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-charcoal/60">
+                    <div className="flex flex-wrap justify-between gap-x-3 text-xs font-bold uppercase tracking-widest text-charcoal/60">
                       <span>{status}</span>
-                      <span>{count} orders ({percentage.toFixed(0)}%)</span>
+                      <span>{formatCount(count)} orders ({percentage.toFixed(0)}%)</span>
                     </div>
                     <div className="h-2 bg-silver/20 rounded-full overflow-hidden">
                       <div 
@@ -93,7 +111,7 @@ const OrderDashboardTab: React.FC<OrderDashboardTabProps> = ({ stats }) => {
               <div className="flex justify-between items-end">
                  <div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-accent">Active Dispatch</p>
-                    <p className="text-3xl font-black mt-1">{stats.confirmedOrders}</p>
+                    <p className="text-3xl font-black mt-1">{formatCount(stats?.confirmedOrders)}</p>
                  </div>
                  <button className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                     Track Fleet &rarr;
@@ -114,9 +132,9 @@ const StatCard = ({ label, value, icon: Icon, bgColor, iconColor, onClick }: any
     <div className={`w-14 h-14 ${bgColor} rounded-2xl flex items-center justify-center shrink-0 shadow-sm`}>
       <Icon className={`w-7 h-7 ${iconColor}`} />
     </div>
-    <div>
+    <div className="min-w-0 flex-1">
       <p className="text-[10px] font-black text-charcoal/30 uppercase tracking-widest">{label}</p>
-      <p className="text-2xl font-black text-charcoal mt-0.5">{value}</p>
+      <p className="text-2xl font-black text-charcoal mt-0.5 [overflow-wrap:anywhere]">{value}</p>
     </div>
   </button>
 );

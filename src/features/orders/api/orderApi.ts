@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Order, SpecialOrdersSummary } from "../components/types";
+import type { Order, OrdersSummary, SpecialOrdersSummary } from "../components/types";
 
 interface SyncOrdersResponse {
   orders: Order[];
@@ -15,11 +15,20 @@ interface SyncOrdersResponse {
  */
 export const orderApi = {
   /**
-   * Fetch all orders for the current tenant
+   * Fetch orders for the current tenant. Pass a date filter: without one the
+   * API returns every order, which is very slow on large tenants.
    */
   getOrders: async (params?: Record<string, any>): Promise<Order[]> => {
     const response = await axiosInstance.get<Order[]>("/erp/orders/", { params });
     return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /**
+   * Order counts and revenue computed on the server
+   */
+  getOrdersSummary: async (params?: Record<string, any>): Promise<OrdersSummary> => {
+    const response = await axiosInstance.get<OrdersSummary>("/erp/orders/summary/", { params });
+    return response.data;
   },
 
   /**

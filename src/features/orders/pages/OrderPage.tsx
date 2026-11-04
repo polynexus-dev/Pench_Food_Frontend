@@ -1,11 +1,19 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ShoppingCart, RefreshCw, PieChart, Sliders, Check, X, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { orderApi } from "../api/orderApi";
-import type { Order } from "../components/types";
+import type { Order, OrdersSummary } from "../components/types";
 import OrderDashboardTab from "../components/OrderDashboardTab";
 import OrderManageTab from "../components/OrderManageTab";
 import { useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../../store/useAuthStore";
+
+/** Today as YYYY-MM-DD in local time (toISOString would give yesterday before 5:30 AM IST) */
+const getLocalDateString = () => {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+};
 
 const OrderPage: React.FC = () => {
   const tenant = useAuthStore((state) => state.tenant) || "nagpur";
@@ -14,7 +22,11 @@ const OrderPage: React.FC = () => {
   const showAdditional = searchParams.get("type") === "additional";
   const [activeTab, setActiveTab] = useState<"dashboard" | "manage" | "calendar">(showAdditional ? "manage" : "dashboard");
   const [orders, setOrders] = useState<Order[]>([]);
+  const [summary, setSummary] = useState<OrdersSummary | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<string>(showAdditional ? "" : getLocalDateString());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 1)); // starts in May 2026
 
@@ -39,34 +51,71 @@ const OrderPage: React.FC = () => {
 
   const [syncSummary, setSyncSummary] = useState<string | null>(null);
 
-  const fetchOrders = async (silent = false, sync = false) => {
-    if (!silent) setIsLoading(true);
-    setSyncSummary(null);
+  // Ignores responses from older requests when the date changes quickly
+  const latestOrdersRequest = useRef(0);
+
+  const fetchSummary = async () => {
+    setSummaryFailed(false);
     try {
-      if (sync) {
-        const result = await orderApi.syncOrders();
-        setOrders(Array.isArray(result.orders) ? result.orders : []);
-        const s = result.sync_summary;
-        const parts: string[] = [];
-        if (s.customers_zone_updated > 0) parts.push(`${s.customers_zone_updated} customer zone(s) updated`);
-        if (s.routes_created > 0) parts.push(`${s.routes_created} route(s) created`);
-        if (s.route_errors.length > 0) parts.push(`${s.route_errors.length} zone(s) had errors`);
-        setSyncSummary(parts.length > 0 ? parts.join(' · ') : 'Everything is up to date.');
-      } else {
-        const data = await orderApi.getOrders();
-        setOrders(data);
-      }
+      setSummary(await orderApi.getOrdersSummary());
+    } catch (error) {
+      console.error("Failed to fetch order summary:", error);
+      setSummaryFailed(true);
+    }
+  };
+
+  const fetchOrders = async (silent = false) => {
+    const requestId = ++latestOrdersRequest.current;
+    if (!silent) setIsLoading(true);
+    try {
+      // No date only happens on the additional-orders deep link, whose pending
+      // orders can be on any date.
+      const data = await orderApi.getOrders(
+        selectedDate ? { scheduled_delivery_date: selectedDate } : { is_special: true }
+      );
+      if (requestId === latestOrdersRequest.current) setOrders(data);
     } catch (error) {
       console.error("Failed to fetch orders:", error);
-      setOrders([]);
+      if (requestId === latestOrdersRequest.current) setOrders([]);
     } finally {
-      setIsLoading(false);
+      if (requestId === latestOrdersRequest.current) setIsLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncSummary(null);
+    try {
+      // Sync always runs for today and returns today's orders
+      const result = await orderApi.syncOrders();
+      const s = result.sync_summary;
+      const parts: string[] = [];
+      if (s.customers_zone_updated > 0) parts.push(`${s.customers_zone_updated} customer zone(s) updated`);
+      if (s.routes_created > 0) parts.push(`${s.routes_created} route(s) created`);
+      if (s.route_errors.length > 0) parts.push(`${s.route_errors.length} zone(s) had errors`);
+      setSyncSummary(parts.length > 0 ? parts.join(' · ') : 'Everything is up to date.');
+      if (selectedDate === getLocalDateString()) {
+        latestOrdersRequest.current++;
+        setIsLoading(false);
+        setOrders(Array.isArray(result.orders) ? result.orders : []);
+      } else if (activeTab === "manage") {
+        await fetchOrders(true);
+      }
+      await fetchSummary();
+    } catch (error) {
+      console.error("Failed to sync orders:", error);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchSummary();
   }, [tenant]);
+
+  useEffect(() => {
+    if (activeTab === "manage") fetchOrders();
+  }, [tenant, activeTab, selectedDate]);
 
   // Filtered orders for manage tab
   const filteredOrders = useMemo(() => {
@@ -89,28 +138,24 @@ const OrderPage: React.FC = () => {
     });
   }, [orders, searchQuery]);
 
-  // Aggregate stats for dashboard
+  // Aggregate stats for dashboard, across all dates
   const stats = useMemo(() => {
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter(o => o.status === 'pending').length;
-    const confirmedOrders = orders.filter(o => o.status === 'confirmed').length;
-    const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
-    const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
-
+    if (!summary) return null;
+    const counts = summary.status_counts;
     const statusBreakdown: Record<string, number> = {};
-    orders.forEach(o => {
-      statusBreakdown[o.status_display] = (statusBreakdown[o.status_display] || 0) + 1;
+    Object.values(counts).forEach(({ label, count }) => {
+      statusBreakdown[label] = count;
     });
 
     return {
-      totalOrders,
-      pendingOrders,
-      confirmedOrders,
-      deliveredOrders,
-      totalRevenue,
+      totalOrders: summary.total_orders,
+      pendingOrders: counts.pending?.count ?? 0,
+      confirmedOrders: counts.confirmed?.count ?? 0,
+      deliveredOrders: counts.delivered?.count ?? 0,
+      totalRevenue: summary.total_revenue,
       statusBreakdown
     };
-  }, [orders]);
+  }, [summary]);
 
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
@@ -122,6 +167,7 @@ const OrderPage: React.FC = () => {
             : o
         )
       );
+      fetchSummary();
     } catch (error) {
       console.error("Failed to update order status:", error);
     }
@@ -149,12 +195,12 @@ const OrderPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
           <button
-            onClick={() => fetchOrders(false, true)}
-            disabled={isLoading}
+            onClick={handleSync}
+            disabled={isSyncing}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-silver/60 rounded-xl text-xs font-bold text-charcoal hover:bg-silver/10 active:scale-95 transition-all shadow-xs disabled:opacity-50"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-primary ${isLoading ? "animate-spin" : ""}`}
+              className={`w-3.5 h-3.5 text-primary ${isSyncing ? "animate-spin" : ""}`}
             />
             Sync Orders
           </button>
@@ -229,7 +275,9 @@ const OrderPage: React.FC = () => {
       </div>
 
       {/* 3. Tab Content */}
-      {activeTab === "dashboard" && <OrderDashboardTab stats={stats} />}
+      {activeTab === "dashboard" && (
+        <OrderDashboardTab stats={stats} loadFailed={summaryFailed} onRetry={fetchSummary} />
+      )}
       {activeTab === "manage" && (
         <OrderManageTab
           orders={filteredOrders}
@@ -237,8 +285,13 @@ const OrderPage: React.FC = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onUpdateOrderStatus={handleUpdateOrderStatus}
-          onOrderCreated={() => fetchOrders(true)}
+          onOrderCreated={() => {
+            fetchOrders(true);
+            fetchSummary();
+          }}
           initialTypeFilter={showAdditional ? "additional" : "all"}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
         />
       )}
       {activeTab === "calendar" && (

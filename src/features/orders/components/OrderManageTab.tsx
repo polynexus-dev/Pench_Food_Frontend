@@ -34,6 +34,9 @@ interface OrderManageTabProps {
   onOrderCreated: () => void;
   /** Initial order-type filter, e.g. "additional" when deep-linked from the dashboard */
   initialTypeFilter?: OrderTypeFilter;
+  /** Delivery date being shown (YYYY-MM-DD); empty on the additional-orders deep link, which spans all dates */
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
 export type OrderTypeFilter = "all" | "regular" | "additional";
@@ -45,7 +48,9 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   setSearchQuery,
   onUpdateOrderStatus,
   onOrderCreated,
-  initialTypeFilter = "all"
+  initialTypeFilter = "all",
+  selectedDate,
+  onDateChange
 }) => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
@@ -62,7 +67,6 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
   const [selectedZone, setSelectedZone] = useState<string>("all");
   const [selectedDriver, setSelectedDriver] = useState<string>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<string>("all");
-  const [selectedDate, setSelectedDate] = useState<string>("");
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderId(prev => (prev === id ? null : id));
@@ -200,12 +204,9 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
       if (selectedCustomer !== "all" && order.customer_name !== selectedCustomer) {
         return false;
       }
-      if (selectedDate && order.scheduled_delivery_date !== selectedDate) {
-        return false;
-      }
       return true;
     });
-  }, [orders, selectedType, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedCustomer, selectedDate]);
+  }, [orders, selectedType, selectedStatus, minPrice, maxPrice, selectedProduct, selectedZone, selectedDriver, selectedCustomer]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -230,14 +231,28 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal/30" />
           <input 
             type="text"
-            placeholder="Search orders, customers or statuses..."
+            placeholder="Search this date's orders, customers or statuses..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-sm font-bold focus:outline-none focus:border-primary/30 transition-all outline-none"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-           <button 
+           <label className="flex items-center gap-2 px-3 py-2 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold text-charcoal">
+             <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+             <span className="sr-only">Delivery date</span>
+             {!selectedDate && <span className="whitespace-nowrap text-charcoal/50">All dates</span>}
+             <input
+               type="date"
+               value={selectedDate}
+               onChange={(e) => {
+                 // Clearing the input would mean loading every order, so keep a date selected
+                 if (e.target.value) onDateChange(e.target.value);
+               }}
+               className="bg-transparent text-xs font-bold outline-none cursor-pointer"
+             />
+           </label>
+           <button
              onClick={() => setIsAdvancedOpen(prev => !prev)}
              className={`flex items-center gap-2 px-4 py-3 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
                isAdvancedOpen 
@@ -351,16 +366,6 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-charcoal/40 uppercase tracking-wider block">Delivery Date</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-4 py-3 bg-silver/5 border border-silver/30 rounded-xl text-xs font-bold focus:outline-none focus:border-primary/30 transition-all outline-none cursor-pointer"
-            />
-          </div>
-
           <div className="md:col-span-3 flex justify-end gap-2 border-t border-silver/30 pt-4">
             <button
               onClick={() => {
@@ -370,7 +375,6 @@ const OrderManageTab: React.FC<OrderManageTabProps> = ({
                 setSelectedZone("all");
                 setSelectedDriver("all");
                 setSelectedCustomer("all");
-                setSelectedDate("");
               }}
               className="px-4 py-2 border border-silver/60 text-charcoal hover:bg-silver/10 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >

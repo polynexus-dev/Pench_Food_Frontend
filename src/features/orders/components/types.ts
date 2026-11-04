@@ -53,6 +53,12 @@ export interface SpecialOrdersSummary {
   recent_new_orders: Order[];
 }
 
+export interface OrdersSummary {
+  total_orders: number;
+  total_revenue: number;
+  status_counts: Record<string, { label: string; count: number }>;
+}
+
 export interface OrderStats {
   totalOrders: number;
   pendingOrders: number;

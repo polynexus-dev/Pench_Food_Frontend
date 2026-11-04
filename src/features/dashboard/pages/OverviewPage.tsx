@@ -191,7 +191,10 @@ const OverviewPage = () => {
         }
 
         const calcRevenue = (ordersList: any[]) => {
-          return ordersList.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+          // Delivered orders only, matching what monthly bills charge
+          return ordersList
+            .filter((order) => order.status === 'delivered')
+            .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
         };
         const revActive = calcRevenue(ordersActive);
         const revPrev = calcRevenue(ordersPrev);
