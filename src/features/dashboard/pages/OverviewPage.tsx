@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { deliveryApi } from '../../deliveries/api/deliveryApi';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import { orderApi } from '../../orders/api/orderApi';
 import { 
@@ -40,35 +39,12 @@ const getVolumeL = (name: string): number => {
   return 1.0; // Default fallback
 };
 
-const getFriendlyDateLabel = (dateStr: string): string => {
-  const today = new Date();
-  const getLocalDateStr = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const todayStr = getLocalDateStr(today);
-  
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowStr = getLocalDateStr(tomorrow);
-
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const yesterdayStr = getLocalDateStr(yesterday);
-
-  if (dateStr === todayStr) return 'Today';
-  if (dateStr === tomorrowStr) return 'Tomorrow';
-  if (dateStr === yesterdayStr) return 'Yesterday';
-  
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-  } catch {
-    return dateStr;
-  }
+/** YYYY-MM-DD in local time (toISOString would give yesterday before 5:30 AM IST) */
+const getLocalDateStr = (d: Date) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // In-memory cache for instant dashboard tab switching & sub-100ms loads
@@ -110,107 +86,54 @@ const OverviewPage = () => {
 
       try {
         const todayObj = new Date();
-        const todayStr = todayObj.toISOString().split('T')[0];
+        const todayStr = getLocalDateStr(todayObj);
 
         let startDateStr = todayStr;
-        let endDateStr = todayStr;
 
         if (timeRange === "7d") {
           const d7 = new Date();
           d7.setDate(todayObj.getDate() - 7);
-          startDateStr = d7.toISOString().split('T')[0];
+          startDateStr = getLocalDateStr(d7);
         } else if (timeRange === "30d") {
           const d30 = new Date();
           d30.setDate(todayObj.getDate() - 30);
-          startDateStr = d30.toISOString().split('T')[0];
+          startDateStr = getLocalDateStr(d30);
         }
 
-        // Fire API requests IN PARALLEL with lightweight summary mode (downloads <5KB in <50ms!)
-        const [routesResult, stockResult, ordersActiveResult] = await Promise.allSettled([
-          deliveryApi.getRoutes({ delivery_date: todayStr, summary: "true" }),
+        const [stockResult, overviewResult] = await Promise.allSettled([
           inventoryApi.getStock(),
-          orderApi.getOrders(
-            timeRange === "today" 
-              ? { scheduled_delivery_date: todayStr } 
-              : { start_date: startDateStr, end_date: endDateStr }
-          )
+          orderApi.getOrdersOverview({ start_date: startDateStr, end_date: todayStr })
         ]);
 
         if (!isMounted) return;
 
-        const routes = routesResult.status === 'fulfilled' && Array.isArray(routesResult.value) ? routesResult.value : [];
         const stockList = stockResult.status === 'fulfilled' && Array.isArray(stockResult.value) ? stockResult.value : [];
-        const ordersActive = ordersActiveResult.status === 'fulfilled' && Array.isArray(ordersActiveResult.value) ? ordersActiveResult.value : [];
+        const overview = overviewResult.status === 'fulfilled' ? overviewResult.value : null;
+        const statusCounts = overview?.status_counts ?? {};
 
-        const uniqueDates = Array.from(new Set(routes.map((r: any) => r.delivery_date)))
-          .sort((a: any, b: any) => b.localeCompare(a));
-        
-        const activeDate = uniqueDates[0] || todayStr;
-        const prevDate = uniqueDates[1] || null;
-        
         let resolvedDateLabel = "Today";
         if (timeRange === "7d") {
           resolvedDateLabel = "Past 7 Days";
         } else if (timeRange === "30d") {
           resolvedDateLabel = "Past 30 Days";
-        } else {
-          const formattedLabel = getFriendlyDateLabel(activeDate);
-          resolvedDateLabel = formattedLabel === 'Today' ? 'Today' : `on ${formattedLabel}`;
         }
-
-        // Fetch previous date orders for comparison
-        let ordersPrev: any[] = [];
-        if (prevDate && timeRange === "today") {
-          try {
-            ordersPrev = await orderApi.getOrders({ scheduled_delivery_date: prevDate });
-          } catch {}
-        }
-
-        if (!isMounted) return;
 
         // Compute Stats
-        const calcMilkVolume = (ordersList: any[]) => {
-          let vol = 0;
-          ordersList.forEach(order => {
-            order.items?.forEach((item: any) => {
-              const name = item.product_name || '';
-              if (isMilkProduct(name)) {
-                vol += (item.quantity || 0) * getVolumeL(name);
-              }
-            });
-          });
-          return vol;
-        };
+        const milkVolActive = (overview?.product_quantities ?? []).reduce(
+          (vol, row) => isMilkProduct(row.product_name) ? vol + row.quantity * getVolumeL(row.product_name) : vol,
+          0
+        );
+        const milkChange = '+0%';
 
-        const milkVolActive = calcMilkVolume(ordersActive);
-        const milkVolPrev = calcMilkVolume(ordersPrev);
-        let milkChange = '+0%';
-        if (milkVolPrev > 0) {
-          const diff = ((milkVolActive - milkVolPrev) / milkVolPrev) * 100;
-          milkChange = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
-        }
+        const revActive = overview?.total_revenue ?? 0;
+        const revChange = '+0%';
 
-        const calcRevenue = (ordersList: any[]) => {
-          // Delivered orders only, matching what monthly bills charge
-          return ordersList
-            .filter((order) => order.status === 'delivered')
-            .reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
-        };
-        const revActive = calcRevenue(ordersActive);
-        const revPrev = calcRevenue(ordersPrev);
-        let revChange = '+0%';
-        if (revPrev > 0) {
-          const diff = ((revActive - revPrev) / revPrev) * 100;
-          revChange = `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`;
-        }
+        const activeDeliveriesCount = overview?.total_orders ?? 0;
 
-        const routesActive = routes.filter((r: any) => r.delivery_date === activeDate);
-        const stopsActiveCount = routesActive.reduce((sum: number, r: any) => sum + (r.stops?.length || 0), 0);
-        const activeDeliveriesCount = stopsActiveCount > 0 ? stopsActiveCount : ordersActive.length;
-        
-        const pendingCount = ordersActive.filter((o: any) => 
-          ['pending', 'confirmed', 'dispatched', 'in_transit'].includes(o.status)
-        ).length;
+        const pendingCount = ['pending', 'confirmed', 'dispatched', 'in_transit'].reduce(
+          (sum, status) => sum + (statusCounts[status]?.count ?? 0),
+          0
+        );
         const pendingLabel = `${pendingCount} pending`;
 
         const lowItemsCount = stockList.filter((s: any) => s.quantity <= s.reorder_level).length;
@@ -224,13 +147,7 @@ const OverviewPage = () => {
           { title: 'Inventory Status', value: invStatus, change: invChange, icon: Package, color: 'text-charcoal', path: '/inventory' },
         ];
 
-        const sortedDeliveries = [...ordersActive]
-          .sort((a, b) => {
-            const timeA = a.delivered_at || a.created_at || '';
-            const timeB = b.delivered_at || b.created_at || '';
-            return timeB.localeCompare(timeA);
-          })
-          .slice(0, 5)
+        const sortedDeliveries = (overview?.recent_orders ?? [])
           .map(order => {
             let itemDesc = 'Various Items';
             if (order.items && order.items.length > 0) {

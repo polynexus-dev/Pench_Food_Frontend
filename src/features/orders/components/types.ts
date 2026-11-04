@@ -61,6 +61,11 @@ export interface OrdersSummary {
   status_counts: Record<string, { label: string; count: number }>;
 }
 
+export interface OrdersOverview extends OrdersSummary {
+  product_quantities: { product_name: string; quantity: number }[];
+  recent_orders: Order[];
+}
+
 export interface OrderStats {
   totalOrders: number;
   pendingOrders: number;

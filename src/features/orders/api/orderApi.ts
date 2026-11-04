@@ -1,5 +1,5 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Order, OrdersSummary, SpecialOrdersSummary } from "../components/types";
+import type { Order, OrdersOverview, OrdersSummary, SpecialOrdersSummary } from "../components/types";
 
 interface SyncOrdersResponse {
   orders: Order[];
@@ -28,6 +28,14 @@ export const orderApi = {
    */
   getOrdersSummary: async (params?: Record<string, any>): Promise<OrdersSummary> => {
     const response = await axiosInstance.get<OrdersSummary>("/erp/orders/summary/", { params });
+    return response.data;
+  },
+
+  /**
+   * Totals, per-product quantities and latest orders for the home dashboard
+   */
+  getOrdersOverview: async (params?: Record<string, any>): Promise<OrdersOverview> => {
+    const response = await axiosInstance.get<OrdersOverview>("/erp/orders/overview/", { params });
     return response.data;
   },
 
