@@ -52,3 +52,24 @@ export const getCityWsUrl = (tenant: string, wsProtocol: "ws" | "wss" = DEFAULT_
   return `${wsProtocol}://${subdomain}.${cleanHost}/ws/tracking/`;
 };
 
+/**
+ * Safely resolves relative or mixed-protocol media file URLs (such as payment screenshots, avatars, POD images)
+ * to an absolute HTTPS URL against the appropriate tenant or base domain.
+ */
+export const resolveMediaUrl = (url?: string | null, tenant?: string | null): string => {
+  if (!url) return "";
+  let finalUrl = url.trim();
+
+  // If relative path like "/media/online_payments/..."
+  if (finalUrl.startsWith("/")) {
+    const baseOrigin = tenant ? getCityUrl(tenant).replace(/\/api\/?$/, "") : BASE_URL.replace(/\/api\/?$/, "");
+    finalUrl = `${baseOrigin}${finalUrl}`;
+  }
+
+  // Force HTTPS if running on HTTPS to prevent Mixed Content blocking in browsers
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && finalUrl.startsWith("http://")) {
+    finalUrl = finalUrl.replace(/^http:\/\//i, "https://");
+  }
+
+  return finalUrl;
+};

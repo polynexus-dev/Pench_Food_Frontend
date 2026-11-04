@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { orderApi } from "../api/orderApi";
 import type { Order } from "../components/types";
+import { getPaymentStatusLabel, getPaymentStatusStyle } from "../components/paymentStatus";
 import CreateOrderModal from "../components/modals/CreateOrderModal";
 
 const CustomerOrdersPage = () => {
@@ -99,6 +100,7 @@ const CustomerOrdersPage = () => {
                   <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Date</th>
                   <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Item Details</th>
                   <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Total price</th>
+                  <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Payment</th>
                   <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider">Delivery Status</th>
                   <th className="pb-3 text-xs font-bold text-charcoal/40 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -106,7 +108,7 @@ const CustomerOrdersPage = () => {
               <tbody className="divide-y divide-silver/20">
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-sm text-charcoal/40">
+                    <td colSpan={7} className="py-8 text-center text-sm text-charcoal/40">
                       No orders found. Click "Place New Order" to request a delivery.
                     </td>
                   </tr>
@@ -127,6 +129,11 @@ const CustomerOrdersPage = () => {
                           {(order.items || []).map((it) => `${it.product_name} (${it.quantity})`).join(", ")}
                         </td>
                         <td className="py-4 text-xs font-bold text-charcoal">₹{order.total}</td>
+                        <td className="py-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${getPaymentStatusStyle(order.payment_status)}`}>
+                            {getPaymentStatusLabel(order.payment_status)}
+                          </span>
+                        </td>
                         <td className="py-4">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                             order.status === "delivered" 
