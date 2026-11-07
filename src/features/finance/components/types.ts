@@ -190,11 +190,15 @@ export interface PayUInitiatePayload {
 }
 
 export interface PayUInitiateResponse {
-  online_payment_id: string;
+  payment_id?: string;
+  online_payment_id?: string;
   txnid: string;
-  payu_action_url: string;
-  payu_env: string;
-  form_fields: Record<string, string>;
+  action_url?: string;
+  payu_action_url?: string;
+  mode?: string;
+  payu_env?: string;
+  params?: Record<string, string>;
+  form_fields?: Record<string, string>;
 }
 
 export interface HandlingFeeSlabItem {

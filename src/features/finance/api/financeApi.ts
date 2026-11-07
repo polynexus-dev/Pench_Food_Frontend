@@ -29,12 +29,18 @@ export const calculateHandlingFeeLocally = (
 };
 
 export const submitPayUCheckoutForm = (initData: PayUInitiateResponse) => {
+  const actionUrl = initData.action_url || initData.payu_action_url;
+  const fields = initData.params || initData.form_fields;
+  if (!actionUrl || !fields) {
+    throw new Error("Invalid PayU initiation response from server.");
+  }
+
   const form = document.createElement("form");
   form.method = "POST";
-  form.action = initData.payu_action_url;
+  form.action = actionUrl;
   form.style.display = "none";
 
-  Object.entries(initData.form_fields).forEach(([key, value]) => {
+  Object.entries(fields).forEach(([key, value]) => {
     const input = document.createElement("input");
     input.type = "hidden";
     input.name = key;
