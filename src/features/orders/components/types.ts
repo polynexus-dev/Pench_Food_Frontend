@@ -14,7 +14,10 @@ export interface Order {
   status: "pending" | "confirmed" | "cancelled" | "delivered" | "shipped" | "in_transit" | "undelivered" | "dispatched";
   status_display: string;
   scheduled_delivery_date: string;
+  items_subtotal?: string;
+  handling_fee?: string;
   total: string;
+  remaining_amount?: string;
   items: OrderItem[];
   delivery_address: string;
   latitude: number | null;
@@ -36,7 +39,7 @@ export interface Order {
   latest_payment?: OrderPaymentProof | null;
 }
 
-export type OrderPaymentStatus = "pending" | "verification_pending" | "paid" | "failed";
+export type OrderPaymentStatus = "pending" | "verification_pending" | "partial" | "paid" | "failed";
 
 export interface OrderPaymentProof {
   id: string;

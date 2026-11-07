@@ -6,11 +6,45 @@ import type {
   RecordPaymentPayload,
   OnlinePayment,
   OnlinePaymentSummary,
+  PayUInitiatePayload,
+  PayUInitiateResponse,
+  HandlingFeeSlabResponse,
 } from "../components/types";
 
 const BASE_BILLS = "/erp/finance/bills/";
 const BASE_TRANSACTIONS = "/erp/finance/transactions/";
 const BASE_ONLINE_PAYMENTS = "/erp/finance/online-payments/";
+const BASE_PAYU = "/erp/finance/payu/";
+const BASE_SLABS = "/erp/finance/handling-fee-slabs/";
+
+export const calculateHandlingFeeLocally = (
+  amount: number,
+  paymentMethod: string = "payu"
+): number => {
+  if (paymentMethod === "on_account" || amount <= 0) return 0;
+  if (amount <= 1500) return 5;
+  if (amount <= 2500) return 10;
+  if (amount <= 4000) return 18;
+  return 25;
+};
+
+export const submitPayUCheckoutForm = (initData: PayUInitiateResponse) => {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = initData.payu_action_url;
+  form.style.display = "none";
+
+  Object.entries(initData.form_fields).forEach(([key, value]) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = key;
+    input.value = value ?? "";
+    form.appendChild(input);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+};
 
 export const financeApi = {
   /** Global KPI dashboard summary */
@@ -70,4 +104,20 @@ export const financeApi = {
     link.click();
     link.parentNode?.removeChild(link);
   },
+
+  /** Initiate PayU checkout for an Order, Subscription, or MonthlyBill */
+  initiatePayU: (payload: PayUInitiatePayload) =>
+    axiosInstance.post<PayUInitiateResponse>(`${BASE_PAYU}initiate/`, payload),
+
+  /** Check/verify PayU transaction status by txnid */
+  getPayUStatus: (txnid: string, verify: boolean = true) =>
+    axiosInstance.get(`${BASE_PAYU}status/${txnid}/`, {
+      params: { verify: verify ? "true" : "false" },
+    }),
+
+  /** Fetch Packing & Handling Fee Slabs + optional live preview for an amount */
+  getHandlingFeeSlabs: (amount?: number | string, paymentMethod: string = "payu") =>
+    axiosInstance.get<HandlingFeeSlabResponse>(BASE_SLABS, {
+      params: amount !== undefined ? { amount: String(amount), payment_method: paymentMethod } : undefined,
+    }),
 };

@@ -490,6 +490,11 @@ const OnlinePaymentsPanel: React.FC<OnlinePaymentsPanelProps> = ({ onChanged }) 
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-black text-charcoal truncate">{p.customer_name}</span>
                     <span className="text-[9px] font-bold bg-silver/30 text-charcoal/50 px-2 py-0.5 rounded-md">{p.purpose_display}</span>
+                    {p.payment_gateway === "payu" && (
+                      <span className="text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-md">
+                        PayU {p.gateway_mode ? `· ${p.gateway_mode}` : ""}
+                      </span>
+                    )}
                     {p.bill_invoice_number && (
                       <span className="text-[9px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">{p.bill_invoice_number}</span>
                     )}
@@ -497,7 +502,8 @@ const OnlinePaymentsPanel: React.FC<OnlinePaymentsPanelProps> = ({ onChanged }) 
                   <div className="text-[10px] text-charcoal/40 font-medium mt-0.5 flex flex-wrap gap-x-2">
                     <span>{p.customer_phone}</span>
                     <span>· {fmtDateTime(p.created_at)}</span>
-                    {p.transaction_id && <span className="font-bold text-charcoal/50">· UTR {p.transaction_id}</span>}
+                    {p.transaction_id && <span className="font-bold text-charcoal/50">· Ref {p.transaction_id}</span>}
+                    {p.gateway_mihpayid && <span className="font-bold text-indigo-600/70">· MihPayID {p.gateway_mihpayid}</span>}
                   </div>
                   {p.notes && <div className="text-[10px] italic text-charcoal/40 truncate mt-0.5">"{p.notes}"</div>}
                   {p.status === "rejected" && p.rejection_reason && (

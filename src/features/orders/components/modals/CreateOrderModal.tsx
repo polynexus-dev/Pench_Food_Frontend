@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { X, ShoppingCart, CreditCard, PlusCircle, Search, UserPlus, CheckCircle2, Phone, MapPin } from "lucide-react";
+import { X, ShoppingCart, CreditCard, PlusCircle, Search, UserPlus, CheckCircle2, Phone, MapPin, Receipt, ShieldCheck } from "lucide-react";
 import { orderApi } from "../../api/orderApi";
 import { inventoryApi } from "../../../inventory/api/inventoryApi";
 import { customerApi } from "../../../customers/api/customerApi";
+import { financeApi, calculateHandlingFeeLocally, submitPayUCheckoutForm } from "../../../finance/api/financeApi";
 import { useAuthStore } from "../../../../store/useAuthStore";
 import type { Product } from "../../../inventory/components/types";
 import type { Customer } from "../../../customers/components/types";
@@ -42,6 +43,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [date, setDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"payu" | "on_account">("payu");
+  const [customPayAmount, setCustomPayAmount] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -186,6 +189,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
 
       const payload: any = {
         scheduled_delivery_date: date,
+        payment_method: paymentMethod,
         items: [
           {
             product: selectedProductId,
@@ -198,12 +202,28 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
         payload.customer = targetCustomerId;
       }
 
-      await orderApi.createOrder(payload);
+      const createdOrder = await orderApi.createOrder(payload);
+
+      if (paymentMethod === "payu") {
+        // Initiate PayU checkout for this order
+        const orderTotal = Number(createdOrder.total || 0);
+        const partialVal = customPayAmount ? Number(customPayAmount) : orderTotal;
+        const payAmount = partialVal > 0 && partialVal <= orderTotal ? partialVal : orderTotal;
+
+        const initRes = await financeApi.initiatePayU({
+          order_id: createdOrder.id,
+          amount: payAmount,
+          customer_id: !isCustomer && targetCustomerId ? targetCustomerId : undefined,
+          frontend_redirect_url: window.location.origin + window.location.pathname,
+        });
+        submitPayUCheckoutForm(initRes.data);
+        return;
+      }
 
       if (onSuccess) {
         onSuccess(
           isCustomer
-            ? "Your special order has been successfully placed!"
+            ? "Your mid-month order has been placed and added to your Monthly Bill!"
             : isNewCustomerMode
             ? `Order created & New Lead (${newCustName}) saved in Leads directory!`
             : "Customer order has been created successfully!"
@@ -229,6 +249,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
     ? parseFloat(selectedProductObj.unit_price)
     : 0;
   const estimatedCost = selectedProductPrice * (Number(quantity) || 1);
+  const handlingFee = calculateHandlingFeeLocally(estimatedCost, paymentMethod);
+  const totalPayable = estimatedCost + handlingFee;
 
   return (
     <div className="fixed inset-0 bg-[#00000080] backdrop-blur-xs flex items-center justify-center z-50 p-4 sm:p-6 animate-in fade-in duration-200">
@@ -498,15 +520,124 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
               />
             </div>
 
-            {/* Price Preview */}
-            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex justify-between items-center mt-6">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <span className="text-xs font-bold text-charcoal/60">Estimated Total Cost</span>
+            {/* Payment Method / Billing Mode Selector */}
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-bold text-charcoal/60 uppercase tracking-wider block ml-1">
+                Payment Option
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("payu")}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    paymentMethod === "payu"
+                      ? "bg-primary/5 border-primary shadow-xs ring-2 ring-primary/10"
+                      : "bg-white border-silver/60 hover:border-silver"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-charcoal flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-primary" />
+                      Pay Now (PayU)
+                    </span>
+                    {paymentMethod === "payu" && (
+                      <span className="text-[9px] font-black uppercase bg-primary text-white px-1.5 py-0.5 rounded">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-charcoal/50 font-medium mt-1">
+                    Instant UPI / Card / NetBanking checkout. Packing & handling fee applies now.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod("on_account");
+                    setCustomPayAmount("");
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    paymentMethod === "on_account"
+                      ? "bg-primary/5 border-primary shadow-xs ring-2 ring-primary/10"
+                      : "bg-white border-silver/60 hover:border-silver"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-charcoal flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-amber-600" />
+                      Add to Monthly Bill
+                    </span>
+                    {paymentMethod === "on_account" && (
+                      <span className="text-[9px] font-black uppercase bg-primary text-white px-1.5 py-0.5 rounded">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-charcoal/50 font-medium mt-1">
+                    For active subscribers. ₹0 fee now — combined & billed at month end.
+                  </p>
+                </button>
               </div>
-              <span className="text-lg font-black text-primary">
-                ₹{estimatedCost.toFixed(2)}
-              </span>
+            </div>
+
+            {/* Optional Partial Payment Input when PayU is selected */}
+            {paymentMethod === "payu" && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-[11px] font-bold text-charcoal/60 uppercase tracking-wider">
+                    Amount to Pay Now (Optional Partial Payment)
+                  </label>
+                  {customPayAmount && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomPayAmount("")}
+                      className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
+                    >
+                      Pay Full (₹{totalPayable.toFixed(2)})
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={totalPayable}
+                  step="0.01"
+                  value={customPayAmount}
+                  onChange={(e) => setCustomPayAmount(e.target.value)}
+                  placeholder={`Leave blank to pay full ₹${totalPayable.toFixed(2)}`}
+                  className="w-full px-4 py-2.5 bg-silver/10 border border-silver/50 rounded-xl text-xs font-bold text-charcoal focus:outline-none focus:border-primary focus:bg-white transition-all"
+                />
+              </div>
+            )}
+
+            {/* Price & Handling Fee Breakdown Preview */}
+            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl space-y-2 mt-4">
+              <div className="flex justify-between items-center text-xs text-charcoal/70 font-semibold">
+                <span>Items Subtotal</span>
+                <span>₹{estimatedCost.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-charcoal/70 font-semibold">
+                <span>(+) Packing & Handling Charges</span>
+                <span>
+                  {paymentMethod === "on_account" ? (
+                    <span className="text-emerald-700 font-bold">₹0.00 (Billed at month end)</span>
+                  ) : (
+                    `₹${handlingFee.toFixed(2)}`
+                  )}
+                </span>
+              </div>
+              <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-black text-charcoal">
+                    {paymentMethod === "on_account" ? "Added to Monthly Bill" : "Total Payable"}
+                  </span>
+                </div>
+                <span className="text-lg font-black text-primary">
+                  ₹{totalPayable.toFixed(2)}
+                </span>
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -517,9 +648,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
             >
               <PlusCircle className="w-5 h-5" />
               {isSubmitting
-                ? "Processing POS Order..."
+                ? "Processing Order..."
+                : paymentMethod === "payu"
+                ? `Proceed to PayU Checkout (₹${
+                    customPayAmount && Number(customPayAmount) > 0 && Number(customPayAmount) <= totalPayable
+                      ? Number(customPayAmount).toFixed(2)
+                      : totalPayable.toFixed(2)
+                  })`
                 : isCustomer
-                ? "Confirm & Book Delivery"
+                ? "Confirm & Add to Monthly Bill"
                 : isNewCustomerMode
                 ? "Create Order & Save Lead"
                 : "Create Customer Order"}
