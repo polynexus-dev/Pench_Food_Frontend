@@ -5,6 +5,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useCompanyStore } from "../../store/useCompanyStore";
 import type { City } from "../../api/companyApi";
 import { customerApi } from "../../features/customers/api/customerApi";
+import { orderApi } from "../../features/orders/api/orderApi";
 import type { Customer } from "../../features/customers/components/types";
 import { 
   Bell, 
@@ -254,6 +255,72 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const activeCompany = companies.find((c) => c.id === companyId) || activeCompanies[0];
   const cities: City[] = activeCompany?.cities || [];
   const isLoadingCities = companies.length === 0;
+
+  // Sync current-day customer changes (vacations, extra milk, subscriptions) to notifications
+  useEffect(() => {
+    if (!tenant) return;
+    let isMounted = true;
+
+    const loadCustomerChanges = async () => {
+      try {
+        const changes = await orderApi.getTodayCustomerChanges();
+        if (!isMounted || !changes) return;
+
+        const notifs: Array<{
+          id: string;
+          title: string;
+          message: string;
+          type: "warning" | "success" | "info";
+          timestamp?: string;
+        }> = [];
+
+        // Paused Deliveries for Today
+        (changes.paused_deliveries?.items || []).forEach((item) => {
+          notifs.push({
+            id: `pause-${item.subscription_id}`,
+            title: `⏸️ Delivery Paused Today`,
+            message: `${item.customer_name}: ${item.items_summary} (${item.pause_display})`,
+            type: "warning",
+          });
+        });
+
+        // Extra Milk Orders for Today
+        (changes.extra_milk_orders?.items || []).forEach((item) => {
+          notifs.push({
+            id: `extra-${item.order_id}`,
+            title: `🥛 Extra Milk Scheduled Today`,
+            message: `${item.customer_name}: ${item.items_summary} (${item.milk_litres ? `${item.milk_litres}L` : ""})`,
+            type: "success",
+            timestamp: new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          });
+        });
+
+        // Subscription Changes Today
+        (changes.subscription_changes?.items || []).forEach((item) => {
+          notifs.push({
+            id: `sub-${item.subscription_id}`,
+            title: `🔄 Subscription ${item.change_type}`,
+            message: `${item.customer_name}: ${item.items_summary}`,
+            type: "info",
+            timestamp: new Date(item.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          });
+        });
+
+        if (notifs.length > 0) {
+          useNotificationStore.getState().setTodayNotifications(notifs);
+        }
+      } catch (err) {
+        // Silently fail on network/endpoint error
+      }
+    };
+
+    loadCustomerChanges();
+    const interval = setInterval(loadCustomerChanges, 60000); // Poll every 60s
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [tenant]);
 
   // Fetch customers when quick search opens to support live customer search
   useEffect(() => {
@@ -531,7 +598,15 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
                     return (
                       <div
                         key={n.id}
-                        className="p-3 hover:bg-silver/10 rounded-xl transition-all border border-transparent hover:border-silver/20 flex gap-2.5"
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          if (n.title.includes("Paused") || n.title.includes("Subscription")) {
+                            navigate("/customers?tab=detail");
+                          } else if (n.title.includes("Extra Milk") || n.title.includes("Order")) {
+                            navigate("/orders?type=additional");
+                          }
+                        }}
+                        className="p-3 hover:bg-silver/10 rounded-xl transition-all border border-transparent hover:border-silver/20 flex gap-2.5 cursor-pointer"
                       >
                         <div className="mt-1">
                           <span className={`w-2 h-2 rounded-full block ${typeDot}`} />

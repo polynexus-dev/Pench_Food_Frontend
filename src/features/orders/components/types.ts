@@ -77,3 +77,76 @@ export interface OrderStats {
   totalRevenue: number;
   statusBreakdown: Record<string, number>;
 }
+
+
+export interface PausedDeliveryItem {
+  subscription_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  pause_start: string | null;
+  pause_end: string | null;
+  pause_display: string;
+  items_summary: string;
+  type: "vacation" | "skip_date";
+  reason?: string;
+}
+
+export interface ExtraMilkOrderItem {
+  order_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  status: string;
+  payment_status: string;
+  total: number;
+  items_summary: string;
+  milk_litres: number;
+  created_at: string;
+}
+
+export interface SubscriptionChangeItem {
+  subscription_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  change_type: string;
+  status: string;
+  frequency: string;
+  items_summary: string;
+  updated_at: string;
+}
+
+export interface NewOrderTodayItem {
+  order_id: string;
+  customer_name: string;
+  customer_phone: string;
+  scheduled_date: string;
+  is_special: boolean;
+  total: number;
+  items_summary: string;
+  created_at: string;
+}
+
+export interface TodayCustomerChangesSummary {
+  date: string;
+  total_today_changes: number;
+  paused_deliveries: {
+    count: number;
+    items: PausedDeliveryItem[];
+  };
+  extra_milk_orders: {
+    count: number;
+    total_litres: number;
+    items: ExtraMilkOrderItem[];
+  };
+  subscription_changes: {
+    count: number;
+    items: SubscriptionChangeItem[];
+  };
+  new_orders_today: {
+    count: number;
+    items: NewOrderTodayItem[];
+  };
+}

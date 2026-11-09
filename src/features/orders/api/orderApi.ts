@@ -1,5 +1,11 @@
 import axiosInstance from "../../../api/axiosInstance";
-import type { Order, OrdersOverview, OrdersSummary, SpecialOrdersSummary } from "../components/types";
+import type {
+  Order,
+  OrdersOverview,
+  OrdersSummary,
+  SpecialOrdersSummary,
+  TodayCustomerChangesSummary,
+} from "../components/types";
 
 interface SyncOrdersResponse {
   orders: Order[];
@@ -48,6 +54,14 @@ export const orderApi = {
   },
 
   /**
+   * Consolidated customer-initiated changes affecting today (vacations/pause, extra milk, subscription changes)
+   */
+  getTodayCustomerChanges: async (): Promise<TodayCustomerChangesSummary> => {
+    const response = await axiosInstance.get<TodayCustomerChangesSummary>("/erp/orders/customer-changes-today/");
+    return response.data;
+  },
+
+  /**
    * Create a new order
    */
   createOrder: async (payload: {
@@ -61,28 +75,28 @@ export const orderApi = {
   },
 
   /**
-   * Sync orders: auto-assign zones to customers, create routes for
-   * pending orders, and return the refreshed order list.
+   * Update an order (e.g. status)
    */
-  syncOrders: async (): Promise<SyncOrdersResponse> => {
-    const response = await axiosInstance.post<SyncOrdersResponse>("/erp/orders/sync/");
+  updateOrder: async (id: string, payload: Partial<Order>): Promise<Order> => {
+    const response = await axiosInstance.patch<Order>(`/erp/orders/${id}/`, payload);
     return response.data;
   },
 
   /**
-   * Fetch a single order by ID
+   * Cancel an order
    */
-  getOrderById: async (id: string): Promise<Order> => {
-    const response = await axiosInstance.get<Order>(`/erp/orders/${id}/`);
+  cancelOrder: async (id: string): Promise<Order> => {
+    const response = await axiosInstance.patch<Order>(`/erp/orders/${id}/`, { status: "cancelled" });
     return response.data;
   },
 
   /**
-   * Update order status
+   * Sync orders from active subscriptions for a date
    */
-  updateOrderStatus: async (id: string, status: string): Promise<Order> => {
-    const response = await axiosInstance.patch<Order>(`/erp/orders/${id}/`, {
-      status: status,
+  syncSubscriptions: async (dateStr?: string): Promise<SyncOrdersResponse> => {
+    const targetDate = dateStr || new Date().toISOString().split("T")[0];
+    const response = await axiosInstance.post<SyncOrdersResponse>("/erp/orders/sync-subscriptions/", {
+      date: targetDate,
     });
     return response.data;
   },
@@ -92,5 +106,7 @@ export const orderApi = {
    */
   deleteOrder: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/erp/orders/${id}/`);
-  }
+  },
 };
+
+export default orderApi;

@@ -230,6 +230,18 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             });
           } else {
             addLog("info", "Received non-telemetry message", data);
+            if (data.notification_type && data.title && data.message) {
+              import("./useNotificationStore").then(({ useNotificationStore }) => {
+                let nType: "warning" | "success" | "info" = "info";
+                if (data.notification_type === "delivery_paused") nType = "warning";
+                else if (data.notification_type === "extra_milk_ordered" || data.notification_type === "order_delivered") nType = "success";
+                useNotificationStore.getState().addNotification({
+                  title: data.title,
+                  message: data.message,
+                  type: nType,
+                });
+              }).catch(() => {});
+            }
           }
         } catch (err) {
           addLog("error", "Failed to parse incoming WebSocket message payload", event.data);
